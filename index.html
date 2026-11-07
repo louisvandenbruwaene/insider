@@ -617,7 +617,7 @@ function writeOption(run, kind, strike, fraction, expiryDay = newExpiryDay(run))
   addLot(run, { kind, side: 'short', strike, quantity, paid: quantity * terms.bidPrice, expiryDay });
   return quantity;
 }
-// Sell (part of) a bought lot at fair value −cost, or buy back (part of) a written one at fair value +cost.
+// Close (part of) a lot: a long lot is sold at fair value −cost, a short lot is closed at fair value +cost.
 function lotCloseCash(run, lot, fraction) {
   const value = lotMarketValue(run, lot) * fraction;
   return lot.side === 'long' ? value * (1 - OPTION_TRANSACTION_COST) : -value * (1 + OPTION_TRANSACTION_COST);
@@ -631,7 +631,7 @@ function closeLot(run, lotIndex, fraction = 1) {
   else { lot.quantity *= 1 - fraction; lot.paid *= 1 - fraction; }
   return cashChange;
 }
-// Sell (part of) a long stock position, or buy back (part of) a short one.
+// Close (part of) the stock position, long or short.
 function reduceStock(run, fraction) { return setShares(run, fraction >= 0.9999 ? 0 : run.today.shares * (1 - fraction)); }
 function closeEverything(run) {
   closeStock(run);
@@ -1322,7 +1322,8 @@ function showDeck() {
 
 // ── The trade menu. One question per step. The first step lists the trades: long / short stock, long / short call,
 // long / short put. Open trades sit as small icons on their own row (a long put on LONG PUT); a key letter or click
-// opens one, which shows itself and offers ADD (more of the same: direction, K, expiry) or REDUCE (close part).
+// opens one, which shows itself and offers ADD (more of the same: direction, K, expiry) or CLOSE (part or all).
+// After a trade the menu returns to this first step, so the game stays paused until Esc.
 // Picking the row itself starts a new trade: a new option asks for K, then the amount.
 // Steps: 'action' → ('strike') → 'amount' for a new trade; 'action' → 'position' → 'amount' for an open one.
 // trade.action is 'long' / 'short' for stock and 'longOption' / 'shortOption' (with kind, strike, expiryDay) for
@@ -1378,19 +1379,18 @@ function tradeRows() {
   });
   if (trade.step === 'position') {
     const lot = selectedLot();
-    const long = lot ? lot.side === 'long' : today.shares > 0;
     const addTo = lot
       ? { action: lot.side + 'Option', kind: lot.kind, strike: lot.strike, expiryDay: lot.expiryDay, mode: 'add' }
       : { action: today.shares > 0 ? 'long' : 'short', mode: 'add' };
     return [
       { main: 'ADD', detail: 'more of the same', locked: !!lot && !optionsAllowed(run, lot.side, lot.kind), tip: 'No options during an investigation', pick: () => goTo('amount', addTo) },
-      { main: 'REDUCE', detail: long ? 'sell part or all' : 'buy back part or all', pick: () => goTo('amount', { mode: 'reduce' }) },
+      { main: 'CLOSE', detail: 'part or all of it', pick: () => goTo('amount', { mode: 'reduce' }) },
     ];
   }
   return [];
 }
 function goTo(step, changes) {
-  Object.assign(view.trade, changes, { step, selection: 0 });
+  Object.assign(view.trade, changes, { step, selection: 0, message: null });
   if (step === 'amount') view.trade.percent = view.trade.mode === 'reduce' ? 100 : SLIDER_DEFAULT_PERCENT;
   showTrade();
 }
@@ -1416,7 +1416,7 @@ function tradePreview() {
       return {
         amount: formatSignedCount(-shares) + ' × ' + formatPrice(price) + ' = ' + formatMoney(-shares * price),
         note: 'P&L on these ' + formatSignedMoney(shares * (price - today.averageEntry)),
-        confirm: today.shares > 0 ? 'SELL' : 'BUY BACK', empty: Math.abs(shares) * price < 0.01,
+        confirm: 'CLOSE ' + trade.percent + '%', empty: Math.abs(shares) * price < 0.01,
         run: () => reduceStock(run, fraction),
       };
     }
@@ -1424,7 +1424,7 @@ function tradePreview() {
     return {
       amount: formatSignedCount(-lotSign(lot) * quantity) + ' × ' + formatPrice(Math.abs(cash) / Math.max(quantity, 1e-12)) + ' = ' + formatMoney(cash),
       note: 'P&L on these ' + formatSignedMoney(cash + lotBuyIn(lot) * -fraction),
-      confirm: lot.side === 'long' ? 'SELL' : 'BUY BACK', empty: quantity * price < 1e-6,
+      confirm: 'CLOSE ' + trade.percent + '%', empty: quantity * price < 1e-6,
       run: () => closeLot(run, trade.position.index, fraction),
     };
   }
@@ -1462,6 +1462,7 @@ function showTrade() {
   const titles = { action: 'Trade', strike: position ? position.name + ': choose K' : '', position: 'Open trade',
     amount: trade.mode === 'reduce' ? 'How much to close?' : trade.mode === 'add' ? 'How much to add?' : 'How much?' };
   let html = '<div class="card tradeCard"><h1>' + titles[trade.step] + '<small>' + run.today.ticker + ' ' + formatPrice(price) + '</small></h1>';
+  if (trade.step === 'action' && trade.message) html += '<div class="amountNote gold" style="text-align:left">' + trade.message + '</div>';
   if (trade.step === 'position' || (trade.step === 'amount' && trade.mode !== 'new')) html += positionDetails();
   if (trade.step === 'strike') html += '<div class="amountNote" style="text-align:left;display:flex;justify-content:space-between"><span>' + position.formula + '</span><span>' + (trade.action === 'longOption' ? 'premium you pay' : 'premium you get') + '</span></div>' +
     '<div class="amountNote" style="text-align:left">S = price in ' + OPTION_EXPIRY_DAYS + ' trading days</div>';
@@ -1494,6 +1495,7 @@ function refreshAmount() {
   card.querySelector('.amount').textContent = preview.amount;
   card.querySelector('.amountNote').textContent = preview.note;
   card.querySelector('.confirm').classList.toggle('locked', preview.empty);
+  card.querySelector('.confirm').innerHTML = preview.confirm + '<kbd>ENTER</kbd>';
 }
 // All open trades in the order their icons are drawn (row by row), so key letters and clicks agree.
 function openTradeIcons() { return tradeRows().flatMap(row => row.openTrades || []); }
@@ -1521,11 +1523,18 @@ function confirmTrade() {
   const outcome = preview.run();
   finishTrade(outcome, preview.confirm);
 }
+// After a trade from the menu, the menu goes back to its first step (the game stays paused until Esc) and says
+// what was done. CLOSE ALL from the action bar has no menu to return to.
 function finishTrade(outcome, label) {
-  hideOverlay();
-  if (typeof outcome === 'string') { sounds.denied(); addFloater(outcome, CHART_COLOURS.label, 14); }
-  else { sounds.trade(1); addFloater(label, CHART_COLOURS.insight, 16); }
+  const failed = typeof outcome === 'string';
+  if (failed) sounds.denied(); else sounds.trade(1);
+  addFloater(failed ? outcome : label, failed ? CHART_COLOURS.label : CHART_COLOURS.insight, failed ? 14 : 16);
   saveRun(); renderAll();
+  if (view.trade) {
+    Object.assign(view.trade, { step: 'action', mode: 'new', action: null, kind: null, strike: null, expiryDay: null, position: null, selection: 0,
+      message: failed ? outcome : '✓ ' + label });
+    showTrade();
+  }
 }
 
 // ── The shop: icon cards in rows, the full sentence only for the selected card, arrows move by position.
@@ -1645,7 +1654,7 @@ const ACTIONS = {
   tradeRow(index) { pickTradeRow(index); },
   openTradeIcon(index) { openTradeIcon(index); },
   confirmTrade() { confirmTrade(); },
-  closeEverything() { if (tradingOpen() && hasPositions(view.run)) finishTrade(closeEverything(view.run), 'ALL CLOSED'); },
+  closeEverything() { if (tradingOpen() && hasPositions(view.run) && !view.trade) finishTrade(closeEverything(view.run), 'ALL CLOSED'); },
   tip(tipId) { if (useTip(view.run, tipId)) { sounds.tip(); saveRun(); } else sounds.denied(); },
   ticker(tickerId) { if (switchTicker(view.run, tickerId)) saveRun(); else sounds.denied(); },
   openMarket() { if (view.run.phase === 'preopen') { view.run.phase = 'trading'; view.run.today.tickerLocked = true; view.paused = false; saveRun(); } },
