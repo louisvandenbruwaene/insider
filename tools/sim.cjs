@@ -1,10 +1,9 @@
 // Headless checks for Insider: loads the game script (§1-§7 run without a browser) and
-//   node tools/sim.cjs equivalence — the fast forecast simulator gives exactly what tickMarket (the real day) gives
 //   node tools/sim.cjs fairness   — are the market maker's 7-day option prices fair? (fair value vs the real average payoff)
 //   node tools/sim.cjs bots [runs] — full runs by simple players: cash holder, coin flipper, rumour trader (each closes everything before the open)
 const fs = require('fs'), path = require('path');
 
-// The script is run as a plain function (not node's vm, whose sandboxed globals make the simulator ~15× slower).
+// The script is run as a plain function (node's vm sandbox makes the simulation many times slower).
 // Outside a browser there is no document, so § 13 START does not run.
 function loadGame() {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
@@ -16,42 +15,6 @@ function loadGame() {
       TICKS_PER_DAY, OPTION_EXPIRY_DAYS, MEETING_EVERY_DAYS, MEETING_MULTIPLES };`)();
 }
 const game = loadGame();
-
-// The slow reference: the real tickMarket over the same days, dealing from the same shoe (and a fresh deck when it
-// runs out) with the same random draws as the fast simulator.
-function referenceForecast(market, shoe, deck, ticksLeftToday, daysAhead, paths, random) {
-  const shoePool = shoe.slice(), deckPool = game.deckToPile(deck);
-  const closesByDay = Array.from({ length: daysAhead + 1 }, () => []);
-  for (let path = 0; path < paths; path++) {
-    const state = { ...market };
-    let pool = shoePool, drawn = 0;
-    const drawCard = () => {
-      if (drawn >= pool.length) { pool = deckPool; drawn = 0; }
-      const pick = drawn + Math.floor(random() * (pool.length - drawn));
-      const cardId = pool[pick]; pool[pick] = pool[drawn]; pool[drawn] = cardId; drawn++;
-      return cardId;
-    };
-    for (let day = 0; day <= daysAhead; day++) {
-      if (day > 0) Object.assign(state, { price: game.nextOpenPrice(state.price), sigma: 1, fedTicksLeft: 0, lastPriceMove: 0 });
-      for (let tick = 0; tick < (day === 0 ? ticksLeftToday : game.TICKS_PER_DAY); tick++) game.tickMarket(state, drawCard);
-      closesByDay[day].push(state.price);
-    }
-  }
-  return closesByDay;
-}
-function equivalence() {
-  // a deck with every event card; a short shoe so paths run into fresh shuffles
-  const deck = { ...game.buildDeck({ small: 20, medium: 20, large: 6, huge: 2 }, { small: 20, medium: 20, large: 6, huge: 2 }), earnings: 6, fed: 4, halt: 3, momentum: 5, squeeze: 3 };
-  const shoe = game.deckToPile(deck).slice(0, 60);
-  for (const [ticksLeft, market] of [[90, { price: 100, sigma: 1, fedTicksLeft: 0, lastPriceMove: 0 }], [17, { price: 37, sigma: 1.7, fedTicksLeft: 5, lastPriceMove: -0.05 }]]) {
-    const fast = game.simulateForecast(market, shoe, deck, ticksLeft, 3, 200, game.makeRandom(9));
-    const slow = referenceForecast(market, shoe, deck, ticksLeft, 3, 200, game.makeRandom(9));
-    let worst = 0;
-    fast.forEach((closes, day) => closes.forEach((close, path) => { worst = Math.max(worst, Math.abs(close / slow[day][path] - 1)); }));
-    console.log(`${ticksLeft} ticks + 3 days: largest relative difference ${worst.toExponential(1)} ${worst < 1e-9 ? 'OK' : 'MISMATCH'}`);
-    if (worst >= 1e-9) process.exitCode = 1;
-  }
-}
 
 // Weekly at-the-money calls: fair value at the open vs what they really paid 7 days later.
 function fairness(days = 300) {
@@ -132,6 +95,5 @@ function bots(runs = 40) {
 }
 
 const [command = 'bots', argument] = process.argv.slice(2);
-if (command === 'equivalence') equivalence();
-else if (command === 'fairness') fairness(Number(argument) || 400);
+if (command === 'fairness') fairness(Number(argument) || 400);
 else bots(Number(argument) || 40);

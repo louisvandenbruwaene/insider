@@ -82,7 +82,7 @@ button{font:inherit;color:inherit}
 .keys{margin-top:16px;display:flex;gap:8px;justify-content:center;align-items:center;color:var(--dim)}
 
 /* the trade menu: one question at a time */
-.tradeCard{width:460px;text-align:left}
+.tradeCard{width:560px;text-align:left}
 .tradeCard h1{font-size:20px;display:flex;justify-content:space-between;align-items:baseline}
 .tradeCard h1 small{font:600 13px var(--mono);color:var(--dim)}
 .choiceRow{display:flex;align-items:center;gap:12px;height:46px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);margin-top:7px;cursor:pointer;font-family:var(--mono);font-variant-numeric:tabular-nums}
@@ -252,7 +252,7 @@ const LEVERAGE_PRICES = [0, 250, 1500, 8000, 50000, 500000];
 const MAINTENANCE_SHARE = 0.5;                  // margin call when equity < exposure × this ÷ leverage
 
 // 1.7 The market maker prices options fairly from the cards left in the deck
-const FORECAST_PATHS = 1000;                    // simulated futures per forecast
+const FORECAST_PATHS = 600;                     // simulated futures per forecast
 const FORECAST_DAYS_AHEAD = 7;                  // the forecast runs to the close 7 trading days after today
 const FORECAST_EVERY_TICKS = 3;                 // re-run it this often during the day (and before every trade)
 const FORECAST_LOW_QUANTILE = 0.1;              // the chart shows the bottom 10%, the average and the top 10% close
@@ -297,13 +297,13 @@ const MINIMUM_DECK_SIZE = 150;                  // a deck is never thinned below
 const EVENT_CARD_PRICES = { earnings: 250, fed: 200, halt: 150, momentum: 300, squeeze: 400 };
 const EVENT_PRICE_GROWTH = 1.3;                 // each copy bought costs this much more
 // The four option positions, each bought separately in the shop (shorting stock needs no unlock).
-// S = the stock price at expiry, K = the strike you choose, premium = the option's price (paid long, received short).
-// card = the short form on the shop card; formula = the full line in the shop and the trade menu.
+// P&L per option. S = the stock price when the option is exercised (any time up to expiry, OPTION_EXPIRY_DAYS
+// trading days after the trade), K = the strike, premium = the option's price (paid long, received short).
 const OPTION_POSITIONS = {
-  longCall:  { side: 'long',  kind: 'call', name: 'Long call',  icon: '📈', price: 300, card: 'get S − K', formula: 'pay the premium, get S − K if S > K' },
-  shortCall: { side: 'short', kind: 'call', name: 'Short call', icon: '🧾', price: 400, card: 'pay S − K', formula: 'get the premium, pay S − K if S > K' },
-  longPut:   { side: 'long',  kind: 'put',  name: 'Long put',   icon: '🛡', price: 300, card: 'get K − S', formula: 'pay the premium, get K − S if S < K' },
-  shortPut:  { side: 'short', kind: 'put',  name: 'Short put',  icon: '🪙', price: 400, card: 'pay K − S', formula: 'get the premium, pay K − S if S < K' },
+  longCall:  { side: 'long',  kind: 'call', name: 'Long call',  icon: '📈', price: 300, formula: 'P&L = max(S − K, 0) − premium' },
+  shortCall: { side: 'short', kind: 'call', name: 'Short call', icon: '🧾', price: 400, formula: 'P&L = premium − max(S − K, 0)' },
+  longPut:   { side: 'long',  kind: 'put',  name: 'Long put',   icon: '🛡', price: 300, formula: 'P&L = max(K − S, 0) − premium' },
+  shortPut:  { side: 'short', kind: 'put',  name: 'Short put',  icon: '🪙', price: 400, formula: 'P&L = premium − max(K − S, 0)' },
 };
 const TICKER_PRICES = { UTIL: 800, BIOX: 1500 };
 
@@ -458,56 +458,37 @@ function shoeAfter(schedule, tick) {
 function nextOpenPrice(close) { return close * (1 + INFLATION_PER_DAY); }
 
 // The market maker knows which cards are left in the shoe and what the whole deck holds, but not the order. It
-// plays out the rest of today and the next daysAhead days many times. Returns closesByDay[k][path]: the close k
-// days from today (k = 0 is today's close). This is tickMarket rewritten over numbers instead of card names,
-// because it runs FORECAST_PATHS × hundreds of ticks (tools/sim.cjs equivalence checks both agree exactly).
-const SIMULATION_KIND = { price: 0, vol: 1, earnings: 2, fed: 3, halt: 4, momentum: 5, squeeze: 6 };
-const SIMULATION_CODES = CARD_ORDER.map(cardId => CARD_TYPES[cardId].kind === 'event' ? SIMULATION_KIND[cardId] : SIMULATION_KIND[CARD_TYPES[cardId].kind]);
-const SIMULATION_VALUES = CARD_ORDER.map(cardId => CARD_TYPES[cardId].kind === 'price' ? CARD_TYPES[cardId].move : CARD_TYPES[cardId].kind === 'vol' ? CARD_TYPES[cardId].factor : 0);
+// plays out the rest of today and the next daysAhead days many times, with the same tickMarket as the real day.
+// Returns closesByDay[k][path]: the close k days from today (k = 0 is today's close).
 function simulateForecast(market, remainingShoe, deck, ticksLeftToday, daysAhead, paths, random) {
-  const shoe = Int32Array.from(remainingShoe, cardId => CARD_ORDER.indexOf(cardId));
-  const fullDeck = Int32Array.from(deckToPile(deck), cardId => CARD_ORDER.indexOf(cardId));
-  const closesByDay = Array.from({ length: daysAhead + 1 }, () => new Float64Array(paths));
+  const fullDeck = deckToPile(deck);
+  const closesByDay = Array.from({ length: daysAhead + 1 }, () => []);
   for (let path = 0; path < paths; path++) {
-    let price = market.price, sigma = market.sigma, fedTicksLeft = market.fedTicksLeft, lastPriceMove = market.lastPriceMove;
-    let pool = shoe, poolDrawn = 0;
+    const state = { ...market };
+    let pool = remainingShoe.slice();
+    const drawCard = () => {                       // a random card from what is left; a fresh deck when the shoe is empty
+      if (pool.length === 0) pool = fullDeck.slice();
+      const index = Math.floor(random() * pool.length);
+      const card = pool[index];
+      pool[index] = pool[pool.length - 1];
+      pool.pop();
+      return card;
+    };
     for (let day = 0; day <= daysAhead; day++) {
-      if (day > 0) { price = nextOpenPrice(price); sigma = 1; fedTicksLeft = 0; lastPriceMove = 0; }
+      if (day > 0) Object.assign(state, { price: nextOpenPrice(state.price), sigma: 1, fedTicksLeft: 0, lastPriceMove: 0 });
       const ticks = day === 0 ? ticksLeftToday : TICKS_PER_DAY;
-      for (let tick = 0; tick < ticks; tick++) {
-        if (fedTicksLeft > 0) fedTicksLeft--;
-        let cardsToApply = 1;
-        while (cardsToApply > 0) {
-          cardsToApply--;
-          if (poolDrawn >= pool.length) { pool = fullDeck; poolDrawn = 0; }          // the shoe ran out: a new shuffle
-          const pick = poolDrawn + Math.floor(random() * (pool.length - poolDrawn));
-          const card = pool[pick]; pool[pick] = pool[poolDrawn]; pool[poolDrawn] = card; poolDrawn++;
-          const kind = SIMULATION_CODES[card];
-          let move = null;
-          if (kind === 0) move = SIMULATION_VALUES[card];
-          else if (kind === 1) sigma = Math.min(SIGMA_MAXIMUM, Math.max(SIGMA_MINIMUM, sigma * SIMULATION_VALUES[card]));
-          else if (kind === 2) cardsToApply += EARNINGS_EXTRA_CARDS;
-          else if (kind === 3) fedTicksLeft = FED_TICKS + 1;
-          else if (kind === 5) move = lastPriceMove;
-          else if (kind === 6) move = SQUEEZE_MOVE;
-          if (move !== null) {
-            price *= 1 + Math.max(PRICE_MOVE_FLOOR, move * sigma * (fedTicksLeft > 0 ? FED_SIGMA_MULTIPLIER : 1));
-            lastPriceMove = move;
-          }
-        }
-      }
-      closesByDay[day][path] = price;
+      for (let tick = 0; tick < ticks; tick++) tickMarket(state, drawCard);
+      closesByDay[day].push(state.price);
     }
   }
   return closesByDay;
 }
 
-// Fair value of an option per share (the average payoff over the simulated closes) and its buying price.
+// Value of an option held to expiry: its average payoff over the simulated closes.
 function quoteOption(closes, kind, strike) {
   let payoffTotal = 0;
   for (const close of closes) payoffTotal += Math.max(0, kind === 'call' ? close - strike : strike - close);
-  const fairValue = payoffTotal / closes.length;
-  return { fairValue, askPrice: fairValue * (1 + OPTION_TRANSACTION_COST) };
+  return { fairValue: payoffTotal / closes.length };
 }
 
 // ═══════════════════════════════════════ § 5 ACCOUNT ═══════════════════════════════════════
@@ -523,12 +504,18 @@ function maximumLeverage(run) { return run.today && run.today.investigation ? 1 
 function accountLeverage(run) { return LEVERAGE_TIERS[run.leverageTier]; }
 function lotSign(lot) { return lot.side === 'short' ? -1 : 1; }
 function intrinsicValue(lot, price) { return Math.max(0, lot.kind === 'call' ? price - lot.strike : lot.strike - price); }
-// What the lot is worth to its holder right now: fair value from the forecast of its expiry day's close, or
-// intrinsic value once it expires (at today's close).
+// What the lot is worth to its holder right now. Options can be exercised at any time, so the value is the higher
+// of exercising now (max(S − K, 0) for a call, max(K − S, 0) for a put) and holding to expiry (the forecast's
+// average payoff at the expiry day's close).
 function lotMarketValue(run, lot) {
-  const today = run.today, daysLeft = lot.expiryDay - run.day;
-  if ((daysLeft <= 0 && today.tick >= TICKS_PER_DAY) || !today.forecast) return intrinsicValue(lot, currentPrice(today)) * lot.quantity;
-  return quoteOption(today.forecast[clamp(daysLeft, 0, FORECAST_DAYS_AHEAD)], lot.kind, lot.strike).fairValue * lot.quantity;
+  return optionValue(run, lot.kind, lot.strike, lot.expiryDay) * lot.quantity;
+}
+function optionValue(run, kind, strike, expiryDay) {
+  const today = run.today, price = currentPrice(today), daysLeft = expiryDay - run.day;
+  const exerciseNow = Math.max(0, kind === 'call' ? price - strike : strike - price);
+  if ((daysLeft <= 0 && today.tick >= TICKS_PER_DAY) || !today.forecast) return exerciseNow;
+  const holdToExpiry = quoteOption(today.forecast[clamp(daysLeft, 0, FORECAST_DAYS_AHEAD)], kind, strike).fairValue;
+  return Math.max(exerciseNow, holdToExpiry);
 }
 function daysToExpiry(run, lot) { return lot.expiryDay - run.day; }
 function lotValue(run, lot) { return lotSign(lot) * lotMarketValue(run, lot); }            // negative for written lots
@@ -585,8 +572,8 @@ function strikeOffsets(kind) { return kind === 'call' ? CALL_STRIKE_OFFSETS : PU
 // expire OPTION_EXPIRY_DAYS trading days from today; adding to an open lot uses that lot's expiry.
 function newExpiryDay(run) { return run.day + OPTION_EXPIRY_DAYS; }
 function optionTerms(run, kind, strike, expiryDay = newExpiryDay(run)) {
-  const quote = quoteOption(run.today.forecast[clamp(expiryDay - run.day, 0, FORECAST_DAYS_AHEAD)], kind, strike);
-  return { ...quote, bidPrice: quote.fairValue * (1 - OPTION_TRANSACTION_COST) };
+  const fairValue = optionValue(run, kind, strike, expiryDay);
+  return { fairValue, askPrice: fairValue * (1 + OPTION_TRANSACTION_COST), bidPrice: fairValue * (1 - OPTION_TRANSACTION_COST) };
 }
 // How many options can be written: like shorting that many shares.
 function writeRoom(run) { return Math.max(0, (Math.max(0, marginEquity(run)) * maximumLeverage(run) - exposure(run)) / currentPrice(run.today)); }
@@ -875,8 +862,8 @@ function shopCatalogue(run) {
       price: EVENT_CARD_PRICES[cardId] * Math.pow(EVENT_PRICE_GROWTH, run.eventCopiesBought[cardId]) * inflation, picker: 'event:' + cardId });
   }
   for (const [positionId, position] of Object.entries(OPTION_POSITIONS))
-    items.push({ id: 'unlock:' + positionId, row: 'trading', icon: position.icon, name: position.name, chips: position.card,
-      sentence: position.name + ': ' + position.formula + '. S = the price in ' + OPTION_EXPIRY_DAYS + ' trading days, K = the strike you choose.',
+    items.push({ id: 'unlock:' + positionId, row: 'trading', icon: position.icon, name: position.name, chips: OPTION_EXPIRY_DAYS + '-day option',
+      sentence: position.name + ': ' + position.formula + ' per option. S = the price when exercised (any time, at the latest after ' + OPTION_EXPIRY_DAYS + ' trading days), K = the strike you choose.',
       price: position.price * inflation, owned: run.unlocked[positionId] });
   const nextTier = run.leverageTier + 1;
   if (nextTier < LEVERAGE_TIERS.length)
@@ -1359,15 +1346,15 @@ function tradeRows() {
     const optionRow = (side, kind) => {
       const position = OPTION_POSITIONS[optionPositionId(side, kind)];
       return {
-        main: position.name.toUpperCase(), detail: position.card, openTrades: openOf(optionPositionId(side, kind)),
+        main: position.name.toUpperCase(), detail: position.formula, openTrades: openOf(optionPositionId(side, kind)),
         locked: !run.unlocked[optionPositionId(side, kind)] || today.investigation,
         tip: today.investigation ? 'No options during an investigation' : position.name + ' is unlocked in the shop',
         pick: () => goTo('strike', { action: side + 'Option', kind, mode: 'new', expiryDay: newExpiryDay(run) }),
       };
     };
     return [
-      { main: 'LONG STOCK', detail: 'gains when it rises', openTrades: openOf('longStock'), pick: () => goTo('amount', { action: 'long', mode: 'new' }) },
-      { main: 'SHORT STOCK', detail: 'gains when it falls', openTrades: openOf('shortStock'), pick: () => goTo('amount', { action: 'short', mode: 'new' }) },
+      { main: 'LONG STOCK', detail: 'P&L = S − entry price', openTrades: openOf('longStock'), pick: () => goTo('amount', { action: 'long', mode: 'new' }) },
+      { main: 'SHORT STOCK', detail: 'P&L = entry price − S', openTrades: openOf('shortStock'), pick: () => goTo('amount', { action: 'short', mode: 'new' }) },
       optionRow('long', 'call'), optionRow('short', 'call'), optionRow('long', 'put'), optionRow('short', 'put'),
     ];
   }
@@ -1467,7 +1454,7 @@ function showTrade() {
   if (trade.step === 'action' && trade.message) html += '<div class="amountNote gold" style="text-align:left">' + trade.message + '</div>';
   if (trade.step === 'position' || (trade.step === 'amount' && trade.mode !== 'new')) html += positionDetails();
   if (trade.step === 'strike') html += '<div class="amountNote" style="text-align:left;display:flex;justify-content:space-between"><span>' + position.formula + '</span><span>' + (trade.action === 'longOption' ? 'premium you pay' : 'premium you get') + '</span></div>' +
-    '<div class="amountNote" style="text-align:left">S = price in ' + OPTION_EXPIRY_DAYS + ' trading days</div>';
+    '<div class="amountNote" style="text-align:left">S = the price when you exercise: any time, at the latest after ' + OPTION_EXPIRY_DAYS + ' trading days</div>';
   if (trade.step === 'amount') {
     const preview = tradePreview();
     html += '<input class="slider" type="range" min="0" max="100" step="' + SLIDER_STEP_PERCENT + '" value="' + trade.percent + '" id="tradeSlider">' +

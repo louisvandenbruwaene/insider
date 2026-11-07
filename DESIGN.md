@@ -16,11 +16,11 @@ Every number named here lives in `index.html` § 1 SETTINGS.
 `earnings` (the next `EARNINGS_EXTRA_CARDS` cards land in the same second), `fed` (σ ×`FED_SIGMA_MULTIPLIER` for `FED_TICKS`), `halt` (price frozen `HALT_SECONDS`, trading still allowed), `momentum` (repeats the last price move), `squeeze` (+`SQUEEZE_MOVE` × σ).
 
 ## Fair market maker
-The market maker knows the cards left in the shoe and what the whole deck holds, but not the order. Every `FORECAST_EVERY_TICKS` ticks it plays out the rest of today plus `FORECAST_DAYS_AHEAD` (7) more days `FORECAST_PATHS` times (`simulateForecast`). That gives:
+The market maker knows the cards left in the shoe and what the whole deck holds, but not the order. Every `FORECAST_EVERY_TICKS` ticks it plays out the rest of today plus `FORECAST_DAYS_AHEAD` (7) more days `FORECAST_PATHS` times (`simulateForecast`, using the same `tickMarket` as the real day). That gives:
 - the chart's three numbers: the bottom 10%, the average and the top 10% of the close 7 days ahead. Nothing is shown for today's close: the insider tips are the only edge on today.
-- option prices: an option expiring in k days is valued from the forecast of that day's close. Fair value = the average payoff, bought at +`OPTION_TRANSACTION_COST` and sold at −`OPTION_TRANSACTION_COST`.
+- option prices: the higher of exercising now and the average payoff at the expiry day's close; bought at +`OPTION_TRANSACTION_COST` and sold at −`OPTION_TRANSACTION_COST`.
 
-Without information or a rigged deck, nothing has an edge. `node tools/sim.cjs fairness` checks the fair value against real payoffs, and `node tools/sim.cjs equivalence` checks that the fast simulator matches the real days exactly. An independent check over 1500 runs: a 7-day at-the-money call is priced at 21.6% of the strike and paid 19.0% ± 1.5%.
+Without information or a rigged deck, nothing has an edge. `node tools/sim.cjs fairness` checks the fair value against real payoffs. An independent check over 1500 runs: a 7-day at-the-money call is priced at 21.6% of the strike and paid 19.0% ± 1.5%.
 
 ## Screen
 - **Side menu:** the only place with numbers. It shows the day and clock, cash, the stock line `x × average price = buy-in` (negative when short) with its value now, each option lot the same way, equity, heat and the next meeting. "Now" lines are green for a profit and red for a loss, whether long or short.
@@ -30,7 +30,8 @@ Without information or a rigged deck, nothing has an edge. `node tools/sim.cjs f
 
 ## Trading (any time: before the open or during the day. The TRADE menu asks one question at a time, and the day pauses while it is open)
 - **LONG STOCK / SHORT STOCK:** the slider sets the share of the room. For a long, the room is buying power = equity × leverage (`LEVERAGE_TIERS`, bought in order). For a short, it's the largest allowed short.
-- Each option position is described by what it pays (S = price at expiry, K = strike): long call `pay the premium, get S − K if S > K`, short call `get the premium, pay S − K if S > K`, long put `pay the premium, get K − S if S < K`, short put `get the premium, pay K − S if S < K`.
+- Each position shows its exact P&L per option (S = the price when exercised, K = strike): long call `P&L = max(S − K, 0) − premium`, short call `P&L = premium − max(S − K, 0)`, long put `P&L = max(K − S, 0) − premium`, short put `P&L = premium − max(K − S, 0)`. Stock: `P&L = S − entry price` (long), `entry price − S` (short).
+- Options can be exercised at any time up to expiry, so an option is worth the higher of exercising now (`max(S − K, 0)` or `max(K − S, 0)`) and holding to expiry (the forecast's average payoff). A long put is never worth less than K − S.
 - **LONG CALL / LONG PUT:** choose K from `CALL_STRIKE_OFFSETS` / `PUT_STRIKE_OFFSETS` (each row shows only K and the premium), then the share of free cash to spend.
 - **SHORT CALL / SHORT PUT** (writing): choose K the same way. You receive the premium now and owe the payout at the close. Written options count as exposure like a short of that many shares, and the slider sets the share of that room.
 - **Open trades** sit as small icons on their own row (📦 stock on LONG/SHORT STOCK, each option lot on its position's row), outlined green or red by P&L. Clicking one (or its key letter a, b, c …) shows the trade (`x × price = buy-in`, value now, P&L) and offers **ADD** (more of the same: same direction, K and expiry, priced for that expiry) or **CLOSE** (slider: the share of the trade to close). After any trade the menu returns to its first step and the game stays paused until Esc. CLOSE ALL in the action bar closes everything.

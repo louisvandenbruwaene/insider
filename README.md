@@ -15,5 +15,5 @@ Open `index.html` in a browser, or install the Mac app with `app/install_app.sh`
 Shop and deck picker: arrows move by position, Enter takes the selected card, Space starts the next day.
 
 - `DESIGN.md`: every system and the setting that tunes it.
-- `tools/sim.cjs`: headless checks (`equivalence`, `fairness`, `bots [runs] [days]`).
+- `tools/sim.cjs`: headless checks (`fairness`, `bots [runs] [days]`).
 - `tools/fuzz.cjs`: a random player over many days, checking that money, positions, decks and saves stay valid.
