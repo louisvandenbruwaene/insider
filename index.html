@@ -517,7 +517,10 @@ function quoteOption(closes, kind, strike) {
 // expire at the close of expiryDay. Bought options are paid from free cash and give no buying power; written
 // options count as exposure like a short of the same number of shares.
 function currentPrice(today) { return today.schedule.states[today.tick].price; }
-function maximumLeverage(run) { return run.today && run.today.investigation ? 1 : LEVERAGE_TIERS[run.leverageTier]; }
+// New trades are capped at 1× during an investigation; the margin call keeps using the account's own leverage, so
+// positions carried into an investigation are not liquidated by the cap itself.
+function maximumLeverage(run) { return run.today && run.today.investigation ? 1 : accountLeverage(run); }
+function accountLeverage(run) { return LEVERAGE_TIERS[run.leverageTier]; }
 function lotSign(lot) { return lot.side === 'short' ? -1 : 1; }
 function intrinsicValue(lot, price) { return Math.max(0, lot.kind === 'call' ? price - lot.strike : lot.strike - price); }
 // What the lot is worth to its holder right now: fair value from the forecast of its expiry day's close, or
@@ -641,7 +644,7 @@ function closeEverything(run) {
 // Run after every tick: when equity falls below the maintenance margin everything is closed.
 function checkMargin(run) {
   if (exposure(run) === 0) return null;
-  if (marginEquity(run) >= exposure(run) * MAINTENANCE_SHARE / maximumLeverage(run)) return null;
+  if (marginEquity(run) >= exposure(run) * MAINTENANCE_SHARE / accountLeverage(run)) return null;
   closeStock(run);
   for (let index = run.today.optionLots.length - 1; index >= 0; index--)
     if (run.today.optionLots[index].side === 'short') closeLot(run, index);
@@ -1122,6 +1125,8 @@ function drawChart() {
     context.textAlign = 'left'; context.globalAlpha = 1;
   });
 }
+// A number written out in full: thousands separators, two decimals, never K / M / B.
+function formatFull(value) { return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 // Chart numbers: no currency sign, few digits.
 function formatPlain(price) {
   if (price < 10) return price.toFixed(2);
@@ -1201,7 +1206,7 @@ function renderActions() {
         '<span class="icon">' + (status === 'locked' ? '🔒' : tip.icon) + '</span>🔥' + tip.heat + '</div>';
     }).join('');
     if (run.tickersOwned.length > 1)
-      html += '<span class="gap"></span>' + run.tickersOwned.map(tickerId => '<button class="toggle ' + (tickerId === today.ticker ? 'on' : '') + (today.tickerLocked || today.tradeCount ? ' locked' : '') + '" data-action="ticker" data-argument="' + tickerId + '" data-tip="' + TICKERS[tickerId].name + ': ' + TICKERS[tickerId].sentence + '">' + TICKERS[tickerId].icon + ' ' + tickerId + '</button>').join('');
+      html += '<span class="gap"></span>' + run.tickersOwned.map(tickerId => '<button class="toggle ' + (tickerId === today.ticker ? 'on' : '') + (today.tickerLocked || hasPositions(run) ? ' locked' : '') + '" data-action="ticker" data-argument="' + tickerId + '" data-tip="' + TICKERS[tickerId].name + ': ' + TICKERS[tickerId].sentence + '">' + TICKERS[tickerId].icon + ' ' + tickerId + '</button>').join('');
     html += '<span class="gap"></span><button class="button" data-action="openTrade">TRADE<kbd>T</kbd></button>' +
       '<button class="button primary suggest" data-action="openMarket">OPEN ▶<kbd>SPACE</kbd></button>';
   } else {
@@ -1333,9 +1338,6 @@ function openTrade() {
   view.trade = { step: 'action', mode: 'new', action: null, kind: null, strike: null, expiryDay: null, position: null, percent: SLIDER_DEFAULT_PERCENT, selection: 0 };
   showTrade();
 }
-// Short labels for open trades: "+5.00 NOVA", "−12.3 P95 · 6d".
-function stockLabel(run) { return formatSignedCount(run.today.shares) + ' ' + run.today.ticker; }
-function lotLabel(run, lot) { return formatSignedCount(lotSign(lot) * lot.quantity) + ' ' + (lot.kind === 'call' ? 'C' : 'P') + formatPlain(lot.strike) + ' · ' + daysToExpiry(run, lot) + 'd'; }
 function lotPosition(lot) { return OPTION_POSITIONS[optionPositionId(lot.side, lot.kind)]; }
 function selectedLot() { const position = view.trade.position; return position && position.type === 'lot' ? view.run.today.optionLots[position.index] : null; }
 
@@ -1347,10 +1349,10 @@ function tradeRows() {
     const openOf = (rowId) => {
       const trades = [];
       if (today.shares !== 0 && rowId === (today.shares > 0 ? 'longStock' : 'shortStock'))
-        trades.push({ icon: STOCK_ICON, label: stockLabel(run), profit: today.shares * (price - today.averageEntry), open: () => goTo('position', { position: { type: 'stock' } }) });
+        trades.push({ icon: STOCK_ICON, hover: 'average price = ' + formatFull(today.averageEntry) + ', S = ' + formatFull(price), profit: today.shares * (price - today.averageEntry), open: () => goTo('position', { position: { type: 'stock' } }) });
       today.optionLots.forEach((lot, index) => {
         if (optionPositionId(lot.side, lot.kind) === rowId)
-          trades.push({ icon: lotPosition(lot).icon, label: lotLabel(run, lot), profit: lotValue(run, lot) - lotBuyIn(lot), open: () => goTo('position', { position: { type: 'lot', index } }) });
+          trades.push({ icon: lotPosition(lot).icon, hover: 'K = ' + formatFull(lot.strike) + ', S = ' + formatFull(price), profit: lotValue(run, lot) - lotBuyIn(lot), open: () => goTo('position', { position: { type: 'lot', index } }) });
       });
       return trades;
     };
@@ -1477,7 +1479,7 @@ function showTrade() {
     tradeRows().forEach((row, index) => {
       const icons = (row.openTrades || []).map(open => {
         const letter = OPEN_TRADE_KEYS[openIndex];
-        return '<span class="openChip ' + colourClass(open.profit) + '" data-action="openTradeIcon" data-argument="' + openIndex++ + '" data-tip="' + open.label + ' · ' + formatSignedMoney(open.profit) + '">' + open.icon + '<kbd>' + letter + '</kbd></span>';
+        return '<span class="openChip ' + colourClass(open.profit) + '" data-action="openTradeIcon" data-argument="' + openIndex++ + '" data-tip="' + open.hover + '">' + open.icon + '<kbd>' + letter + '</kbd></span>';
       }).join('');
       html += '<div class="choiceRow ' + (index === trade.selection ? 'selected ' : '') + (row.locked && !icons ? 'locked' : '') + '" data-action="tradeRow" data-argument="' + index + '"' + (row.locked ? ' data-tip="' + row.tip + '"' : '') + '>' +
         '<span class="number">' + (index + 1) + '</span><span class="main">' + row.main + '</span>' + icons + '<span class="detail">' + row.detail + '</span></div>';
@@ -1695,7 +1697,7 @@ function handleKey(event) {
     } else {
       const rows = tradeRows();
       if (/^[1-9]$/.test(key)) pickTradeRow(Number(key) - 1);
-      else if (trade.step === 'action' && OPEN_TRADE_KEYS.includes(key.toLowerCase())) openTradeIcon(OPEN_TRADE_KEYS.indexOf(key.toLowerCase()));
+      else if (trade.step === 'action' && key.length === 1 && OPEN_TRADE_KEYS.includes(key.toLowerCase())) openTradeIcon(OPEN_TRADE_KEYS.indexOf(key.toLowerCase()));
       else if (key === 'ArrowDown' || key === 'ArrowUp') { trade.selection = (trade.selection + (key === 'ArrowDown' ? 1 : rows.length - 1)) % rows.length; showTrade(); }
       else if (key === 'Enter') pickTradeRow(trade.selection);
     }
