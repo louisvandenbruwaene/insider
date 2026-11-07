@@ -1,7 +1,7 @@
 // Headless checks for Insider: loads the game script (§1-§7 run without a browser) and
 //   node tools/sim.cjs equivalence — the fast forecast simulator gives exactly what tickMarket (the real day) gives
-//   node tools/sim.cjs fairness   — are the market maker's option prices fair? (fair value vs the real average payoff)
-//   node tools/sim.cjs bots [runs] — full runs by simple players: cash holder, coin flipper, rumour trader, rumour + options
+//   node tools/sim.cjs fairness   — are the market maker's 7-day option prices fair? (fair value vs the real average payoff)
+//   node tools/sim.cjs bots [runs] — full runs by simple players: cash holder, coin flipper, rumour trader (each closes everything before the open)
 const fs = require('fs'), path = require('path');
 
 // The script is run as a plain function (not node's vm, whose sandboxed globals make the simulator ~15× slower).
@@ -11,60 +11,71 @@ function loadGame() {
   const code = html.split('<script id="game">')[1].split('</script>')[0];
   return new Function(code + `
     ;return { newRun, prepareDay, advanceTick, closeDay, startNextDay, tradeStock, closeStock, buyOption, writeOption, useTip,
-      quoteOption, simulateCloses, tickMarket, makeRandom, deckToPile, buildDeck, shopCatalogue, buyShopItem, applyDeckEdit,
+      quoteOption, simulateForecast, nextOpenPrice, tickMarket, closeEverything, makeRandom, deckToPile, buildDeck, shopCatalogue, buyShopItem, applyDeckEdit,
       totalEquity, currentPrice, tipStatus, meetingTarget,
-      TICKS_PER_DAY, MEETING_EVERY_DAYS, MEETING_MULTIPLES };`)();
+      TICKS_PER_DAY, OPTION_EXPIRY_DAYS, MEETING_EVERY_DAYS, MEETING_MULTIPLES };`)();
 }
 const game = loadGame();
 
-// The slow reference: the real tickMarket with the same random draws as the fast simulator.
-function referenceCloses(market, pile, ticksLeft, paths, random) {
-  const pool = pile.slice(), closes = [];
+// The slow reference: the real tickMarket over the same days, dealing from the same shoe (and a fresh deck when it
+// runs out) with the same random draws as the fast simulator.
+function referenceForecast(market, shoe, deck, ticksLeftToday, daysAhead, paths, random) {
+  const shoePool = shoe.slice(), deckPool = game.deckToPile(deck);
+  const closesByDay = Array.from({ length: daysAhead + 1 }, () => []);
   for (let path = 0; path < paths; path++) {
     const state = { ...market };
-    let drawn = 0;
+    let pool = shoePool, drawn = 0;
     const drawCard = () => {
-      if (drawn >= pool.length) return null;
+      if (drawn >= pool.length) { pool = deckPool; drawn = 0; }
       const pick = drawn + Math.floor(random() * (pool.length - drawn));
       const cardId = pool[pick]; pool[pick] = pool[drawn]; pool[drawn] = cardId; drawn++;
       return cardId;
     };
-    for (let tick = 0; tick < ticksLeft; tick++) game.tickMarket(state, drawCard);
-    closes.push(state.price);
+    for (let day = 0; day <= daysAhead; day++) {
+      if (day > 0) Object.assign(state, { price: game.nextOpenPrice(state.price), sigma: 1, fedTicksLeft: 0, lastPriceMove: 0 });
+      for (let tick = 0; tick < (day === 0 ? ticksLeftToday : game.TICKS_PER_DAY); tick++) game.tickMarket(state, drawCard);
+      closesByDay[day].push(state.price);
+    }
   }
-  return closes.sort((a, b) => a - b);
+  return closesByDay;
 }
 function equivalence() {
-  // a deck with every event card, small enough to run dry during some paths
+  // a deck with every event card; a short shoe so paths run into fresh shuffles
   const deck = { ...game.buildDeck({ small: 20, medium: 20, large: 6, huge: 2 }, { small: 20, medium: 20, large: 6, huge: 2 }), earnings: 6, fed: 4, halt: 3, momentum: 5, squeeze: 3 };
-  const pile = game.deckToPile(deck);
-  for (const [ticksLeft, market] of [[90, { price: 100, sigma: 1, fedTicksLeft: 0, lastPriceMove: 0 }], [150, { price: 37, sigma: 1.7, fedTicksLeft: 5, lastPriceMove: -0.05 }]]) {
-    const fast = Array.from(game.simulateCloses(market, pile, ticksLeft, 300, game.makeRandom(9)));
-    const slow = referenceCloses(market, pile, ticksLeft, 300, game.makeRandom(9));
-    const worst = Math.max(...fast.map((close, index) => Math.abs(close / slow[index] - 1)));
-    console.log(`${ticksLeft} ticks: largest relative difference ${worst.toExponential(1)} ${worst < 1e-9 ? 'OK' : 'MISMATCH'}`);
+  const shoe = game.deckToPile(deck).slice(0, 60);
+  for (const [ticksLeft, market] of [[90, { price: 100, sigma: 1, fedTicksLeft: 0, lastPriceMove: 0 }], [17, { price: 37, sigma: 1.7, fedTicksLeft: 5, lastPriceMove: -0.05 }]]) {
+    const fast = game.simulateForecast(market, shoe, deck, ticksLeft, 3, 200, game.makeRandom(9));
+    const slow = referenceForecast(market, shoe, deck, ticksLeft, 3, 200, game.makeRandom(9));
+    let worst = 0;
+    fast.forEach((closes, day) => closes.forEach((close, path) => { worst = Math.max(worst, Math.abs(close / slow[day][path] - 1)); }));
+    console.log(`${ticksLeft} ticks + 3 days: largest relative difference ${worst.toExponential(1)} ${worst < 1e-9 ? 'OK' : 'MISMATCH'}`);
     if (worst >= 1e-9) process.exitCode = 1;
   }
 }
 
-function fairness(days = 400) {
+// Weekly at-the-money calls: fair value at the open vs what they really paid 7 days later.
+function fairness(days = 300) {
   const run = game.newRun(12345);
-  let premiums = 0, payoffs = 0, closeReturns = 0;
-  for (let day = 0; day < days; day++) {
-    const today = run.today, open = game.currentPrice(today);
-    const quote = game.quoteOption(today.forecast, 'call', open);
-    const close = today.schedule.states[game.TICKS_PER_DAY].price;
-    premiums += quote.fairValue / open;
-    payoffs += Math.max(0, close - open) / open;
-    closeReturns += close / open - 1;
-    run.day++; game.prepareDay(run);
+  let premiums = 0, payoffs = 0, count = 0;
+  const opens = [];
+  for (let day = 0; day < days + game.OPTION_EXPIRY_DAYS; day++) {
+    const open = game.currentPrice(run.today);
+    if (day < days) opens.push({ open, fair: game.quoteOption(run.today.forecast[game.OPTION_EXPIRY_DAYS], 'call', open).fairValue });
+    run.phase = 'trading';
+    while (run.phase === 'trading') { const outcome = game.advanceTick(run); if (outcome.closed) game.closeDay(run); }
+    const settled = day - game.OPTION_EXPIRY_DAYS;
+    if (settled >= 0) {
+      const { open: strike, fair } = opens[settled];
+      premiums += fair / strike; payoffs += Math.max(0, game.currentPrice(run.today) - strike) / strike; count++;
+    }
+    run.gameOverReason = null; game.startNextDay(run);
   }
-  console.log(`ATM call: fair ${(premiums / days * 100).toFixed(2)}% of the open, real average payoff ${(payoffs / days * 100).toFixed(2)}%`);
-  console.log(`average day return ${(closeReturns / days * 100).toFixed(2)}%`);
+  console.log(`7-day ATM call: fair ${(premiums / count * 100).toFixed(2)}% of the strike, real average payoff ${(payoffs / count * 100).toFixed(2)}% (${count} weeks)`);
 }
 
 // A day for a bot: decide before the open, then play every tick.
 function playDay(run, strategy) {
+  game.closeEverything(run);              // these bots only trade one day at a time
   strategy.beforeOpen(run);
   run.phase = 'trading';
   while (run.phase === 'trading') {
@@ -90,15 +101,6 @@ function rigDeck(run) {
 }
 
 const STRATEGIES = {
-  // Sells the option the rumour says will expire worthless, at the money, with half the margin.
-  writer: {
-    beforeOpen(run) {
-      if (game.tipStatus(run, 'rumour') === 'ready' && run.heat < 85) game.useTip(run, 'rumour');
-      const rumour = run.today.insights.rumour, kind = rumour && rumour.direction === 'up' ? 'put' : 'call';
-      if (rumour && run.unlocked[kind]) game.writeOption(run, kind, game.currentPrice(run.today), 0.5);
-    },
-    shop(run) { buyFirstAffordable(run, ['unlock:put', 'unlock:call', 'unlock:short', 'leverage']); },
-  },
   cash: { beforeOpen() {}, shop() {} },
   coin: {
     beforeOpen(run) { game.tradeStock(run, Math.random() < 0.5 ? 1 : -1, 1); },
@@ -111,24 +113,6 @@ const STRATEGIES = {
       if (rumour) game.tradeStock(run, rumour.direction === 'up' ? 1 : -1, 1);
     },
     shop(run) { buyFirstAffordable(run, ['unlock:short', 'leverage']) || rigDeck(run); },
-  },
-  options: {
-    beforeOpen(run) {
-      for (const tipId of ['exactClose', 'analyst', 'rumour'])
-        if (game.tipStatus(run, tipId) === 'ready' && run.heat + 20 < 100) game.useTip(run, tipId);
-      const insights = run.today.insights, open = game.currentPrice(run.today);
-      let direction = 0;
-      if (insights.exactClose) direction = insights.exactClose.close > open * 1.02 ? 1 : insights.exactClose.close < open * 0.98 ? -1 : 0;
-      else if (insights.analyst) direction = insights.analyst.low > open ? 1 : insights.analyst.high < open ? -1 : 0;
-      else if (insights.rumour) direction = insights.rumour.direction === 'up' ? 1 : -1;
-      if (!direction) return;
-      const kind = direction > 0 ? 'call' : 'put';
-      if (run.unlocked[kind]) game.buyOption(run, kind, open, insights.rumour && !insights.analyst && !insights.exactClose ? 0.25 : 1);
-      if (run.unlocked.short || direction > 0) game.tradeStock(run, direction, 1);
-    },
-    shop(run) {
-      buyFirstAffordable(run, ['unlock:call', 'unlock:put', 'unlock:short', 'tip:analyst', 'leverage', 'tip:exactClose']) || rigDeck(run);
-    },
   },
 };
 
