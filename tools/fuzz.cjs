@@ -58,9 +58,8 @@ function randomTrade(run, random) {
   return action;
 }
 
-// The day's free tip (sometimes), then a few random purchases; a story planted or buried picks a random offered card.
+// A few random purchases; adding or removing a card picks a random offered card (or skips).
 function randomShopping(run, random) {
-  if (run.cardReward && random() < 0.7) game.pickOfferedCard(run, pickFrom(run.cardReward, random), true);
   for (let purchase = 0; purchase < 4; purchase++) {
     const shopItem = pickFrom(game.shopCatalogue(run), random);
     if (!game.buyShopItem(run, shopItem) || !run.cardOffer) continue;

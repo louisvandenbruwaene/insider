@@ -41,7 +41,6 @@ for (let seed = 1; seed <= 6; seed++) {
     lines.push([seed, run.day, run.cash.toFixed(6), game.totalEquity(run).toFixed(6), run.heat.toFixed(3),
       run.today.shares.toFixed(6), run.today.options.length].join(' '));
     if (run.gameOverReason) break;
-    game.pickOfferedCard(run, run.cardReward[0], true);                   // always plant the first free tip
     game.startNextDay(run);
   }
 }

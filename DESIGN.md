@@ -3,27 +3,30 @@
 Every number named here lives in `index.html` § 1 SETTINGS.
 
 ## The price is a deck, dealt over many days
-- A stock is a deck of cards. NOVA (the starting stock) has 422: `up/down` ×100 (±1%), `UP/DOWN` ×100 (±5%), `bull/bear` ×10 (±10%), `BULL/BEAR` ×1 (±50%).
+- A stock is a deck of cards. NOVA (the starting stock) has 844: `up/down` ×100 (±1%), `UP/DOWN` ×100 (±5%), `bull/bear` ×10 (±10%), `BULL/BEAR` ×1 (±50%), and the same counts of vol cards (σ ±1/5/10/50%).
 - A day is `TICKS_PER_DAY` (90) ticks, one card per `SECONDS_PER_TICK` (0.25 s: about 22 seconds a day at 1×).
 - The cards are dealt from a **draw pile** that lasts several days; only when it runs out is the whole deck reshuffled. A BULL drawn this week is gone until the next shuffle, so the cards left (the 🂠 DECK window) are long-term information.
 - Positions are held overnight; each day opens at yesterday's close × (1 + `INFLATION_PER_DAY`).
 - Moves multiply: +5% then −5% is −0.25%, so a fair deck drifts slightly down, against the 1% overnight inflation.
 
 ## Cards that act on cards (the combinations)
+Move cards are × σ; vol cards (σ ±1/5/10/50%) are back in every deck (NOVA is the original 844 cards).
 | Card | Effect |
 |---|---|
-| ↻ repeat | the last move again, as it really happened (a doubled move repeats doubled) |
+| ↻ repeat | the last move again, as it really happened |
 | ⇄ reverse | the last move, the other way |
-| ×2 double | the next move counts double; stacks (×2 ×2 → ×4) |
-| ½ halve | the next move counts half; stacks |
-Repeat and reverse are moves themselves, so a waiting ×2 applies to them. The chart's corner shows the multiplier waiting ("next ×4").
-Examples: `×2 · BULL · ↻` → +100% then +100%; `bull · ↻ · ↻ · ↻` → +10% four times; `BULL · ⇄` → +50% then −50%.
-The deck shapes the market and so the strategy: repeats and doubles make runaway moves (fat tails: long options pay); reverses and halves make the price snap back and calm down (short options and steady stock pay).
-UTIL starts with halves and reverses, BIOX with doubles and repeats.
+| ×2 / ½ (next) | the next move counts double / half; stacks until a move uses it |
+| +1% all day / −1% all day | every move after it, until the close, gets +1% / −1%; stacks |
+| ×2 all day / ½ all day | every card move after it, until the close, counts double / half; stacks |
+| no buying | until the close you cannot buy: no long trades, no closing shorts |
+| no selling | until the close you cannot sell: no short trades, no closing longs |
+| draw 3 | three more cards hit at once |
+All rules end at the close. A margin call still closes everything. The chart's corner shows what is waiting and in force (next ×4, +2% all day, no buying, σ).
+Examples: `×2 · BULL · ↻` → +100% twice; `+1% all day` turns every down into a smaller fall and every up into a bigger rise; `no selling` with a falling deck traps every long; `×2 all day · ×2 · BULL` → +200%.
+The deck sets the drift and the size of moves; late in a run you know roughly what the market will do, but the order of the cards keeps it uncertain.
 
 ## Changing the deck: by chance
-- After every close you are offered `CARD_OFFER_SIZE` (3) random cards: add one for free (or none).
-- **Add a card** (bought, `CARD_PACK_PRICE`): another 3 random cards, add one.
+- **Add a card** (bought, `CARD_PACK_PRICE`): 3 random cards, add one (or none).
 - **Remove a card** (bought, `REMOVE_PRICE`): 3 cards drawn at random from the deck, weighted by their copies (a single BEAR is almost never offered); remove `DECK_BATCH_FIRST` (10), then 9, 8 … copies of one.
 - Offers are weighted by rarity (`CARD_RARITIES`: common 6, uncommon 3, rare 1) and add ×10 / ×8 / ×4 copies. They are seeded and saved: reloading never re-rolls them. Every deck change adds `HEAT_PER_DECK_EDIT` heat.
 
@@ -48,7 +51,7 @@ Without information or a rigged deck, nothing has an edge. `node tools/sim.cjs f
 - **SHORT CALL / SHORT PUT** (writing): choose K the same way. You receive the premium now and owe the payoff when exercised.
 - **Open trades** sit as small icons on their own row (📦 stock on LONG/SHORT STOCK, each option lot on its position's row), outlined green or red by P&L. Clicking one (or its key letter a, b, c …) shows the trade (`x × price = buy-in`, value now, P&L) and offers **ADD** (more of the same: same direction, K and expiry, priced for that expiry) or **CLOSE** (slider: the share of the trade to close). After any trade the menu returns to its first step and the game stays paused until Esc. CLOSE ALL in the action bar closes everything.
 - The slider starts at `SLIDER_DEFAULT_PERCENT` (100%) and moves in `SLIDER_STEP_PERCENT` steps.
-- **Margin (one rule for everything):** exposure = the stock's value + what long options are worth + short options counted as shares. Buying power = equity × leverage − exposure, and every trade (stock or option, long or short) uses it, so options are bought with leverage too. **Margin call** when equity < exposure × `MAINTENANCE_SHARE` ÷ leverage: everything is closed. The side menu shows "margin call below $X" (red within ×`MARGIN_WARNING`), and every trade shows the margin call level after it. A big move (a doubled BEAR) can push equity below zero.
+- **Margin (one rule for everything):** exposure = the stock's value + what long options are worth + short options counted as shares. Buying power = equity × leverage − exposure, and every trade (stock or option, long or short) uses it, so options are bought with leverage too. **Margin call** when equity < exposure × `MAINTENANCE_SHARE` ÷ leverage: everything is closed. The side menu shows "margin call below $X" (red within ×`MARGIN_WARNING`), and every trade shows the margin call level after it. A big move (a doubled BEAR × σ) can push equity below zero.
 - Options expire at the close `OPTION_EXPIRY_DAYS` (7) trading days after they're traded. The side menu shows the days left. The stock is held until you close it. The only costs are transaction costs (`STOCK_TRANSACTION_COST`, `OPTION_TRANSACTION_COST`).
 
 ## Insider tips and heat

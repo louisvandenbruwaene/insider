@@ -1,6 +1,6 @@
 # Insider
 
-A trading roguelike. The stock price is a deck of cards: every quarter second one card is drawn. Move cards move the price (±1%, ±5%, ±10%, ±50%); repeat, reverse, double and halve act on the moves around them. The deck starts fair; your edge comes from insider tips (they raise SEC heat), the cards you add and remove (offered by chance), and the leverage and options you unlock. Prices inflate 1% a day, investors want a target every 10 days, and the run ends when you have no money left to trade.
+A trading roguelike. The stock price is a deck of cards: every quarter second one card is drawn. Move cards move the price (±1%, ±5%, ±10%, ±50%, × σ), vol cards change σ, repeat / reverse / double / halve act on the moves around them, and rule cards change the rest of the day (+1% all day, ×2 all day, no buying, no selling, draw 3). The deck starts fair; your edge comes from insider tips (they raise SEC heat), the cards you add and remove (offered by chance), and the leverage and options you unlock. Prices inflate 1% a day, investors want a target every 10 days, and the run ends when you have no money left to trade.
 
 Open `index.html` in a browser, or install the Mac app with `app/install_app.sh`.
 
