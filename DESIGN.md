@@ -14,20 +14,26 @@ Every number named here lives in `index.html` § 1 SETTINGS.
 
 ## Fair market maker
 The market maker knows which cards are left but not their order. Every tick it plays out the rest of the day `FORECAST_PATHS` times (`simulateCloses`). That gives:
-- the close forecast histogram and ▲/▼ odds,
-- option prices: fair value = the average payoff, bought +`OPTION_TRANSACTION_COST` and sold −`OPTION_TRANSACTION_COST`,
-- the 🎲 chance and the "win ×" multiple shown before you buy.
+- the chart's three numbers: the bottom 10%, the average and the top 10% close (`FORECAST_LOW_QUANTILE`, `FORECAST_HIGH_QUANTILE`),
+- option prices: fair value = the average payoff, bought at +`OPTION_TRANSACTION_COST` and sold at −`OPTION_TRANSACTION_COST`,
+- the 🎲 chance and the "×" win multiple in the strike list.
 
 Without information or a rigged deck, nothing has an edge. `node tools/sim.cjs fairness` checks the fair value against real average payoffs, and `node tools/sim.cjs equivalence` checks that the fast simulator matches the real day exactly.
 
-## Trading
-- Stock: BUY / SELL / CLOSE, each click uses `SIZE_STEPS` of buying power. Buying power = equity × leverage (`LEVERAGE_TIERS`, bought in order).
-- Shorting is locked at first (SELL only sells shares you hold).
-- Stop-loss and take-profit (`STOP_STEPS`) close the position on the tick that crosses them, at that tick's price.
-- Margin call: when equity < exposure × `MAINTENANCE_SHARE` ÷ leverage, the position is closed. A gap (BEAR × σ) can push equity below zero.
-- Options: calls and puts that expire at the close. Strikes are `STRIKE_OFFSETS` from the current price. They're paid from free cash (equity not used as margin) and add no buying power.
-- Everything settles at the close: you never hold overnight.
-- Costs: only transaction costs (`STOCK_TRANSACTION_COST`, `OPTION_TRANSACTION_COST`).
+## Screen
+- **Side menu:** the only place with numbers. It shows the day and clock, cash, the stock line `x × average price = buy-in` (negative when short) with its value now, each option lot the same way, equity, heat and the next meeting. "Now" lines are green for a profit and red for a loss, whether long or short.
+- **Chart:** today's path, then three dashed lines to the close with only their numbers (top 10%, average, bottom 10%). It also shows the last card drawn, the cards a Peek revealed, and faint lines for your entry and strikes.
+- **Action bar:** before the open it holds the tips, the ticker switch, TRADE and OPEN. During the day it holds TRADE, CLOSE ALL, speed, ⏭ CLOSE and pause. The next sensible button glows.
+- **🂠 DECK:** opens the full-screen deck (left today / in the deck).
+
+## Trading (the TRADE menu asks one question at a time, and the day pauses while it is open)
+- **LONG / SHORT:** the slider sets the share of the room. For a long, the room is buying power = equity × leverage (`LEVERAGE_TIERS`, bought in order). For a short, it's the largest allowed short. Before shorting is unlocked, SHORT is SELL (your own shares only).
+- **BUY OPTION:** call or put, then a strike from `CALL_STRIKE_OFFSETS` / `PUT_STRIKE_OFFSETS` (each row shows its 🎲 chance, win multiple and price), then the share of free cash to spend.
+- **SELL OPTION** (writing): same steps. You receive the premium now and owe the payout at the close. Written options count as exposure like a short of that many shares, and the slider sets the share of that room.
+- **CLOSE:** the stock, one lot, or everything.
+- The slider starts at `SLIDER_DEFAULT_PERCENT` and moves in `SLIDER_STEP_PERCENT` steps.
+- Margin call: when equity (with written options at their value) < exposure × `MAINTENANCE_SHARE` ÷ leverage, the stock is closed and written options are bought back. A gap (BEAR × σ) can push equity below zero.
+- Options expire at the close and everything settles there: you never hold overnight. The only costs are transaction costs (`STOCK_TRANSACTION_COST`, `OPTION_TRANSACTION_COST`).
 
 ## Insider tips and heat
 - Tips are used before the open and read the fixed schedule (`INSIDER_TIPS`): Rumour (▲/▼, the starting tip), Analyst (close inside a 6% band), Peek (first 10 cards on the tape), Vol tip (σ path on the chart), The Call (exact close).

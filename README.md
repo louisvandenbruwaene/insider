@@ -6,12 +6,11 @@ Open `index.html` in a browser, or install the Mac app with `app/install_app.sh`
 
 | Key | |
 |---|---|
-| B / S / X | buy / sell (short) / close |
-| ↑ ↓ | position size |
-| O, T, ← → | buy option, call/put, strike |
+| T | trade menu (1–9 choose, ← → amount, Enter confirm, Esc back) |
+| X | close everything |
 | Space | open the market / pause |
-| K | skip to the close |
-| F, M, Esc | speed, sound, menu |
+| F, K | speed, skip to the close |
+| D, Esc | deck, menu |
 
 Shop and deck picker: arrows move by position, Enter takes the selected card, Space starts the next day.
 

@@ -10,10 +10,10 @@ function loadGame() {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const code = html.split('<script id="game">')[1].split('</script>')[0];
   return new Function(code + `
-    ;return { newRun, prepareDay, advanceTick, closeDay, startNextDay, tradeStock, closeStock, buyOption, useTip,
+    ;return { newRun, prepareDay, advanceTick, closeDay, startNextDay, tradeStock, closeStock, buyOption, writeOption, useTip,
       quoteOption, simulateCloses, tickMarket, makeRandom, deckToPile, buildDeck, shopCatalogue, buyShopItem, applyDeckEdit,
       totalEquity, currentPrice, tipStatus, meetingTarget,
-      TICKS_PER_DAY, STRIKE_OFFSETS, SIZE_STEPS, MEETING_EVERY_DAYS, MEETING_MULTIPLES };`)();
+      TICKS_PER_DAY, MEETING_EVERY_DAYS, MEETING_MULTIPLES };`)();
 }
 const game = loadGame();
 
@@ -90,17 +90,25 @@ function rigDeck(run) {
 }
 
 const STRATEGIES = {
+  // Sells the option the rumour says will expire worthless, at the money, with half the margin.
+  writer: {
+    beforeOpen(run) {
+      if (game.tipStatus(run, 'rumour') === 'ready' && run.heat < 85) game.useTip(run, 'rumour');
+      const rumour = run.today.insights.rumour, kind = rumour && rumour.direction === 'up' ? 'put' : 'call';
+      if (rumour && run.unlocked[kind]) game.writeOption(run, kind, game.currentPrice(run.today), 0.5);
+    },
+    shop(run) { buyFirstAffordable(run, ['unlock:put', 'unlock:call', 'unlock:short', 'leverage']); },
+  },
   cash: { beforeOpen() {}, shop() {} },
   coin: {
-    beforeOpen(run) { run.controls.stockSize = 3; game.tradeStock(run, Math.random() < 0.5 ? 1 : -1); },
+    beforeOpen(run) { game.tradeStock(run, Math.random() < 0.5 ? 1 : -1, 1); },
     shop(run) { buyFirstAffordable(run, ['unlock:short']); },
   },
   rumour: {
     beforeOpen(run) {
-      run.controls.stockSize = 3;
       if (game.tipStatus(run, 'rumour') === 'ready' && run.heat < 85) game.useTip(run, 'rumour');
       const rumour = run.today.insights.rumour;
-      if (rumour) game.tradeStock(run, rumour.direction === 'up' ? 1 : -1);
+      if (rumour) game.tradeStock(run, rumour.direction === 'up' ? 1 : -1, 1);
     },
     shop(run) { buyFirstAffordable(run, ['unlock:short', 'leverage']) || rigDeck(run); },
   },
@@ -115,13 +123,8 @@ const STRATEGIES = {
       else if (insights.rumour) direction = insights.rumour.direction === 'up' ? 1 : -1;
       if (!direction) return;
       const kind = direction > 0 ? 'call' : 'put';
-      if (run.unlocked[kind]) {
-        run.controls.optionKind = kind; run.controls.optionSize = insights.rumour && !insights.analyst && !insights.exactClose ? 1 : 3;
-        run.controls.strikeStep = game.STRIKE_OFFSETS.indexOf(0);
-        game.buyOption(run);
-      }
-      run.controls.stockSize = 3;
-      if (run.unlocked.short || direction > 0) game.tradeStock(run, direction);
+      if (run.unlocked[kind]) game.buyOption(run, kind, open, insights.rumour && !insights.analyst && !insights.exactClose ? 0.25 : 1);
+      if (run.unlocked.short || direction > 0) game.tradeStock(run, direction, 1);
     },
     shop(run) {
       buyFirstAffordable(run, ['unlock:call', 'unlock:put', 'unlock:short', 'tip:analyst', 'leverage', 'tip:exactClose']) || rigDeck(run);

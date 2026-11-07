@@ -9,109 +9,108 @@
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font:14px var(--sans);user-select:none;-webkit-user-select:none}
 button{font:inherit;color:inherit}
-.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .up{color:var(--up)} .down{color:var(--down)} .dim{color:var(--dim)} .heat{color:var(--heat)} .gold{color:var(--accent)}
 
-/* top bar: fixed slots, nothing resizes */
-#top{height:58px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--line);background:#0b0d10}
-#brand{font:800 15px var(--mono);letter-spacing:.3em;color:var(--accent);width:118px}
-.slot{background:var(--panel);border:1px solid var(--line);border-radius:10px;height:40px;padding:0 12px;display:flex;flex-direction:column;justify-content:center;font-family:var(--mono);font-variant-numeric:tabular-nums}
-.slot small{font:600 10px var(--sans);letter-spacing:.12em;color:var(--dim);text-transform:uppercase}
-.slot b{font-size:15px;white-space:nowrap;overflow:hidden}
-#daySlot{width:130px} #equitySlot{width:200px} #equitySlot b{font-size:19px} #cashSlot{width:150px}
-#heatSlot{width:170px} #meetingSlot{width:200px}
-#heatBar{height:5px;border-radius:3px;background:#2a2016;margin-top:3px;overflow:hidden}
-#heatBar i{display:block;height:100%;background:linear-gradient(90deg,#ffb347,#ff5a3d);width:0}
-.spacer{flex:1}
-.pill{background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:6px 12px;cursor:pointer;font:600 13px var(--sans)}
-.pill:hover{background:#262d38}
-.flashUp{animation:flashUp .45s} .flashDown{animation:flashDown .45s}
-@keyframes flashUp{0%{color:var(--up);transform:scale(1.08)}100%{transform:scale(1)}}
-@keyframes flashDown{0%{color:var(--down);transform:scale(1.08)}100%{transform:scale(1)}}
+#app{position:fixed;inset:0;display:grid;grid-template-columns:310px 1fr;gap:18px;padding:18px}
 
-#main{position:absolute;top:58px;left:0;right:0;bottom:0;display:grid;grid-template-columns:1fr 392px;gap:12px;padding:12px}
-#left{display:grid;grid-template-rows:1fr 52px 214px;gap:10px;min-height:0}
-#right{display:grid;grid-template-rows:auto 1fr;gap:10px;min-height:0}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;position:relative;min-height:0}
-.panel h3{margin:0 0 6px;font:700 11px var(--sans);letter-spacing:.14em;color:var(--dim);text-transform:uppercase;display:flex;justify-content:space-between}
-#chartBox{padding:0;overflow:hidden}
+/* the side menu: the only place with numbers */
+#side{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;font-family:var(--mono);font-variant-numeric:tabular-nums;min-height:0}
+#brand{font:800 14px var(--mono);letter-spacing:.3em;color:var(--accent)}
+.sideHead{display:flex;justify-content:space-between;align-items:baseline;margin-top:10px}
+.sideHead b{font-size:15px}
+.clock{font:800 24px var(--mono)}
+.label{font:700 10px var(--sans);letter-spacing:.14em;color:var(--dim);text-transform:uppercase;margin-top:14px;display:flex;justify-content:space-between}
+.value{font-size:22px;font-weight:800;margin-top:2px}
+.line{font-size:13px;height:20px;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;justify-content:space-between;gap:8px}
+.rule{border-top:1px solid var(--line);margin-top:14px}
+.heatBar{height:6px;border-radius:3px;background:#2a2016;overflow:hidden;margin-top:6px}
+.heatBar i{display:block;height:100%;background:linear-gradient(90deg,#ffb347,#ff5a3d)}
+.sideButtons{margin-top:auto;display:flex;gap:8px;padding-top:14px}
+.sideButtons .button{flex:1}
+.flashUp{animation:flashUp .45s} .flashDown{animation:flashDown .45s}
+@keyframes flashUp{0%{color:var(--up);transform:scale(1.06)}}
+@keyframes flashDown{0%{color:var(--down);transform:scale(1.06)}}
+
+/* the main column: chart, then the buttons to press */
+#mainColumn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;min-width:0}
+#chartBox{position:relative;width:100%;max-width:980px;height:clamp(260px,54vh,520px);background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
 #chart{width:100%;height:100%;display:block}
-.shake{animation:shake .35s}
-.shakeBig{animation:shakeBig .6s}
+#lastCards{position:absolute;top:12px;left:12px;display:flex;gap:6px;align-items:center;pointer-events:none}
+#pauseNote{position:absolute;inset:0;display:none;place-items:center;font:800 32px var(--mono);letter-spacing:.3em;color:var(--accent);background:rgba(0,0,0,.45);pointer-events:none}
+.shake{animation:shake .35s} .shakeBig{animation:shakeBig .6s}
 @keyframes shake{20%{transform:translate(-4px,2px)}40%{transform:translate(4px,-2px)}60%{transform:translate(-3px,1px)}80%{transform:translate(2px,-1px)}}
 @keyframes shakeBig{10%{transform:translate(-12px,5px)}25%{transform:translate(11px,-6px)}40%{transform:translate(-9px,4px)}55%{transform:translate(7px,-3px)}75%{transform:translate(-4px,2px)}}
+#actions{display:flex;gap:10px;align-items:center;justify-content:center;height:70px;width:100%;max-width:980px}
+#actions .gap{width:18px}
 
-/* the tape: cards drawn today, newest on the right; peeked cards after the divider */
-#tape{display:flex;align-items:center;gap:5px;padding:0 10px;overflow:hidden}
-.chip{flex:none;height:30px;min-width:44px;padding:0 7px;border-radius:7px;display:grid;place-items:center;font:700 12px var(--mono);border:1px solid;background:var(--panel2)}
+.button{font:800 13px var(--sans);letter-spacing:.06em;border-radius:10px;border:1px solid var(--line);border-bottom-width:3px;background:var(--panel2);padding:12px 18px;cursor:pointer;white-space:nowrap}
+.button:hover{filter:brightness(1.2)} .button:active{transform:translateY(2px);border-bottom-width:1px}
+.button.primary{background:#3b3014;border-color:#8a6d22;color:#ffe08a;padding:14px 30px;font-size:15px}
+.button.locked{opacity:.35;cursor:default;filter:none}
+.button kbd{font:600 10px var(--mono);opacity:.55;margin-left:6px}
+.button.suggest{animation:glow 1.4s ease-in-out infinite}
+@keyframes glow{50%{box-shadow:0 0 0 3px rgba(255,201,77,.3),0 0 24px rgba(255,201,77,.35)}}
+.tipButton{width:54px;height:54px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);display:grid;place-items:center;align-content:center;cursor:pointer;position:relative;font:700 10px var(--mono);color:var(--heat)}
+.tipButton .icon{font-size:20px;line-height:1.1}
+.tipButton.used{border-color:var(--accent);background:#2e2812}
+.tipButton.locked,.tipButton.cooling,.tipButton.unavailable{opacity:.3;cursor:default}
+.tipButton .cd{position:absolute;top:2px;right:4px;color:var(--dim)}
+.toggle{padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;font:700 12px var(--sans)}
+.toggle.on{background:#2b3a52;border-color:var(--vol);color:#d3e8ff}
+.toggle.locked{opacity:.35;cursor:default}
+
+/* card chips (the last card drawn, the deck window, the deck picker) */
+.chip{flex:none;height:30px;min-width:46px;padding:0 8px;border-radius:7px;display:inline-grid;place-items:center;font:700 12px var(--mono);border:1px solid;background:var(--panel2)}
 .chip.price.pos{color:var(--up);border-color:#1f6b43} .chip.price.neg{color:var(--down);border-color:#7a2b2e}
 .chip.vol{color:var(--vol);border-color:#2a4f78} .chip.event{color:var(--event);border-color:#7a5f1f}
 .chip.extreme{box-shadow:0 0 0 2px currentColor inset}
-.chip.future{border-style:dashed;opacity:.8}
+.chip.future{border-style:dashed;opacity:.75}
 .chip.fresh{animation:pop .3s}
-@keyframes pop{0%{transform:translateY(-14px) scale(1.3)}100%{transform:none}}
-#tape .divider{flex:none;width:2px;height:30px;background:var(--accent);opacity:.6;margin:0 4px}
-#tape .label{flex:none;font:700 10px var(--sans);letter-spacing:.12em;color:var(--dim);text-transform:uppercase}
+@keyframes pop{0%{transform:translateY(-10px) scale(1.35)}}
 
-#controls{display:grid;grid-template-columns:1fr 1fr 1.15fr;gap:10px;min-height:0}
-.row{display:flex;align-items:center;gap:8px;height:28px;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
-.row .name{font:600 11px var(--sans);letter-spacing:.08em;color:var(--dim);text-transform:uppercase;width:58px}
-.stepper{display:flex;align-items:center;gap:4px}
-.stepper button{width:24px;height:24px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;font:700 14px var(--mono);line-height:1}
-.stepper button:hover{background:#2a323e}
-.stepper span{min-width:96px;text-align:center}
-.big{font:800 13px var(--sans);letter-spacing:.06em;border-radius:9px;border:1px solid var(--line);border-bottom-width:3px;background:var(--panel2);padding:7px 0;cursor:pointer;flex:1}
-.big:hover{filter:brightness(1.2)} .big:active{transform:translateY(2px);border-bottom-width:1px}
-.big.long{background:#173a28;border-color:#2a7a4f;color:#9ff0c4} .big.short{background:#3d1a1d;border-color:#8a3035;color:#ffb1b4}
-.big.gold{background:#3b3014;border-color:#8a6d22;color:#ffe08a}
-.big.locked,.toggle.locked{opacity:.35;cursor:default;filter:none}
-.big kbd,.toggle kbd{font:600 10px var(--mono);opacity:.6;margin-left:4px}
-.toggle{flex:1;padding:4px 0;border-radius:7px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;font:700 12px var(--sans);letter-spacing:.08em}
-.toggle.on{background:#2b3a52;border-color:var(--vol);color:#d3e8ff}
-.lots{margin-top:4px}
-.lot{display:flex;align-items:center;gap:6px;height:22px;font:600 12px var(--mono);border-top:1px solid var(--line)}
-.lot .x{margin-left:auto;cursor:pointer;color:var(--dim);border:1px solid var(--line);border-radius:5px;padding:0 6px}
-.lot .x:hover{color:var(--ink)}
-.lot.empty{color:var(--faint)}
-
-/* day panel: tips before the open, the clock during the day */
-.tips{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:4px 0 8px}
-.tip{height:70px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);display:grid;place-items:center;align-content:center;gap:2px;cursor:pointer;position:relative}
-.tip .icon{font-size:20px} .tip .heatCost{font:700 11px var(--mono);color:var(--heat)}
-.tip.used{border-color:var(--accent);background:#2e2812}
-.tip.locked{opacity:.3;cursor:default} .tip.cooling{opacity:.45;cursor:default}
-.tip .cd{position:absolute;top:3px;right:5px;font:700 10px var(--mono);color:var(--dim)}
-#clockBig{font:800 40px var(--mono);text-align:center;margin:4px 0}
-.badges{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;height:26px}
-.badge{font:700 11px var(--mono);padding:3px 8px;border-radius:99px;border:1px solid var(--line);background:var(--panel2)}
-.badge.hot{border-color:var(--heat);color:var(--heat)} .badge.ev{border-color:#7a5f1f;color:var(--event)}
-.insight{font:600 12px var(--mono);color:var(--accent);text-align:center;height:34px;line-height:17px;margin-top:4px;overflow:hidden}
-
-/* deck tracker */
-#deck .grid{display:grid;grid-template-columns:1fr 1fr;gap:3px 10px}
-.deckRow{display:flex;align-items:center;gap:6px;height:21px;font:600 12px var(--mono)}
-.deckRow .lab{width:62px} .deckRow .val{width:42px;color:var(--dim);font-size:11px} .deckRow .cnt{margin-left:auto}
-.deckRow .cnt small{color:var(--faint);font-size:10px}
-.deckRow.gone{opacity:.3}
-#deck .events{margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;min-height:22px}
-#forecastPanel{display:flex;flex-direction:column}
-#histogram{flex:1;width:100%;min-height:0;display:block}
-#forecastLine{font:600 12px var(--mono);height:20px;text-align:center}
-
-/* overlays and choice cards */
+/* overlays */
 #overlay{position:fixed;inset:0;display:none;place-items:center;background:rgba(5,6,8,.78);backdrop-filter:blur(3px);z-index:10;padding:16px}
 #overlay.show{display:grid}
+#overlay.soft{background:rgba(5,6,8,.45);backdrop-filter:none}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:24px 30px;box-shadow:0 10px 0 #050608;text-align:center;max-width:100%;max-height:100%;overflow:auto}
-.card h1{margin:0 0 6px;font:800 28px var(--sans)}
+.card h1{margin:0 0 6px;font:800 26px var(--sans)}
 .card .title{font:800 54px var(--mono);letter-spacing:.3em;color:var(--accent);margin:8px 0 2px}
 .card .huge{font:800 56px var(--mono);margin:6px 0;font-variant-numeric:tabular-nums}
-.card .line{color:var(--dim);margin:5px 0;font-family:var(--mono)}
-.card .keys{margin-top:18px;display:flex;gap:10px;justify-content:center}
-.key{font:600 12px var(--mono);border:1px solid var(--line);border-bottom-width:3px;border-radius:6px;padding:2px 7px;background:var(--panel2)}
+.card .note{color:var(--dim);margin:5px 0;font-family:var(--mono)}
 .menuButtons{display:flex;gap:12px;justify-content:center;margin-top:18px}
-.menuButtons .big{flex:none;padding:10px 26px}
+.key{font:600 12px var(--mono);border:1px solid var(--line);border-bottom-width:3px;border-radius:6px;padding:2px 7px;background:var(--panel2)}
+.keys{margin-top:16px;display:flex;gap:8px;justify-content:center;align-items:center;color:var(--dim)}
+
+/* the trade menu: one question at a time */
+.tradeCard{width:460px;text-align:left}
+.tradeCard h1{font-size:20px;display:flex;justify-content:space-between;align-items:baseline}
+.tradeCard h1 small{font:600 13px var(--mono);color:var(--dim)}
+.choiceRow{display:flex;align-items:center;gap:12px;height:46px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);margin-top:7px;cursor:pointer;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.choiceRow .number{color:var(--faint);width:12px}
+.choiceRow .main{font-weight:800;font-size:15px}
+.choiceRow .detail{margin-left:auto;color:var(--dim);font-size:12px}
+.choiceRow.selected{border-color:var(--accent);background:#2a2514}
+.choiceRow.locked{opacity:.35;cursor:default}
+.slider{width:100%;accent-color:var(--accent);margin:18px 0 6px;height:26px}
+.sliderEnds{display:flex;justify-content:space-between;font:600 11px var(--mono);color:var(--faint)}
+.amount{font:800 20px var(--mono);text-align:center;margin:14px 0 4px;font-variant-numeric:tabular-nums}
+.amountNote{font:600 12px var(--mono);text-align:center;color:var(--dim);height:18px}
+.tradeCard .confirm{width:100%;margin-top:16px}
+
+/* the deck window */
+.card.fullScreen{width:calc(100vw - 48px);height:calc(100vh - 48px);display:flex;flex-direction:column}
+.deckGrid{flex:1;display:grid;grid-template-columns:repeat(8,1fr);grid-auto-rows:1fr;gap:14px;margin-top:18px;min-height:0}
+.deckCard{border-radius:14px;background:var(--panel2);border:1px solid var(--line);display:grid;place-items:center;align-content:center;gap:10px;font:700 14px var(--mono)}
+.deckCard .chip{height:40px;min-width:70px;font-size:16px}
+.deckCard .count{font-size:26px} .deckCard .count small{color:var(--faint);font-size:14px}
+.deckCard.gone{opacity:.3}
+
+/* shop and deck picker cards */
 .shopHead{display:flex;align-items:center;gap:16px;margin-bottom:10px}
 .shopHead h1{margin:0}
+.spacer{flex:1}
+.slot{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:4px 12px;display:flex;flex-direction:column;font-family:var(--mono)}
+.slot small{font:600 10px var(--sans);letter-spacing:.12em;color:var(--dim);text-transform:uppercase}
 .shopRows{display:grid;gap:10px;text-align:left}
 .shopRow{display:flex;gap:10px;align-items:center}
 .shopRow .rowName{width:72px;font:700 11px var(--sans);letter-spacing:.12em;color:var(--dim);text-transform:uppercase}
@@ -126,35 +125,14 @@ button{font:inherit;color:inherit}
 .choice.locked{opacity:.35}
 #selectedSentence{height:24px;margin-top:14px;color:var(--ink);font-size:15px}
 #tooltip{position:fixed;z-index:20;pointer-events:none;background:#000;border:1px solid var(--line);border-radius:6px;padding:4px 8px;font:600 12px var(--sans);display:none;max-width:260px}
-#pauseNote{position:absolute;inset:0;display:none;place-items:center;font:800 32px var(--mono);letter-spacing:.3em;color:var(--accent);background:rgba(0,0,0,.45);pointer-events:none}
 </style></head>
 <body>
-<div id="top">
-  <span id="brand">INSIDER</span>
-  <div class="slot" id="daySlot"><small>day</small><b id="dayText"></b></div>
-  <div class="slot" id="equitySlot"><small>equity</small><b id="equityText"></b></div>
-  <div class="slot" id="cashSlot"><small>cash</small><b id="cashText"></b></div>
-  <div class="slot" id="heatSlot" data-tip="SEC heat: at 100 an investigation starts"><small>heat <span id="heatNote"></span></small><b id="heatText"></b><div id="heatBar"><i></i></div></div>
-  <div class="slot" id="meetingSlot" data-tip="Investor meeting: equity must reach the target at the close"><small id="meetingLabel">meeting</small><b id="meetingText"></b></div>
-  <span class="spacer"></span>
-  <button class="pill" data-action="speed" id="speedButton" data-tip="Game speed (F)">1×</button>
-  <button class="pill" data-action="sound" id="soundButton" data-tip="Sound (M)">♪</button>
-  <button class="pill" data-action="menu" data-tip="Menu (Esc)">☰</button>
-</div>
-<div id="main">
-  <div id="left">
-    <div class="panel" id="chartBox"><canvas id="chart"></canvas><div id="pauseNote">PAUSED</div></div>
-    <div class="panel" id="tape"></div>
-    <div id="controls">
-      <div class="panel" id="stockPanel"></div>
-      <div class="panel" id="optionPanel"></div>
-      <div class="panel" id="dayPanel"></div>
-    </div>
-  </div>
-  <div id="right">
-    <div class="panel" id="deck"></div>
-    <div class="panel" id="forecastPanel"><h3><span>close forecast</span><span>fair odds</span></h3><canvas id="histogram"></canvas><div id="forecastLine"></div></div>
-  </div>
+<div id="app">
+  <aside id="side"></aside>
+  <main id="mainColumn">
+    <div id="chartBox"><canvas id="chart"></canvas><div id="lastCards"></div><div id="pauseNote">PAUSED</div></div>
+    <div id="actions"></div>
+  </main>
 </div>
 <div id="overlay"></div>
 <div id="tooltip"></div>
@@ -172,13 +150,13 @@ button{font:inherit;color:inherit}
    § 2 HELPERS         number formatting, seeded random numbers, shuffling
    § 3 DECKS           card labels, deck sizes, turning a deck into a pile of cards
    § 4 MARKET          one tick of the market, the day's schedule, the market maker's forecast
-   § 5 ACCOUNT         equity, stock trades, margin calls, stops, options, the close
+   § 5 ACCOUNT         equity, stock trades, bought and written options, margin calls, the close
    § 6 INSIDER & HEAT  what each tip reveals, heat, investigations
    § 7 RUN             new run, days, meetings, the shop catalogue, saving
    § 8 SOUND           small synthesised effects
-   § 9 CHART           the price chart and the forecast histogram
-   § 10 PANELS         top bar, tape, trading panels, deck tracker
-   § 11 OVERLAYS       title, day result, shop, deck picker, game over
+   § 9 CHART           the price path and the forecast (top 10%, average, bottom 10%)
+   § 10 PANELS         the side menu, the action buttons, the last card drawn
+   § 11 OVERLAYS       title, menu, day result, game over, deck window, trade menu, shop, deck picker
    § 12 INPUT          mouse actions, keyboard, tooltips
    § 13 START          main loop and start-up (only in a browser; tools/ load §1-§7 headless) */
 
@@ -259,17 +237,19 @@ const STARTING_TICKER = 'NOVA';
 const STOCK_TRANSACTION_COST = 0.001;           // 0.1% of the traded value
 const OPTION_TRANSACTION_COST = 0.03;           // options are bought 3% above and sold 3% below fair value
 
-// 1.6 Trading controls
-const SIZE_STEPS = [0.1, 0.25, 0.5, 1];         // share of buying power used per click
-const STOP_STEPS = [0, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5];  // stop-loss / take-profit distance from entry (0 = off)
-const STRIKE_OFFSETS = [-0.5, -0.3, -0.2, -0.1, -0.05, 0, 0.05, 0.1, 0.2, 0.3, 0.5, 1];  // strike vs the current price
+// 1.6 The trade menu
+const SLIDER_DEFAULT_PERCENT = 50;              // the amount slider starts here …
+const SLIDER_STEP_PERCENT = 5;                  // … and moves in these steps (← → keys too)
+const CALL_STRIKE_OFFSETS = [-0.1, 0, 0.05, 0.1, 0.2, 0.35, 0.5, 1];      // strikes offered, vs the current price
+const PUT_STRIKE_OFFSETS = [0.1, 0, -0.05, -0.1, -0.2, -0.35, -0.5, -0.75];
 const LEVERAGE_TIERS = [1, 2, 5, 10, 25, 100];  // buying power = equity × leverage
 const LEVERAGE_PRICES = [0, 250, 1500, 8000, 50000, 500000];
 const MAINTENANCE_SHARE = 0.5;                  // margin call when equity < exposure × this ÷ leverage
 
 // 1.7 The market maker prices options fairly from the cards left in the deck
 const FORECAST_PATHS = 1500;                    // simulated rest-of-days per forecast
-const HISTOGRAM_BINS = 30;
+const FORECAST_LOW_QUANTILE = 0.1;              // the chart shows the bottom 10%, the average and the top 10% close
+const FORECAST_HIGH_QUANTILE = 0.9;
 
 // 1.8 Insider tips: used before the open, each adds heat and then rests for some days
 const INSIDER_TIPS = {
@@ -311,8 +291,9 @@ const UNLOCK_PRICES = { short: 150, call: 300, put: 300 };
 const TICKER_PRICES = { UTIL: 800, BIOX: 1500 };
 
 // 1.12 Look
-const CHART_COLOURS = { up: '#3ddc84', down: '#ff5a5f', open: '#4a5563', grid: '#1e242d', label: '#8592a3',
-  entry: '#ffc94d', stop: '#ff8a3d', call: '#3ddc84', put: '#ff5a5f', insight: '#ffc94d', sigma: '#6cb6ff' };
+const CHART_COLOURS = { up: '#3ddc84', down: '#ff5a5f', average: '#edf1f5', open: '#3a4350', label: '#8592a3',
+  entry: '#ffc94d', stop: '#ff8a3d', insight: '#ffc94d', sigma: '#6cb6ff' };
+const SIDE_LOTS_SHOWN = 3;                      // option lots listed in the side menu
 const FLOATER_SECONDS = 1.2;                    // P&L pops and messages over the chart fade in this time
 const FLOATERS_SHOWN = 3;                       // at most this many at once, stacked
 
@@ -495,33 +476,43 @@ function quoteOption(closes, kind, strike) {
 }
 
 // ═══════════════════════════════════════ § 5 ACCOUNT ═══════════════════════════════════════
-// Cash can go negative (money borrowed on margin) and grows when you short (the sale proceeds). The stock
-// position is a signed share count. Options are paid in cash and add nothing to buying power.
+// Cash can go negative (money borrowed on margin) and grows when you short or write options (you receive the money).
+// The stock position is a signed share count. Option lots are { kind: call|put, side: long|short, strike, quantity,
+// paid } where paid is what was paid (long) or received (short). Bought options are paid from free cash and give no
+// buying power; written options count as exposure like a short of the same number of shares.
 function currentPrice(today) { return today.schedule.states[today.tick].price; }
 function maximumLeverage(run) { return run.today && run.today.investigation ? 1 : LEVERAGE_TIERS[run.leverageTier]; }
-function marginEquity(run) { return run.cash + run.today.shares * currentPrice(run.today); }
-function exposure(run) { return Math.abs(run.today.shares * currentPrice(run.today)); }
-function optionLotValue(run, lot) {
+function lotSign(lot) { return lot.side === 'short' ? -1 : 1; }
+function intrinsicValue(lot, price) { return Math.max(0, lot.kind === 'call' ? price - lot.strike : lot.strike - price); }
+// What the lot is worth to its holder right now: fair value during the day, intrinsic value at the close.
+function lotMarketValue(run, lot) {
   const today = run.today;
-  if (today.tick >= TICKS_PER_DAY || !today.forecast) {
-    const close = currentPrice(today);
-    return Math.max(0, lot.kind === 'call' ? close - lot.strike : lot.strike - close) * lot.quantity;
-  }
+  if (today.tick >= TICKS_PER_DAY || !today.forecast) return intrinsicValue(lot, currentPrice(today)) * lot.quantity;
   return quoteOption(today.forecast, lot.kind, lot.strike).fairValue * lot.quantity;
 }
-function optionsValue(run) { return run.today.optionLots.reduce((total, lot) => total + optionLotValue(run, lot), 0); }
-function totalEquity(run) { return run.today ? marginEquity(run) + optionsValue(run) : run.cash; }
-// Cash not tied up as margin: what options can be bought with.
+function lotValue(run, lot) { return lotSign(lot) * lotMarketValue(run, lot); }            // negative for written lots
+function lotBuyIn(lot) { return lotSign(lot) * lot.paid; }                                  // negative for written lots
+function writtenLots(run) { return run.today.optionLots.filter(lot => lot.side === 'short'); }
+function writtenLiability(run) { return writtenLots(run).reduce((total, lot) => total + lotMarketValue(run, lot), 0); }
+function writtenNotional(run) { return writtenLots(run).reduce((total, lot) => total + lot.quantity, 0) * currentPrice(run.today); }
+function marginEquity(run) { return run.cash + run.today.shares * currentPrice(run.today) - writtenLiability(run); }
+function exposure(run) { return Math.abs(run.today.shares * currentPrice(run.today)) + writtenNotional(run); }
+function totalEquity(run) {
+  if (!run.today) return run.cash;
+  return run.cash + run.today.shares * currentPrice(run.today) + run.today.optionLots.reduce((total, lot) => total + lotValue(run, lot), 0);
+}
+function buyingPower(run) { return Math.max(0, marginEquity(run)) * maximumLeverage(run) / (1 + STOCK_TRANSACTION_COST); }
+// Cash not needed as margin: what options can be bought with.
 function freeCash(run) { return Math.max(0, marginEquity(run) - exposure(run) / maximumLeverage(run)); }
+function hasPositions(run) { return run.today.shares !== 0 || run.today.optionLots.length > 0; }
 
 // Move the stock position to newShares at the current price, paying the transaction cost.
 function setShares(run, newShares) {
   const today = run.today, price = currentPrice(today);
   const change = newShares - today.shares;
   if (Math.abs(change) * price < 1e-9) return 0;
-  const cost = Math.abs(change) * price * STOCK_TRANSACTION_COST;
-  run.cash -= change * price + cost;
-  const sameDirection = Math.sign(newShares) === Math.sign(today.shares) && today.shares !== 0;
+  run.cash -= change * price + Math.abs(change) * price * STOCK_TRANSACTION_COST;
+  const sameDirection = today.shares !== 0 && Math.sign(newShares) === Math.sign(today.shares);
   if (newShares === 0) today.averageEntry = 0;
   else if (sameDirection && Math.abs(newShares) > Math.abs(today.shares))
     today.averageEntry = (today.averageEntry * today.shares + price * change) / newShares;
@@ -530,71 +521,92 @@ function setShares(run, newShares) {
   today.tradeCount++;
   return change;
 }
-
-// Buy (direction +1) or sell / short (−1) one size step of buying power. Returns the share change, or a reason.
-function tradeStock(run, direction) {
+// How many shares can still be bought (direction +1) or sold / shorted (−1).
+function stockRoom(run, direction) {
   const today = run.today, price = currentPrice(today);
-  const equity = marginEquity(run);
-  if (equity <= 0) return 'No equity left';
-  const leverage = maximumLeverage(run);
-  const buyingPower = equity * leverage / (1 + STOCK_TRANSACTION_COST);
-  const stepShares = SIZE_STEPS[run.controls.stockSize] * buyingPower / price;
-  let newShares = today.shares + direction * stepShares;
-  newShares = clamp(newShares, -buyingPower / price, buyingPower / price);
-  if (!run.unlocked.short) newShares = Math.max(0, newShares);
-  if (direction < 0 && !run.unlocked.short && today.shares <= 0) return 'Shorting is locked';
-  const change = setShares(run, newShares);
-  return change === 0 ? 'Position limit reached' : change;
+  const largestPosition = Math.max(0, buyingPower(run) - writtenNotional(run)) / price;
+  if (direction > 0) return Math.max(0, largestPosition - today.shares);
+  if (!run.unlocked.short) return Math.max(0, today.shares);
+  return Math.max(0, largestPosition + today.shares);
+}
+// Buy or sell this fraction of the room. Returns the share change, or a reason it did not happen.
+function tradeStock(run, direction, fraction) {
+  const change = direction * fraction * stockRoom(run, direction);
+  if (Math.abs(change) * currentPrice(run.today) < 0.01) return 'Nothing to trade';
+  setShares(run, run.today.shares + change);
+  return change;
 }
 function closeStock(run) { return setShares(run, 0); }
 
-// Run after every tick: stop-loss, take-profit, then the margin call. Returns a message or null.
-function checkStopsAndMargin(run) {
-  const today = run.today, price = currentPrice(today);
-  if (today.shares === 0) return null;
-  const direction = Math.sign(today.shares);
-  const gain = direction * (price / today.averageEntry - 1);
-  const stopDistance = STOP_STEPS[run.controls.stopStep], targetDistance = STOP_STEPS[run.controls.targetStep];
-  if (stopDistance > 0 && gain <= -stopDistance) { closeStock(run); return 'Stop-loss hit'; }
-  if (targetDistance > 0 && gain >= targetDistance) { closeStock(run); return 'Target hit'; }
-  if (marginEquity(run) < exposure(run) * MAINTENANCE_SHARE / maximumLeverage(run)) { closeStock(run); return 'Margin call!'; }
-  return null;
-}
-
-function strikeFor(run) { return currentPrice(run.today) * (1 + STRIKE_OFFSETS[run.controls.strikeStep]); }
 function optionsAllowed(run, kind) { return run.unlocked[kind] && !run.today.investigation && run.today.tick < TICKS_PER_DAY; }
-// Buy one size step of free cash worth of the selected option. Lots with the same kind and strike merge.
-function buyOption(run) {
-  const today = run.today, kind = run.controls.optionKind;
-  if (!optionsAllowed(run, kind)) return 'Options locked';
-  const strike = strikeFor(run);
-  const quote = quoteOption(today.forecast, kind, strike);
-  if (quote.askPrice <= currentPrice(today) * 1e-6) return 'No chance at that strike';
-  const spend = SIZE_STEPS[run.controls.optionSize] * freeCash(run);
-  if (spend < 0.01) return 'No free cash';
-  const quantity = spend / quote.askPrice;
-  run.cash -= spend;
-  const existing = today.optionLots.find(lot => lot.kind === kind && Math.abs(lot.strike - strike) < 1e-9);
-  if (existing) { existing.quantity += quantity; existing.paid += spend; }
-  else today.optionLots.push({ kind, strike, quantity, paid: spend });
-  today.tradeCount++;
-  return spend;
+function strikeOffsets(kind) { return kind === 'call' ? CALL_STRIKE_OFFSETS : PUT_STRIKE_OFFSETS; }
+// What one option at this strike costs to buy (ask) or brings in when written (bid), with its odds.
+function optionTerms(run, kind, strike) {
+  const quote = quoteOption(run.today.forecast, kind, strike);
+  return { ...quote, bidPrice: quote.fairValue * (1 - OPTION_TRANSACTION_COST) };
 }
-function sellOptionLot(run, lotIndex) {
+// How many options can be written: like shorting that many shares.
+function writeRoom(run) { return Math.max(0, (Math.max(0, marginEquity(run)) * maximumLeverage(run) - exposure(run)) / currentPrice(run.today)); }
+function addLot(run, newLot) {
+  const lots = run.today.optionLots;
+  const same = lots.find(lot => lot.kind === newLot.kind && lot.side === newLot.side && Math.abs(lot.strike - newLot.strike) < 1e-9);
+  if (same) { same.quantity += newLot.quantity; same.paid += newLot.paid; }
+  else lots.push(newLot);
+  run.today.tradeCount++;
+}
+// Buy options with this fraction of free cash. Returns the quantity, or a reason.
+function buyOption(run, kind, strike, fraction) {
+  if (!optionsAllowed(run, kind)) return 'Options locked';
+  const terms = optionTerms(run, kind, strike);
+  if (terms.askPrice <= currentPrice(run.today) * 1e-6) return 'No chance at that strike';
+  const spend = fraction * freeCash(run);
+  if (spend < 0.01) return 'No free cash';
+  const quantity = spend / terms.askPrice;
+  run.cash -= spend;
+  addLot(run, { kind, side: 'long', strike, quantity, paid: spend });
+  return quantity;
+}
+// Write (sell) options for this fraction of the room: the premium comes in now, the payout is owed at the close.
+function writeOption(run, kind, strike, fraction) {
+  if (!optionsAllowed(run, kind)) return 'Options locked';
+  const terms = optionTerms(run, kind, strike);
+  if (terms.bidPrice <= currentPrice(run.today) * 1e-6) return 'Worth nothing at that strike';
+  const quantity = fraction * writeRoom(run);
+  if (quantity * terms.bidPrice < 0.01) return 'No margin left';
+  run.cash += quantity * terms.bidPrice;
+  addLot(run, { kind, side: 'short', strike, quantity, paid: quantity * terms.bidPrice });
+  return quantity;
+}
+// Sell a bought lot at fair value −cost, or buy back a written one at fair value +cost.
+function closeLot(run, lotIndex) {
   const lot = run.today.optionLots[lotIndex];
   if (!lot) return 0;
-  const proceeds = optionLotValue(run, lot) * (1 - OPTION_TRANSACTION_COST);
-  run.cash += proceeds;
+  const value = lotMarketValue(run, lot);
+  const cashChange = lot.side === 'long' ? value * (1 - OPTION_TRANSACTION_COST) : -value * (1 + OPTION_TRANSACTION_COST);
+  run.cash += cashChange;
   run.today.optionLots.splice(lotIndex, 1);
-  return proceeds;
+  return cashChange;
+}
+function closeEverything(run) {
+  closeStock(run);
+  while (run.today.optionLots.length) closeLot(run, 0);
 }
 
-// The close: the stock position is sold at the last price and options pay what they are worth.
+// Run after every tick: when equity falls below the maintenance margin everything is closed.
+function checkMargin(run) {
+  if (exposure(run) === 0) return null;
+  if (marginEquity(run) >= exposure(run) * MAINTENANCE_SHARE / maximumLeverage(run)) return null;
+  closeStock(run);
+  for (let index = run.today.optionLots.length - 1; index >= 0; index--)
+    if (run.today.optionLots[index].side === 'short') closeLot(run, index);
+  return 'Margin call!';
+}
+
+// The close: the stock position is sold at the last price, options pay (or cost) what they are worth.
 function settleDay(run) {
   const today = run.today, close = currentPrice(today);
   if (today.shares !== 0) closeStock(run);
-  for (const lot of today.optionLots)
-    run.cash += Math.max(0, lot.kind === 'call' ? close - lot.strike : lot.strike - close) * lot.quantity;
+  for (const lot of today.optionLots) run.cash += lotSign(lot) * intrinsicValue(lot, close) * lot.quantity;
   today.optionLots = [];
 }
 
@@ -648,7 +660,6 @@ function newRun(seed = Math.floor(Math.random() * 2 ** 31)) {
     leverageTier: 0, tickersOwned: [STARTING_TICKER], ticker: STARTING_TICKER, decks, tips,
     removalsDone: 0, additionsDone: 0, eventCopiesBought: Object.fromEntries(EVENT_CARDS.map(cardId => [cardId, 0])),
     meetingsPassed: 0, phase: 'preopen', lastResult: null, gameOverReason: null, peakEquity: STARTING_CASH,
-    controls: { stockSize: 1, optionSize: 1, optionKind: 'call', strikeStep: 6, stopStep: 0, targetStep: 0 },
     today: null,
   };
   prepareDay(run);
@@ -672,9 +683,16 @@ function prepareDay(run) {
 function remainingPile(today) { return today.pile.slice(today.schedule.cursorAfter[today.tick]); }
 function refreshForecast(run) {
   const today = run.today;
-  if (today.tick >= TICKS_PER_DAY) { today.forecast = null; return; }
+  if (today.tick >= TICKS_PER_DAY) { today.forecast = null; today.forecastSummary = null; return; }
   const random = makeRandom(mixSeed(run.seed, run.day, today.tick, 5));
   today.forecast = simulateCloses(today.schedule.states[today.tick], remainingPile(today), TICKS_PER_DAY - today.tick, FORECAST_PATHS, random);
+  today.forecastSummary = summariseForecast(today.forecast);
+}
+// The three numbers the chart shows: bottom 10%, average and top 10% of the simulated closes (sorted).
+function summariseForecast(closes) {
+  let total = 0;
+  for (const close of closes) total += close;
+  return { low: closes[Math.floor(closes.length * FORECAST_LOW_QUANTILE)], average: total / closes.length, high: closes[Math.floor(closes.length * FORECAST_HIGH_QUANTILE)] };
 }
 function switchTicker(run, tickerId) {
   if (!run.tickersOwned.includes(tickerId) || run.phase !== 'preopen' || run.today.tickerLocked || run.today.shares !== 0 || run.today.optionLots.length) return false;
@@ -689,7 +707,7 @@ function advanceTick(run) {
   today.tick++;
   const cards = today.schedule.cards[today.tick];
   if (cards.includes('halt')) today.haltSecondsLeft = HALT_SECONDS;
-  const message = checkStopsAndMargin(run);
+  const message = checkMargin(run);
   refreshForecast(run);
   return { cards, message, closed: today.tick >= TICKS_PER_DAY };
 }
@@ -766,10 +784,10 @@ function shopCatalogue(run) {
     sentence: 'Sell shares you do not own: you profit when the price falls, and losses have no ceiling.',
     price: UNLOCK_PRICES.short * inflation, owned: run.unlocked.short });
   items.push({ id: 'unlock:call', row: 'trading', icon: '📈', name: 'Calls', chips: 'pick a strike',
-    sentence: 'Options that pay the close minus your strike. Small stake, big multiple.',
+    sentence: 'Buy calls (pay close − strike: small stake, big multiple) or sell them and keep the premium.',
     price: UNLOCK_PRICES.call * inflation, owned: run.unlocked.call });
   items.push({ id: 'unlock:put', row: 'trading', icon: '🛡', name: 'Puts', chips: 'pick a strike',
-    sentence: 'Options that pay your strike minus the close: a bet on a fall, or insurance.',
+    sentence: 'Buy puts (pay strike − close: a bet on a fall, or insurance) or sell them and keep the premium.',
     price: UNLOCK_PRICES.put * inflation, owned: run.unlocked.put });
   const nextTier = run.leverageTier + 1;
   if (nextTier < LEVERAGE_TIERS.length)
@@ -824,12 +842,14 @@ function applyDeckEdit(run, item, tickerId, cardId) {
 
 // Saving: the whole run is plain data. Forecasts are rebuilt on load.
 function serialiseRun(run) {
-  const copy = { ...run, today: run.today ? { ...run.today, forecast: null } : null };
+  const copy = { ...run, today: run.today ? { ...run.today, forecast: null, forecastSummary: null } : null };
   return JSON.stringify(copy);
 }
 function loadRun(text) {
   const run = JSON.parse(text);
   if (!run || run.version !== 1) return null;
+  delete run.controls;                                                     // saves from before the trade menu
+  if (run.today) for (const lot of run.today.optionLots) lot.side = lot.side || 'long';
   if (run.today) refreshForecast(run);
   return run;
 }
@@ -855,7 +875,6 @@ const sounds = {
   tick(move) { playTone(move >= 0 ? 660 : 440, 0.05, { volume: 0.012, type: 'sine' }); },
   bigCard(positive) { playTone(positive ? 520 : 300, 0.35, { volume: 0.06, slideTo: positive ? 1040 : 120, type: 'sawtooth' }); },
   trade(direction) { playTone(direction > 0 ? 880 : 330, 0.09, { volume: 0.05, type: 'square' }); },
-  option() { [700, 940, 1250].forEach((frequency, index) => playTone(frequency, 0.08, { volume: 0.035, delay: index * 0.05 })); },
   bad() { playTone(220, 0.4, { volume: 0.07, slideTo: 90, type: 'sawtooth' }); },
   tip() { playTone(1200, 0.12, { volume: 0.03, type: 'sine', slideTo: 1600 }); },
   cash(positive) { (positive ? [523, 659, 784, 1047] : [392, 330, 262]).forEach((frequency, index) => playTone(frequency, 0.14, { volume: 0.05, delay: index * 0.08 })); },
@@ -867,7 +886,8 @@ const sounds = {
 // Everything the screen keeps that is not part of the saved run.
 const view = {
   run: null, speedIndex: 0, paused: false, overlay: null,
-  floaters: [], lastEquity: null, freshTick: -1,            // chart pops, equity flash, the newest tape chip
+  floaters: [], lastEquity: null, freshTick: -1,            // chart pops, equity flash, the newest card chip
+  trade: null,                                              // the open trade menu (see § 11)
   shopItems: [], shopSelection: 0,                          // the shop's cards and the selected one
   pickerItem: null, pickerTicker: null, pickerCardsShown: [], pickerSelection: 0,   // the deck picker
 };
@@ -882,9 +902,10 @@ function fitCanvas(canvas) {
   return { context, width: box.width, height: box.height };
 }
 
-// Price levels the chart should keep in view besides the path itself.
-function chartReferenceLevels(run) {
-  const today = run.today, levels = [];
+// Price levels the chart keeps in view besides the path: the forecast, your entry and strikes, insider marks.
+function chartLevels(run) {
+  const today = run.today, levels = [today.schedule.states[0].price];
+  if (today.forecastSummary) levels.push(today.forecastSummary.low, today.forecastSummary.high);
   if (today.shares !== 0) levels.push(today.averageEntry);
   for (const lot of today.optionLots) levels.push(lot.strike);
   if (today.insights.analyst) levels.push(today.insights.analyst.low, today.insights.analyst.high);
@@ -892,171 +913,113 @@ function chartReferenceLevels(run) {
   return levels;
 }
 
+// The chart: today's path, then three dashed lines from now to the close (top 10%, average, bottom 10%) with only
+// their numbers. Faint lines mark your entry and strikes; insider tips draw their marks at the close.
 function drawChart() {
   const run = view.run;
-  const { context, width, height } = fitCanvas(document.getElementById('chart'));
+  const { context, width, height } = fitCanvas(element('chart'));
   context.clearRect(0, 0, width, height);
   if (!run || !run.today) return;
-  const today = run.today, states = today.schedule.states;
-  const open = states[0].price;
-  const left = 14, right = width - 74, top = 22, bottom = height - 26;
-  const visiblePrices = states.slice(0, today.tick + 1).map(state => state.price).concat([open], chartReferenceLevels(run));
-  let low = Math.min(...visiblePrices), high = Math.max(...visiblePrices);
+  const today = run.today, states = today.schedule.states, open = states[0].price, price = currentPrice(today);
+  const left = 24, right = width - 92, top = 28, bottom = height - 28;
+  const visible = states.slice(0, today.tick + 1).map(state => state.price).concat(chartLevels(run));
+  let low = Math.min(...visible), high = Math.max(...visible);
   if (high / low < 1.06) { const middle = Math.sqrt(high * low); low = middle / 1.03; high = middle * 1.03; }
-  const logLow = Math.log(low) - 0.06 * Math.log(high / low), logHigh = Math.log(high) + 0.06 * Math.log(high / low);
+  const logLow = Math.log(low) - 0.05 * Math.log(high / low), logHigh = Math.log(high) + 0.05 * Math.log(high / low);
   const xOf = tick => left + (right - left) * tick / TICKS_PER_DAY;
-  const yOf = price => bottom - (bottom - top) * (Math.log(price) - logLow) / (logHigh - logLow);
-
-  // grid and price labels
-  context.font = '600 11px JetBrains Mono, Menlo, monospace';
-  context.textBaseline = 'middle';
-  for (let line = 0; line <= 5; line++) {
-    const price = Math.exp(logLow + (logHigh - logLow) * line / 5), y = yOf(price);
-    context.strokeStyle = CHART_COLOURS.grid; context.lineWidth = 1;
-    context.beginPath(); context.moveTo(left, y); context.lineTo(right, y); context.stroke();
-    context.fillStyle = CHART_COLOURS.label; context.fillText(formatPrice(price), right + 8, y);
-  }
-  // σ path from the Vol tip, along the bottom
-  if (today.insights.volatility) {
-    const sigmas = today.insights.volatility.sigmas, sigmaTop = Math.max(2, ...sigmas);
-    context.strokeStyle = CHART_COLOURS.sigma; context.globalAlpha = 0.5; context.lineWidth = 1.5;
-    context.beginPath();
-    sigmas.forEach((sigma, tick) => { const y = bottom - 60 * sigma / sigmaTop; tick ? context.lineTo(xOf(tick), y) : context.moveTo(xOf(tick), y); });
-    context.stroke(); context.globalAlpha = 1;
-    context.fillStyle = CHART_COLOURS.sigma; context.fillText('σ', left + 2, bottom - 70);
-  }
-  // the open
-  const openY = yOf(open);
-  context.setLineDash([4, 5]); context.strokeStyle = CHART_COLOURS.open;
-  context.beginPath(); context.moveTo(left, openY); context.lineTo(right, openY); context.stroke(); context.setLineDash([]);
-  // horizontal reference lines: entry, stop, target, option strikes
-  const referenceLine = (price, colour, label, dashed) => {
-    const y = yOf(price);
-    context.strokeStyle = colour; context.lineWidth = 1.2; if (dashed) context.setLineDash([6, 4]);
-    context.beginPath(); context.moveTo(left, y); context.lineTo(right, y); context.stroke(); context.setLineDash([]);
-    context.fillStyle = colour; context.fillText(label, left + 4, y - 8);
+  const yOf = level => bottom - (bottom - top) * (Math.log(level) - logLow) / (logHigh - logLow);
+  const font = (weight, size) => weight + ' ' + size + 'px JetBrains Mono, Menlo, monospace';
+  const horizontal = (level, colour, dashed) => {
+    context.strokeStyle = colour; context.lineWidth = 1; context.setLineDash(dashed ? [5, 5] : []);
+    context.beginPath(); context.moveTo(left, yOf(level)); context.lineTo(right, yOf(level)); context.stroke(); context.setLineDash([]);
   };
-  if (today.shares !== 0) {
-    referenceLine(today.averageEntry, CHART_COLOURS.entry, (today.shares > 0 ? 'LONG ' : 'SHORT ') + formatPrice(today.averageEntry), false);
-    const direction = Math.sign(today.shares);
-    const stop = STOP_STEPS[run.controls.stopStep], target = STOP_STEPS[run.controls.targetStep];
-    if (stop) referenceLine(today.averageEntry * (1 - direction * stop), CHART_COLOURS.stop, 'stop', true);
-    if (target) referenceLine(today.averageEntry * (1 + direction * target), CHART_COLOURS.up, 'target', true);
-  }
-  for (const lot of today.optionLots) referenceLine(lot.strike, lot.kind === 'call' ? CHART_COLOURS.call : CHART_COLOURS.put, (lot.kind === 'call' ? 'CALL ' : 'PUT ') + formatPrice(lot.strike), true);
-  // insider marks at the close
+  horizontal(open, CHART_COLOURS.open, true);
+  if (today.shares !== 0) horizontal(today.averageEntry, CHART_COLOURS.entry, false);
+  for (const lot of today.optionLots) horizontal(lot.strike, lot.kind === 'call' ? CHART_COLOURS.up : CHART_COLOURS.down, true);
+
+  // insider marks
   const closeX = xOf(TICKS_PER_DAY);
+  if (today.insights.volatility) {
+    const sigmas = today.insights.volatility.sigmas, tallest = Math.max(2, ...sigmas);
+    context.strokeStyle = CHART_COLOURS.sigma; context.globalAlpha = 0.45; context.lineWidth = 1.5;
+    context.beginPath();
+    sigmas.forEach((sigma, tick) => { const y = bottom - 50 * sigma / tallest; tick ? context.lineTo(xOf(tick), y) : context.moveTo(xOf(tick), y); });
+    context.stroke(); context.globalAlpha = 1;
+  }
   if (today.insights.analyst) {
     const yHigh = yOf(today.insights.analyst.high), yLow = yOf(today.insights.analyst.low);
-    context.fillStyle = 'rgba(255,201,77,.18)'; context.fillRect(closeX - 16, yHigh, 16, yLow - yHigh);
-    context.strokeStyle = CHART_COLOURS.insight; context.strokeRect(closeX - 16, yHigh, 16, yLow - yHigh);
+    context.fillStyle = 'rgba(255,201,77,.2)'; context.fillRect(closeX - 8, yHigh, 16, yLow - yHigh);
   }
   if (today.insights.exactClose) {
-    const y = yOf(today.insights.exactClose.close);
     context.fillStyle = CHART_COLOURS.insight;
-    context.beginPath(); context.arc(closeX, y, 6, 0, Math.PI * 2); context.fill();
+    context.beginPath(); context.arc(closeX, yOf(today.insights.exactClose.close), 7, 0, Math.PI * 2); context.fill();
   }
   if (today.insights.rumour) {
-    context.fillStyle = today.insights.rumour.direction === 'up' ? CHART_COLOURS.up : CHART_COLOURS.down;
-    context.font = '800 22px JetBrains Mono, Menlo, monospace';
-    context.fillText(today.insights.rumour.direction === 'up' ? '▲' : '▼', closeX - 22, today.insights.rumour.direction === 'up' ? openY - 18 : openY + 18);
-    context.font = '600 11px JetBrains Mono, Menlo, monospace';
+    const up = today.insights.rumour.direction === 'up';
+    context.fillStyle = up ? CHART_COLOURS.up : CHART_COLOURS.down; context.font = font(800, 22); context.textAlign = 'center'; context.textBaseline = 'middle';
+    context.fillText(up ? '▲' : '▼', closeX, yOf(open) + (up ? -20 : 20));
   }
-  // the price path, green above the open and red below
-  const tracePath = () => {
-    context.beginPath();
-    for (let tick = 0; tick <= today.tick; tick++) { const x = xOf(tick), y = yOf(states[tick].price); tick ? context.lineTo(x, y) : context.moveTo(x, y); }
-  };
-  context.lineWidth = 2.4; context.lineJoin = 'round';
-  for (const [colour, clipTop, clipBottom] of [[CHART_COLOURS.up, 0, openY], [CHART_COLOURS.down, openY, height]]) {
-    context.save(); context.beginPath(); context.rect(0, clipTop, width, clipBottom - clipTop); context.clip();
-    context.strokeStyle = colour; tracePath(); context.stroke(); context.restore();
-  }
-  // labels for the dramatic cards on the path
-  context.font = '700 10px JetBrains Mono, Menlo, monospace'; context.textAlign = 'center';
-  for (let tick = 1; tick <= today.tick; tick++) {
-    for (const cardId of today.schedule.cards[tick]) {
-      if (cardDrama(cardId) === 0) continue;
-      const card = CARD_TYPES[cardId];
-      const positive = card.kind === 'price' ? card.move > 0 : card.kind === 'vol' ? card.factor > 1 : true;
-      context.fillStyle = card.kind === 'price' ? (positive ? CHART_COLOURS.up : CHART_COLOURS.down) : card.kind === 'vol' ? CHART_COLOURS.sigma : CHART_COLOURS.insight;
-      const y = yOf(states[tick].price) + (positive ? -14 : 16);
-      context.fillText(card.kind === 'event' ? card.icon : cardId, xOf(tick), y);
-      break;
+
+  // the forecast fan: now → the three closes
+  const nowX = xOf(today.tick), nowY = yOf(price);
+  const summary = today.forecastSummary;
+  context.textAlign = 'left'; context.textBaseline = 'middle';
+  if (summary) {
+    const labelYs = [];
+    for (const [level, colour] of [[summary.high, CHART_COLOURS.up], [summary.average, CHART_COLOURS.average], [summary.low, CHART_COLOURS.down]]) {
+      context.strokeStyle = colour; context.globalAlpha = 0.55; context.lineWidth = 1.5; context.setLineDash([6, 6]);
+      context.beginPath(); context.moveTo(nowX, nowY); context.lineTo(closeX, yOf(level)); context.stroke();
+      context.setLineDash([]); context.globalAlpha = 1;
+      let labelY = yOf(level);
+      for (const used of labelYs) if (Math.abs(labelY - used) < 18) labelY = used + (labelY >= used ? 18 : -18);
+      labelYs.push(labelY);
+      context.fillStyle = colour; context.font = font(800, 14);
+      context.fillText(formatPlain(level), closeX + 12, labelY);
     }
   }
+  // the path, green above the open and red below
+  context.lineWidth = 2.6; context.lineJoin = 'round';
+  for (const [colour, clipTop, clipBottom] of [[CHART_COLOURS.up, 0, yOf(open)], [CHART_COLOURS.down, yOf(open), height]]) {
+    context.save(); context.beginPath(); context.rect(0, clipTop, width, clipBottom - clipTop); context.clip();
+    context.strokeStyle = colour; context.beginPath();
+    for (let tick = 0; tick <= today.tick; tick++) tick ? context.lineTo(xOf(tick), yOf(states[tick].price)) : context.moveTo(xOf(tick), yOf(states[tick].price));
+    context.stroke(); context.restore();
+  }
+  // now
+  context.fillStyle = price >= open ? CHART_COLOURS.up : CHART_COLOURS.down;
+  context.beginPath(); context.arc(nowX, nowY, 5.5, 0, Math.PI * 2); context.fill();
+  context.font = font(800, 15); context.fillStyle = CHART_COLOURS.average;
+  context.textAlign = nowX > left + 60 ? 'right' : 'left';
+  context.fillText(formatPlain(price), nowX + (nowX > left + 60 ? -12 : 12), nowY - 18);
   context.textAlign = 'left';
-  // the current price
-  const nowX = xOf(today.tick), nowY = yOf(currentPrice(today));
-  const nowColour = currentPrice(today) >= open ? CHART_COLOURS.up : CHART_COLOURS.down;
-  context.fillStyle = nowColour;
-  context.beginPath(); context.arc(nowX, nowY, 5, 0, Math.PI * 2); context.fill();
-  context.fillRect(right + 2, nowY - 10, 72, 20);
-  context.fillStyle = '#0d0f12'; context.font = '800 12px JetBrains Mono, Menlo, monospace';
-  context.fillText(formatPrice(currentPrice(today)), right + 6, nowY);
-  // floating texts (P&L pops, messages)
+
+  // floating texts (P&L pops, messages), stacked, newest lowest
   const now = performance.now() / 1000;
   view.floaters = view.floaters.filter(floater => now - floater.born < FLOATER_SECONDS).slice(-FLOATERS_SHOWN);
   view.floaters.forEach((floater, index) => {
     const age = (now - floater.born) / FLOATER_SECONDS;
-    const stackOffset = (view.floaters.length - 1 - index) * (floater.size + 6);   // older texts sit higher
-    const textY = Math.max(top + 20, nowY - 30 - stackOffset - age * 30);
-    context.globalAlpha = 1 - age;
-    context.fillStyle = floater.colour; context.font = '800 ' + floater.size + 'px JetBrains Mono, Menlo, monospace';
-    context.textAlign = 'center';
-    context.fillText(floater.text, Math.min(right - 70, Math.max(left + 70, nowX - 40)), textY);
+    const stackOffset = (view.floaters.length - 1 - index) * (floater.size + 6);
+    context.globalAlpha = 1 - age; context.fillStyle = floater.colour; context.font = font(800, floater.size); context.textAlign = 'center';
+    context.fillText(floater.text, clamp(nowX, left + 80, right - 80), Math.max(top + 10, nowY - 46 - stackOffset - age * 30));
     context.textAlign = 'left'; context.globalAlpha = 1;
   });
 }
-
-// The market maker's view of the close: a histogram over a log scale, coloured by above / below the current price.
-function drawHistogram() {
-  const run = view.run;
-  const { context, width, height } = fitCanvas(document.getElementById('histogram'));
-  context.clearRect(0, 0, width, height);
-  const line = document.getElementById('forecastLine');
-  if (!run || !run.today || !run.today.forecast) { line.textContent = run && run.today ? 'closed at ' + formatPrice(currentPrice(run.today)) : ''; return; }
-  const closes = run.today.forecast, now = currentPrice(run.today);
-  const low = Math.log(closes[Math.floor(closes.length * 0.01)]), high = Math.log(closes[Math.floor(closes.length * 0.99)]);
-  const span = Math.max(1e-6, high - low);
-  const bins = new Array(HISTOGRAM_BINS).fill(0);
-  let above = 0;
-  for (const close of closes) {
-    bins[clamp(Math.floor((Math.log(close) - low) / span * HISTOGRAM_BINS), 0, HISTOGRAM_BINS - 1)]++;
-    if (close >= now) above++;
-  }
-  const tallest = Math.max(...bins), barWidth = width / HISTOGRAM_BINS, baseline = height - 16;
-  bins.forEach((count, index) => {
-    const binPrice = Math.exp(low + span * (index + 0.5) / HISTOGRAM_BINS);
-    context.fillStyle = binPrice >= now ? CHART_COLOURS.up : CHART_COLOURS.down;
-    context.globalAlpha = 0.75;
-    const barHeight = (baseline - 6) * count / tallest;
-    context.fillRect(index * barWidth + 1, baseline - barHeight, barWidth - 2, barHeight);
-  });
-  context.globalAlpha = 1;
-  const xOfPrice = price => clamp((Math.log(price) - low) / span, 0, 1) * width;
-  const markPrice = (price, colour) => { context.strokeStyle = colour; context.lineWidth = 2; context.beginPath(); context.moveTo(xOfPrice(price), 4); context.lineTo(xOfPrice(price), baseline); context.stroke(); };
-  markPrice(now, '#edf1f5');
-  if (run.unlocked[run.controls.optionKind]) markPrice(strikeFor(run), CHART_COLOURS.insight);
-  context.fillStyle = CHART_COLOURS.label; context.font = '600 10px JetBrains Mono, Menlo, monospace';
-  context.fillText(formatPrice(Math.exp(low)), 2, height - 4);
-  context.textAlign = 'right'; context.fillText(formatPrice(Math.exp(high)), width - 2, height - 4); context.textAlign = 'left';
-  const chanceUp = above / closes.length;
-  line.innerHTML = '<span class="up">▲ ' + Math.round(chanceUp * 100) + '%</span> &nbsp; <span class="down">▼ ' + Math.round((1 - chanceUp) * 100) + '%</span> &nbsp; <span class="dim">' + remainingPile(run.today).length + ' cards left</span>';
+// Chart numbers: no currency sign, few digits.
+function formatPlain(price) {
+  if (price < 10) return price.toFixed(2);
+  if (price < 1000) return price.toFixed(price < 100 ? 1 : 0);
+  return formatMoney(price).replace('$', '');
 }
-
 function addFloater(text, colour, size = 18) { view.floaters.push({ text, colour, size, born: performance.now() / 1000 }); }
 function shakeChart(strength) {
-  const box = document.getElementById('chartBox');
+  const box = element('chartBox');
   box.classList.remove('shake', 'shakeBig'); void box.offsetWidth;
   box.classList.add(strength >= 2 ? 'shakeBig' : 'shake');
 }
 
 // ═══════════════════════════════════════ § 10 PANELS ═══════════════════════════════════════
 const element = id => document.getElementById(id);
-function stepper(action, text, tip) {
-  return '<span class="stepper" data-tip="' + (tip || '') + '"><button data-action="' + action + '" data-argument="-1">−</button><span>' + text + '</span><button data-action="' + action + '" data-argument="1">+</button></span>';
-}
+const colourClass = value => (value >= 0 ? 'up' : 'down');
 function chipHtml(cardId, extraClass = '') {
   const card = CARD_TYPES[cardId];
   const sign = card.kind === 'price' ? (card.move > 0 ? 'pos' : 'neg') : '';
@@ -1065,175 +1028,102 @@ function chipHtml(cardId, extraClass = '') {
   return '<span class="chip ' + card.kind + ' ' + sign + ' ' + extreme + ' ' + extraClass + '" data-tip="' + tip + '">' + (card.kind === 'event' ? card.icon : cardValueText(cardId)) + '</span>';
 }
 
-function renderTopBar() {
-  const run = view.run;
-  const equity = totalEquity(run);
-  element('dayText').textContent = run.day + ' · ' + (run.today ? run.today.ticker : run.ticker);
-  const equityText = element('equityText');
-  equityText.textContent = formatMoney(equity);
-  if (view.lastEquity !== null && Math.abs(equity - view.lastEquity) > Math.abs(view.lastEquity) * 0.002) {
-    equityText.classList.remove('flashUp', 'flashDown'); void equityText.offsetWidth;
-    equityText.classList.add(equity > view.lastEquity ? 'flashUp' : 'flashDown');
-  }
-  view.lastEquity = equity;
-  equityText.classList.toggle('up', !!run.today && equity >= run.today.startEquity);
-  equityText.classList.toggle('down', !!run.today && equity < run.today.startEquity);
-  element('cashText').textContent = formatMoney(run.cash);
-  element('heatText').innerHTML = '🔥 ' + Math.round(run.heat) + '<span class="dim"> / ' + HEAT_LIMIT + '</span>';
-  element('heatBar').firstElementChild.style.width = clamp(run.heat / HEAT_LIMIT, 0, 1) * 100 + '%';
-  element('heatNote').textContent = run.investigationDaysLeft > 0 ? '· SEC ' + run.investigationDaysLeft + 'd' : '';
-  const meetingNumber = nextMeetingNumber(run);
-  element('meetingLabel').textContent = 'meeting · day ' + meetingNumber * MEETING_EVERY_DAYS;
-  const target = meetingTarget(run, meetingNumber);
-  element('meetingText').innerHTML = '<span class="' + (equity >= target ? 'up' : 'gold') + '">' + formatMoney(target) + '</span>';
-  element('speedButton').textContent = GAME_SPEEDS[view.speedIndex] + '×';
-  element('soundButton').textContent = sound.muted ? '♪̸' : '♪';
-}
-
-function renderTape() {
-  const today = view.run.today;
-  const drawn = [];
-  for (let tick = 1; tick <= today.tick; tick++) for (const cardId of today.schedule.cards[tick]) drawn.push(cardId);
-  const recent = drawn.slice(-18);
-  let html = recent.length ? '' : '<span class="label">the tape · one card per second</span>';
-  html += recent.map((cardId, index) => chipHtml(cardId, index === recent.length - 1 && view.freshTick === today.tick ? 'fresh' : '')).join('');
-  const peek = today.insights.peek;
-  if (peek) {
-    const cursor = today.schedule.cursorAfter[today.tick];
-    const upcoming = peek.cards.slice(cursor);
-    if (upcoming.length) html += '<span class="divider"></span><span class="label">next</span>' + upcoming.map(cardId => chipHtml(cardId, 'future')).join('');
-  }
-  element('tape').innerHTML = html;
-}
-
-function renderStockPanel() {
+// The side menu: day, cash, the stock line (x × average = buy-in, then its value now), options, equity, heat, meeting.
+function renderSide() {
   const run = view.run, today = run.today, price = currentPrice(today);
-  const leverage = maximumLeverage(run);
-  let positionText = '<span class="dim">flat</span>', profitText = '';
-  if (today.shares !== 0) {
-    const profit = today.shares * (price - today.averageEntry);
-    positionText = (today.shares > 0 ? '<span class="up">LONG</span> ' : '<span class="down">SHORT</span> ') + formatCount(Math.abs(today.shares)) + ' @ ' + formatPrice(today.averageEntry);
-    profitText = '<span class="' + (profit >= 0 ? 'up' : 'down') + '">' + formatSignedMoney(profit) + '</span>';
-  }
-  const open = today.tick < TICKS_PER_DAY;
-  const shortClass = run.unlocked.short || today.shares > 0 ? 'short' : 'short locked';
-  element('stockPanel').innerHTML =
-    '<h3><span>stock</span><span>' + leverage + '× · ' + formatMoney(Math.max(0, marginEquity(run)) * leverage) + '</span></h3>' +
-    '<div class="row">' + positionText + '<span class="spacer"></span>' + profitText + '</div>' +
-    '<div class="row"><span class="name">size</span>' + stepper('stockSize', Math.round(SIZE_STEPS[run.controls.stockSize] * 100) + '% power', 'Share of buying power per click (↑ ↓)') + '</div>' +
-    '<div class="row" style="height:40px;visibility:' + (open ? 'visible' : 'hidden') + '">' +
-      '<button class="big long" data-action="long">BUY<kbd>B</kbd></button>' +
-      '<button class="big ' + shortClass + '" data-action="short" data-tip="' + (run.unlocked.short ? 'Sell or short' : 'Sells your shares; shorting is unlocked in the shop') + '">SELL<kbd>S</kbd></button>' +
-      '<button class="big" data-action="close">CLOSE<kbd>X</kbd></button></div>' +
-    '<div class="row"><span class="name">stop</span>' + stepper('stopStep', STOP_STEPS[run.controls.stopStep] ? '−' + STOP_STEPS[run.controls.stopStep] * 100 + '%' : 'off', 'Stop-loss: close when the position loses this much') + '</div>' +
-    '<div class="row"><span class="name">target</span>' + stepper('targetStep', STOP_STEPS[run.controls.targetStep] ? '+' + STOP_STEPS[run.controls.targetStep] * 100 + '%' : 'off', 'Take-profit: close when the position gains this much') + '</div>';
-}
+  const secondsLeft = (TICKS_PER_DAY - today.tick) * SECONDS_PER_TICK;
+  const clock = run.phase === 'preopen' ? '<span class="dim">pre-open</span>' : Math.floor(secondsLeft / 60) + ':' + String(Math.floor(secondsLeft % 60)).padStart(2, '0');
+  let html = '<div id="brand">INSIDER</div>' +
+    '<div class="sideHead"><b>DAY ' + run.day + ' · ' + today.ticker + '</b><span class="clock">' + clock + '</span></div>' +
+    '<div class="label">cash</div><div class="value">' + formatMoney(run.cash) + '</div>';
 
-function renderOptionPanel() {
-  const run = view.run, today = run.today, kind = run.controls.optionKind;
-  const anyUnlocked = run.unlocked.call || run.unlocked.put;
-  let html = '<h3><span>options · expire at the close</span></h3>';
-  const toggle = optionKind => {
-    const locked = !run.unlocked[optionKind];
-    return '<button class="toggle ' + (kind === optionKind ? 'on ' : '') + (locked ? 'locked' : '') + '" data-action="optionKind" data-argument="' + optionKind + '" data-tip="' + (locked ? 'Unlocked in the shop' : optionKind === 'call' ? 'Pays close − strike' : 'Pays strike − close') + '">' + optionKind.toUpperCase() + (optionKind === 'call' ? ' ▲' : ' ▼') + '</button>';
-  };
-  html += '<div class="row">' + toggle('call') + toggle('put') + '</div>';
-  if (!anyUnlocked) {
-    html += '<div class="row dim" style="height:120px;justify-content:center;white-space:normal;text-align:center">🔒 calls & puts in the shop</div>';
-  } else if (today.investigation) {
-    html += '<div class="row heat" style="height:70px;justify-content:center">SEC investigation: no options</div>';
-  } else {
-    const strike = strikeFor(run), offset = STRIKE_OFFSETS[run.controls.strikeStep];
-    const live = today.tick < TICKS_PER_DAY && today.forecast && run.unlocked[kind];
-    const quote = live ? quoteOption(today.forecast, kind, strike) : null;
-    html += '<div class="row"><span class="name">strike</span>' + stepper('strikeStep', formatPrice(strike) + ' ' + (offset === 0 ? '±0' : formatPercent(offset, 0)), 'Strike vs the current price (← →)') + '</div>';
-    html += '<div class="row">' + (quote ? '<span data-tip="Chance to finish in the money">🎲 ' + (quote.chance * 100).toFixed(quote.chance < 0.1 ? 1 : 0) + '%</span><span data-tip="Price per share, fair value +' + OPTION_TRANSACTION_COST * 100 + '%">' + formatPrice(quote.askPrice) + '</span><span class="gold" data-tip="Average payout ÷ price when it wins">win ×' + quote.winMultiple.toFixed(1) + '</span>' : '<span class="dim">—</span>') + '</div>';
-    html += '<div class="row"><span class="name">size</span>' + stepper('optionSize', Math.round(SIZE_STEPS[run.controls.optionSize] * 100) + '% cash', 'Share of free cash per click') +
-      '<button class="big gold" style="padding:4px 0;visibility:' + (live ? 'visible' : 'hidden') + '" data-action="buyOption">BUY<kbd>O</kbd></button></div>';
+  html += '<div class="label"><span>stock</span><span>' + formatPrice(price) + '</span></div>';
+  if (today.shares === 0) html += '<div class="line dim">—</div><div class="line"></div>';
+  else {
+    const buyIn = today.shares * today.averageEntry, valueNow = today.shares * price;
+    html += '<div class="line"><span>' + formatSignedCount(today.shares) + ' × ' + formatPrice(today.averageEntry) + '</span><span>= ' + formatMoney(buyIn) + '</span></div>' +
+      '<div class="line ' + colourClass(valueNow - buyIn) + '"><span>now ' + formatMoney(valueNow) + '</span><span>' + formatSignedMoney(valueNow - buyIn) + '</span></div>';
   }
-  html += '<div class="lots">';
-  const shownLots = today.optionLots.length > 3 ? 2 : 3;
-  for (let index = 0; index < shownLots; index++) {
-    const lot = today.optionLots[index];
-    if (!lot) { html += '<div class="lot empty">·</div>'; continue; }
-    const value = optionLotValue(run, lot);
-    html += '<div class="lot"><span class="' + (lot.kind === 'call' ? 'up' : 'down') + '">' + (lot.kind === 'call' ? 'C ' : 'P ') + formatPrice(lot.strike) + '</span><span class="dim">×' + formatCount(lot.quantity) + '</span><span class="' + (value >= lot.paid ? 'up' : 'down') + '">' + formatMoney(value) + '</span>' +
-      (today.tick < TICKS_PER_DAY ? '<span class="x" data-action="sellOption" data-argument="' + index + '" data-tip="Sell at fair value −' + OPTION_TRANSACTION_COST * 100 + '%">sell</span>' : '') + '</div>';
-  }
-  if (today.optionLots.length > 3) html += '<div class="lot dim">+' + (today.optionLots.length - 2) + ' more lots · ' + formatMoney(today.optionLots.slice(2).reduce((total, lot) => total + optionLotValue(run, lot), 0)) + '</div>';
-  html += '</div>';
-  element('optionPanel').innerHTML = html;
-}
 
-function renderDayPanel() {
+  html += '<div class="label"><span>options</span><span>' + (today.optionLots.length ? today.optionLots.length : '') + '</span></div>';
+  const lots = today.optionLots;
+  if (!lots.length) html += '<div class="line dim">—</div>';
+  lots.slice(0, SIDE_LOTS_SHOWN).forEach(lot => {
+    const buyIn = lotBuyIn(lot), valueNow = lotValue(run, lot);
+    html += '<div class="line"><span>' + formatSignedCount(lotSign(lot) * lot.quantity) + ' ' + (lot.kind === 'call' ? 'C' : 'P') + formatPlain(lot.strike) + '</span><span>= ' + formatMoney(buyIn) + '</span></div>' +
+      '<div class="line ' + colourClass(valueNow - buyIn) + '"><span>now ' + formatMoney(valueNow) + '</span><span>' + formatSignedMoney(valueNow - buyIn) + '</span></div>';
+  });
+  if (lots.length > SIDE_LOTS_SHOWN) html += '<div class="line dim">+' + (lots.length - SIDE_LOTS_SHOWN) + ' more</div>';
+
+  const equity = totalEquity(run);
+  html += '<div class="rule"></div><div class="label">equity</div><div class="value ' + colourClass(equity - today.startEquity) + '" id="equityValue">' + formatMoney(equity) + '</div>';
+  html += '<div class="label" data-tip="SEC heat: ending a day at ' + HEAT_LIMIT + ' starts an investigation"><span>heat</span><span class="heat">' + Math.round(run.heat) + ' / ' + HEAT_LIMIT + (run.investigationDaysLeft > 0 ? ' · SEC ' + run.investigationDaysLeft + 'd' : '') + '</span></div>' +
+    '<div class="heatBar"><i style="width:' + clamp(run.heat / HEAT_LIMIT, 0, 1) * 100 + '%"></i></div>';
+  const meetingNumber = nextMeetingNumber(run), target = meetingTarget(run, meetingNumber);
+  html += '<div class="label" data-tip="Equity at the close of that day must reach this"><span>meeting · day ' + meetingNumber * MEETING_EVERY_DAYS + '</span></div><div class="line"><span class="' + (equity >= target ? 'up' : 'gold') + '">' + formatMoney(target) + '</span></div>';
+  html += '<div class="sideButtons"><button class="button" data-action="openDeck" data-tip="The deck (D)">🂠 DECK</button><button class="button" data-action="menu" data-tip="Menu (Esc)">☰</button></div>';
+  element('side').innerHTML = html;
+
+  const equityElement = element('equityValue');
+  if (view.lastEquity !== null && Math.abs(equity - view.lastEquity) > Math.abs(view.lastEquity) * 0.002) equityElement.classList.add(equity > view.lastEquity ? 'flashUp' : 'flashDown');
+  view.lastEquity = equity;
+}
+function formatSignedCount(value) { return (value >= 0 ? '+' : '−') + formatCount(Math.abs(value)); }
+
+// The buttons under the chart. The button to press next glows.
+function renderActions() {
   const run = view.run, today = run.today;
-  let html;
+  let html = '';
   if (run.phase === 'preopen') {
-    html = '<h3><span>before the open</span><span>' + (today.investigation ? '<span class="heat">SEC: no tips</span>' : 'insider tips') + '</span></h3>';
-    if (run.tickersOwned.length > 1) {
-      html += '<div class="row">' + run.tickersOwned.map(tickerId => '<button class="toggle ' + (tickerId === today.ticker ? 'on' : '') + (today.tickerLocked || today.tradeCount ? ' locked' : '') + '" data-action="ticker" data-argument="' + tickerId + '" data-tip="' + TICKERS[tickerId].name + ': ' + TICKERS[tickerId].sentence + '">' + TICKERS[tickerId].icon + ' ' + tickerId + '</button>').join('') + '</div>';
-    }
-    html += '<div class="tips">' + TIP_ORDER.map(tipId => {
+    html += TIP_ORDER.map(tipId => {
       const tip = INSIDER_TIPS[tipId], status = tipStatus(run, tipId);
-      const tipText = status === 'locked' ? tip.name + ': in the shop' : tip.name + ': ' + tip.sentence + ' Heat +' + tip.heat + '.';
-      return '<div class="tip ' + status + '" data-action="tip" data-argument="' + tipId + '" data-tip="' + tipText + '">' +
+      const tipText = status === 'locked' ? tip.name + ': in the shop' : status === 'cooling' ? tip.name + ': resting ' + run.tips[tipId].cooldownLeft + 'd' : tip.name + ': ' + tip.sentence + ' Heat +' + tip.heat + '.';
+      return '<div class="tipButton ' + status + '" data-action="tip" data-argument="' + tipId + '" data-tip="' + tipText + '">' +
         (status === 'cooling' ? '<span class="cd">' + run.tips[tipId].cooldownLeft + 'd</span>' : '') +
-        '<span class="icon">' + (status === 'locked' ? '🔒' : tip.icon) + '</span><span class="heatCost">🔥' + tip.heat + '</span></div>';
-    }).join('') + '</div>';
-    html += '<div class="insight">' + insightSummary(run) + '</div>';
-    html += '<div class="row" style="height:42px"><button class="big gold" data-action="openMarket">OPEN THE MARKET<kbd>SPACE</kbd></button></div>';
+        '<span class="icon">' + (status === 'locked' ? '🔒' : tip.icon) + '</span>🔥' + tip.heat + '</div>';
+    }).join('');
+    if (run.tickersOwned.length > 1)
+      html += '<span class="gap"></span>' + run.tickersOwned.map(tickerId => '<button class="toggle ' + (tickerId === today.ticker ? 'on' : '') + (today.tickerLocked || today.tradeCount ? ' locked' : '') + '" data-action="ticker" data-argument="' + tickerId + '" data-tip="' + TICKERS[tickerId].name + ': ' + TICKERS[tickerId].sentence + '">' + TICKERS[tickerId].icon + ' ' + tickerId + '</button>').join('');
+    html += '<span class="gap"></span><button class="button" data-action="openTrade">TRADE<kbd>T</kbd></button>' +
+      '<button class="button primary suggest" data-action="openMarket">OPEN ▶<kbd>SPACE</kbd></button>';
   } else {
-    const secondsLeft = Math.max(0, (TICKS_PER_DAY - today.tick) * SECONDS_PER_TICK);
-    const market = today.schedule.states[today.tick];
-    html = '<h3><span>trading</span><span>' + today.ticker + '</span></h3>';
-    html += '<div id="clockBig">' + Math.floor(secondsLeft / 60) + ':' + String(Math.floor(secondsLeft % 60)).padStart(2, '0') + '</div>';
-    html += '<div class="badges"><span class="badge" data-tip="Volatility: every price card is multiplied by σ">σ ' + market.sigma.toFixed(2) + '</span>' +
-      (market.fedTicksLeft > 0 ? '<span class="badge ev">🏛 σ×2 · ' + market.fedTicksLeft + '</span>' : '') +
-      (today.haltSecondsLeft > 0 ? '<span class="badge ev">⏸ HALT ' + Math.ceil(today.haltSecondsLeft) + 's</span>' : '') +
-      (today.investigation ? '<span class="badge hot">SEC</span>' : '') + '</div>';
-    html += '<div class="insight">' + insightSummary(run) + '</div>';
-    html += '<div class="row" style="height:42px"><button class="big" data-action="skipToClose" data-tip="Play the rest of the day instantly (stops still work)">⏭ TO THE CLOSE<kbd>K</kbd></button></div>';
+    const suggestTrade = !hasPositions(run) ? ' suggest' : '';
+    html += '<button class="button primary' + suggestTrade + '" data-action="openTrade">TRADE<kbd>T</kbd></button>' +
+      '<button class="button" style="visibility:' + (hasPositions(run) ? 'visible' : 'hidden') + '" data-action="closeEverything" data-tip="Close the stock and every option">CLOSE ALL<kbd>X</kbd></button>' +
+      '<span class="gap"></span>' +
+      '<button class="button" data-action="speed" data-tip="Speed (F)" style="width:74px">' + GAME_SPEEDS[view.speedIndex] + '×</button>' +
+      '<button class="button" data-action="skipToClose" data-tip="Play the rest of the day instantly">⏭ CLOSE<kbd>K</kbd></button>' +
+      '<button class="button" data-action="pause" data-tip="Pause (Space)" style="width:56px">' + (view.paused ? '▶' : '⏸') + '</button>';
   }
-  element('dayPanel').innerHTML = html;
-}
-function insightSummary(run) {
-  const insights = run.today.insights, parts = [];
-  if (insights.rumour) parts.push(insights.rumour.direction === 'up' ? '<span class="up">▲ closes above the open</span>' : '<span class="down">▼ closes below the open</span>');
-  if (insights.analyst) parts.push('close ' + formatPrice(insights.analyst.low) + '–' + formatPrice(insights.analyst.high));
-  if (insights.exactClose) parts.push('close = ' + formatPrice(insights.exactClose.close));
-  if (insights.peek) parts.push('first 10 cards on the tape');
-  if (insights.volatility) parts.push('σ path on the chart');
-  return parts.join(' · ') || '<span class="dim">' + (run.today.investigation ? 'investigated: trade clean' : '') + '</span>';
+  element('actions').innerHTML = html;
 }
 
-function renderDeckPanel() {
-  const run = view.run, today = run.today;
-  const left = countCards(remainingPile(today));
-  const total = run.decks[today.ticker];
-  let html = '<h3><span>deck · ' + today.ticker + '</span><span>' + remainingPile(today).length + ' / ' + deckSize(total) + '</span></h3><div class="grid">';
-  for (const cardId of CARD_ORDER.slice(0, 16)) {
-    const card = CARD_TYPES[cardId];
-    const colour = card.kind === 'vol' ? 'style="color:var(--vol)"' : card.move > 0 ? 'class="up"' : 'class="down"';
-    html += '<div class="deckRow ' + (total[cardId] === 0 ? 'gone' : '') + '"><span class="lab" ' + colour + '>' + cardId + '</span><span class="val">' + cardValueText(cardId) + '</span><span class="cnt">' + left[cardId] + '<small>/' + total[cardId] + '</small></span></div>';
+// The last card drawn in the corner of the chart, and the peeked cards still to come.
+function renderLastCards() {
+  const today = view.run.today;
+  const last = today.tick > 0 ? today.schedule.cards[today.tick] : [];
+  let html = last.map(cardId => chipHtml(cardId, view.freshTick === today.tick ? 'fresh' : '')).join('');
+  if (today.insights.peek) {
+    const upcoming = today.insights.peek.cards.slice(today.schedule.cursorAfter[today.tick]);
+    html += upcoming.map(cardId => chipHtml(cardId, 'future')).join('');
   }
-  html += '</div><div class="events">' + EVENT_CARDS.filter(cardId => total[cardId] > 0).map(cardId => '<span class="badge ev" data-tip="' + CARD_TYPES[cardId].name + ': ' + CARD_TYPES[cardId].sentence + '">' + CARD_TYPES[cardId].icon + ' ' + left[cardId] + '/' + total[cardId] + '</span>').join('') + '</div>';
-  element('deck').innerHTML = html;
+  element('lastCards').innerHTML = html;
 }
 
 function renderAll() {
   if (!view.run || !view.run.today) return;
-  renderTopBar(); renderTape(); renderStockPanel(); renderOptionPanel(); renderDayPanel(); renderDeckPanel();
-  drawHistogram();
+  renderSide(); renderActions(); renderLastCards();
 }
 
 // ═══════════════════════════════════════ § 11 OVERLAYS ═══════════════════════════════════════
-function showOverlay(name, html) {
+function showOverlay(name, html, soft = false) {
   view.overlay = name;
   const overlay = element('overlay');
   overlay.innerHTML = html;
   overlay.classList.toggle('show', !!name);
+  overlay.classList.toggle('soft', soft);
 }
-function hideOverlay() { view.overlay = null; element('overlay').classList.remove('show'); element('overlay').innerHTML = ''; }
+function hideOverlay() { view.overlay = null; view.trade = null; element('overlay').classList.remove('show', 'soft'); element('overlay').innerHTML = ''; }
 
 function readRecords() { try { return JSON.parse(localStorage.getItem(RECORDS_KEY)) || { bestEquity: 0, longestRun: 0 }; } catch (error) { return { bestEquity: 0, longestRun: 0 }; } }
 function writeRecords(run) {
@@ -1246,33 +1136,34 @@ function writeRecords(run) {
 function showTitle() {
   const saved = localStorage.getItem(SAVE_KEY), records = readRecords();
   showOverlay('title', '<div class="card"><div class="title">INSIDER</div>' +
-    '<div class="line">the price is a deck of cards · rig it</div>' +
-    (records.bestEquity ? '<div class="line">best ' + formatMoney(records.bestEquity) + ' · longest ' + records.longestRun + ' days</div>' : '') +
-    '<div class="menuButtons">' + (saved ? '<button class="big gold" data-action="continueRun">CONTINUE</button>' : '') +
-    '<button class="big ' + (saved ? '' : 'gold') + '" data-action="newRun">NEW RUN</button></div>' +
-    '<div class="keys"><span class="key">B</span> buy <span class="key">S</span> sell <span class="key">X</span> close <span class="key">O</span> option <span class="key">Space</span> open / pause</div></div>');
+    '<div class="note">the price is a deck of cards · rig it</div>' +
+    (records.bestEquity ? '<div class="note">best ' + formatMoney(records.bestEquity) + ' · longest ' + records.longestRun + ' days</div>' : '') +
+    '<div class="menuButtons">' + (saved ? '<button class="button primary" data-action="continueRun">CONTINUE</button>' : '') +
+    '<button class="button ' + (saved ? '' : 'primary') + '" data-action="newRun">NEW RUN</button></div></div>');
 }
 
 function showMenu() {
   view.paused = true;
   showOverlay('menu', '<div class="card"><h1>Paused</h1><div class="menuButtons">' +
-    '<button class="big gold" data-action="resume">RESUME</button><button class="big" data-action="toTitle">TITLE</button></div>' +
-    '<div class="line">the run is saved every second</div></div>');
+    '<button class="button primary" data-action="resume">RESUME</button>' +
+    '<button class="button" data-action="sound">' + (sound.muted ? 'SOUND OFF' : 'SOUND ON') + '</button>' +
+    '<button class="button" data-action="toTitle">TITLE</button></div>' +
+    '<div class="keys"><span class="key">T</span> trade <span class="key">X</span> close all <span class="key">F</span> speed <span class="key">K</span> to the close <span class="key">D</span> deck</div></div>');
 }
 
 function showResult() {
   const run = view.run, result = run.lastResult;
   const profit = result.endEquity - result.startEquity;
   let html = '<div class="card"><h1>Day ' + result.day + ' · ' + result.ticker + '</h1>' +
-    '<div class="line">' + formatPrice(result.open) + ' → ' + formatPrice(result.close) + ' <span class="' + (result.close >= result.open ? 'up' : 'down') + '">' + formatPercent(result.close / result.open - 1) + '</span></div>' +
-    '<div class="huge ' + (profit >= 0 ? 'up' : 'down') + '" id="countUp">' + formatSignedMoney(0) + '</div>' +
-    '<div class="line">equity ' + formatMoney(result.endEquity) + ' · ' + formatPercent(result.dayReturn) + '</div>';
-  if (result.heatAdded > 0) html += '<div class="line heat">🔥 +' + Math.round(result.heatAdded) + ' heat for an abnormal day</div>';
-  if (result.investigationNote === 'opened') html += '<div class="line heat">🚨 The SEC opens an investigation: ' + INVESTIGATION_DAYS + ' clean days</div>';
-  if (result.investigationNote === 'cleared') html += '<div class="line up">Investigation closed. Heat ' + HEAT_AFTER_INVESTIGATION + '</div>';
-  if (result.meeting) html += '<div class="line ' + (result.meeting.passed ? 'up' : 'down') + '">Investor meeting ' + result.meeting.number + ': target ' + formatMoney(result.meeting.target) + (result.meeting.passed ? ' ✓' : ' ✗') + '</div>';
-  if (result.meeting && result.meeting.passed && result.meeting.final) html += '<div class="line gold">🏆 Final meeting passed: the fund is a legend. Play on for bigger numbers.</div>';
-  html += '<div class="menuButtons"><button class="big gold" data-action="afterResult">' + (run.gameOverReason ? 'CONTINUE' : 'TO THE SHOP') + '<kbd>SPACE</kbd></button></div></div>';
+    '<div class="note">' + formatPrice(result.open) + ' → ' + formatPrice(result.close) + ' <span class="' + colourClass(result.close - result.open) + '">' + formatPercent(result.close / result.open - 1) + '</span></div>' +
+    '<div class="huge ' + colourClass(profit) + '" id="countUp">' + formatSignedMoney(0) + '</div>' +
+    '<div class="note">equity ' + formatMoney(result.endEquity) + '</div>';
+  if (result.heatAdded > 0) html += '<div class="note heat">🔥 +' + Math.round(result.heatAdded) + ' heat: abnormal day</div>';
+  if (result.investigationNote === 'opened') html += '<div class="note heat">🚨 SEC investigation: ' + INVESTIGATION_DAYS + ' clean days</div>';
+  if (result.investigationNote === 'cleared') html += '<div class="note up">Investigation closed</div>';
+  if (result.meeting) html += '<div class="note ' + (result.meeting.passed ? 'up' : 'down') + '">Meeting ' + result.meeting.number + ': ' + formatMoney(result.meeting.target) + (result.meeting.passed ? ' ✓' : ' ✗') + '</div>';
+  if (result.meeting && result.meeting.passed && result.meeting.final) html += '<div class="note gold">🏆 Last meeting passed. Play on for bigger numbers.</div>';
+  html += '<div class="menuButtons"><button class="button primary" data-action="afterResult">' + (run.gameOverReason ? 'CONTINUE' : 'SHOP') + '<kbd>SPACE</kbd></button></div></div>';
   showOverlay('result', html);
   countUp(element('countUp'), profit);
 }
@@ -1292,21 +1183,174 @@ function showGameOver() {
   const run = view.run;
   writeRecords(run);
   const reason = run.gameOverReason === 'meeting' ? 'The investors pulled their money.' : 'No money left to trade.';
-  showOverlay('gameover', '<div class="card"><h1>Fund closed</h1><div class="line">' + reason + '</div>' +
-    '<div class="huge gold">' + run.day + ' days</div><div class="line">peak equity ' + formatMoney(run.peakEquity) + ' · meetings passed ' + run.meetingsPassed + '</div>' +
-    '<div class="menuButtons"><button class="big gold" data-action="newRun">NEW RUN<kbd>SPACE</kbd></button></div></div>');
+  showOverlay('gameover', '<div class="card"><h1>Fund closed</h1><div class="note">' + reason + '</div>' +
+    '<div class="huge gold">' + run.day + ' days</div><div class="note">peak ' + formatMoney(run.peakEquity) + ' · meetings ' + run.meetingsPassed + '</div>' +
+    '<div class="menuButtons"><button class="button primary" data-action="newRun">NEW RUN<kbd>SPACE</kbd></button></div></div>');
   try { localStorage.removeItem(SAVE_KEY); } catch (error) { /* storage blocked */ }
 }
 
-// The shop: icon cards in rows, the full sentence only for the selected card, arrows move by position.
+// ── The deck window: every card of today's stock, how many are left today and how many the deck holds.
+function showDeck() {
+  const run = view.run, today = run.today, deck = run.decks[today.ticker];
+  const left = countCards(remainingPile(today));
+  const cardHtml = cardId => '<div class="deckCard ' + (deck[cardId] === 0 ? 'gone' : '') + '">' + chipHtml(cardId) +
+    '<span>' + cardLabel(cardId) + '</span><span class="count">' + left[cardId] + '<small> / ' + deck[cardId] + '</small></span></div>';
+  const events = EVENT_CARDS.filter(cardId => deck[cardId] > 0);
+  showOverlay('deck', '<div class="card fullScreen"><div class="shopHead"><h1>' + TICKERS[today.ticker].icon + ' ' + today.ticker + '</h1>' +
+    '<span class="slot"><small>left today</small><b>' + remainingPile(today).length + ' / ' + deckSize(deck) + '</b></span><span class="spacer"></span>' +
+    '<button class="button" data-action="closeOverlay">CLOSE<kbd>D</kbd></button></div>' +
+    '<div class="deckGrid">' + CARD_ORDER.slice(0, 16).map(cardHtml).join('') + events.map(cardHtml).join('') + '</div></div>');
+}
+
+// ── The trade menu. One question per step: what (long, short, buy option, sell option, close), then for options
+// call or put and the strike, then how much on a slider. Steps: 'action' → ('kind' → 'strike') → 'amount', or 'close'.
+function openTrade() {
+  if (!tradingOpen()) return;
+  view.trade = { step: 'action', action: null, kind: null, strike: null, percent: SLIDER_DEFAULT_PERCENT, selection: 0 };
+  showTrade();
+}
+// The rows of the current step: { main, detail, locked, tip, pick() }.
+function tradeRows() {
+  const run = view.run, trade = view.trade, today = run.today, price = currentPrice(today);
+  const optionsLocked = !(run.unlocked.call || run.unlocked.put) || today.investigation;
+  const optionsTip = today.investigation ? 'No options during an investigation' : 'Calls and puts are unlocked in the shop';
+  if (trade.step === 'action') {
+    const rows = [
+      { main: '▲ LONG', detail: 'buy shares', pick: () => goTo('amount', { action: 'long' }) },
+      run.unlocked.short || today.shares <= 0
+        ? { main: '▼ SHORT', detail: 'profit when it falls', locked: !run.unlocked.short, tip: 'Shorting is unlocked in the shop', pick: () => goTo('amount', { action: 'short' }) }
+        : { main: '▼ SELL', detail: 'sell your shares', pick: () => goTo('amount', { action: 'short' }) },
+      { main: '◆ BUY OPTION', detail: 'small stake, big multiple', locked: optionsLocked, tip: optionsTip, pick: () => goTo('kind', { action: 'buy' }) },
+      { main: '◇ SELL OPTION', detail: 'collect the premium', locked: optionsLocked, tip: optionsTip, pick: () => goTo('kind', { action: 'write' }) },
+    ];
+    if (hasPositions(run)) rows.push({ main: '✕ CLOSE', detail: 'stock or options', pick: () => goTo('close', {}) });
+    return rows;
+  }
+  if (trade.step === 'kind') return ['call', 'put'].map(kind => ({
+    main: kind === 'call' ? '▲ CALL' : '▼ PUT', detail: kind === 'call' ? 'pays close − strike' : 'pays strike − close',
+    locked: !run.unlocked[kind], tip: 'Unlocked in the shop', pick: () => goTo('strike', { kind }),
+  }));
+  if (trade.step === 'strike') return strikeOffsets(trade.kind).map(offset => {
+    const strike = price * (1 + offset), terms = optionTerms(run, trade.kind, strike);
+    const buying = trade.action === 'buy';
+    const worthless = (buying ? terms.askPrice : terms.bidPrice) <= price * 1e-6;
+    const detail = buying
+      ? '🎲 ' + formatChance(terms.chance) + ' · ×' + terms.winMultiple.toFixed(1) + ' · ' + formatPrice(terms.askPrice)
+      : 'keep ' + formatChance(1 - terms.chance) + ' · get ' + formatPrice(terms.bidPrice);
+    return { main: formatPrice(strike) + ' <span class="dim">' + (offset === 0 ? '±0%' : formatPercent(offset, 0)) + '</span>', detail, locked: worthless, tip: 'Never pays at this strike', pick: () => goTo('amount', { strike }) };
+  });
+  if (trade.step === 'close') {
+    const rows = [];
+    if (today.shares !== 0) {
+      const profit = today.shares * (price - today.averageEntry);
+      rows.push({ main: 'STOCK ' + formatSignedCount(today.shares), detail: '<span class="' + colourClass(profit) + '">' + formatSignedMoney(profit) + '</span>', pick: () => finishTrade(closeStock(view.run), 'CLOSED') });
+    }
+    today.optionLots.forEach((lot, index) => {
+      const profit = lotValue(run, lot) - lotBuyIn(lot);
+      rows.push({ main: formatSignedCount(lotSign(lot) * lot.quantity) + ' ' + (lot.kind === 'call' ? 'C' : 'P') + formatPlain(lot.strike), detail: '<span class="' + colourClass(profit) + '">' + formatSignedMoney(profit) + '</span>', pick: () => finishTrade(closeLot(view.run, index), 'CLOSED') });
+    });
+    rows.push({ main: 'ALL', detail: '', pick: () => finishTrade(closeEverything(view.run), 'ALL CLOSED') });
+    return rows;
+  }
+  return [];
+}
+function goTo(step, changes) { Object.assign(view.trade, changes, { step, selection: 0 }); showTrade(); }
+function formatChance(chance) { return (chance * 100).toFixed(chance < 0.1 || chance > 0.9 ? 1 : 0) + '%'; }
+
+// The amount step: what the slider's percentage buys right now.
+function tradePreview() {
+  const run = view.run, trade = view.trade, price = currentPrice(run.today), fraction = trade.percent / 100;
+  if (trade.action === 'long' || trade.action === 'short') {
+    const direction = trade.action === 'long' ? 1 : -1, room = stockRoom(run, direction);
+    const shares = direction * fraction * room;
+    const selling = direction < 0 && !run.unlocked.short;
+    return {
+      amount: formatSignedCount(shares) + ' × ' + formatPrice(price) + ' = ' + formatMoney(shares * price),
+      note: (selling ? 'of your shares' : direction > 0 ? 'of buying power ' + formatMoney(room * price) : 'of the largest short ' + formatMoney(room * price)) + (maximumLeverage(run) > 1 ? ' · ' + maximumLeverage(run) + '×' : ''),
+      confirm: direction > 0 ? 'BUY' : selling ? 'SELL' : 'SHORT', empty: room * price < 0.01,
+      run: () => tradeStock(run, direction, fraction),
+    };
+  }
+  const terms = optionTerms(run, trade.kind, trade.strike), name = trade.kind === 'call' ? 'CALLS' : 'PUTS';
+  if (trade.action === 'buy') {
+    const spend = fraction * freeCash(run), quantity = spend / terms.askPrice;
+    return {
+      amount: formatSignedCount(quantity) + ' × ' + formatPrice(terms.askPrice) + ' = ' + formatMoney(spend),
+      note: '🎲 ' + formatChance(terms.chance) + ' · pays ×' + terms.winMultiple.toFixed(1) + ' when it wins',
+      confirm: 'BUY ' + name, empty: spend < 0.01, run: () => buyOption(run, trade.kind, trade.strike, fraction),
+    };
+  }
+  const quantity = fraction * writeRoom(run);
+  return {
+    amount: formatSignedCount(-quantity) + ' × ' + formatPrice(terms.bidPrice) + ' = ' + formatMoney(-quantity * terms.bidPrice),
+    note: 'you keep it all with ' + formatChance(1 - terms.chance) + ' · losses have no ceiling',
+    confirm: 'SELL ' + name, empty: quantity * terms.bidPrice < 0.01, run: () => writeOption(run, trade.kind, trade.strike, fraction),
+  };
+}
+
+function showTrade() {
+  const run = view.run, trade = view.trade, price = currentPrice(run.today);
+  const titles = { action: 'Trade', kind: trade.action === 'buy' ? 'Buy an option' : 'Sell an option', strike: (trade.action === 'buy' ? 'Buy ' : 'Sell ') + (trade.kind === 'call' ? 'calls' : 'puts') + ' at', close: 'Close', amount: 'How much?' };
+  let html = '<div class="card tradeCard"><h1>' + titles[trade.step] + '<small>' + run.today.ticker + ' ' + formatPrice(price) + '</small></h1>';
+  if (trade.step === 'amount') {
+    const preview = tradePreview();
+    html += '<input class="slider" type="range" min="0" max="100" step="' + SLIDER_STEP_PERCENT + '" value="' + trade.percent + '" id="tradeSlider">' +
+      '<div class="sliderEnds"><span>0%</span><span class="gold" style="font-size:14px">' + trade.percent + '%</span><span>100%</span></div>' +
+      '<div class="amount">' + preview.amount + '</div><div class="amountNote">' + preview.note + '</div>' +
+      '<button class="button primary confirm ' + (preview.empty ? 'locked' : '') + '" data-action="confirmTrade">' + preview.confirm + '<kbd>ENTER</kbd></button>';
+  } else {
+    tradeRows().forEach((row, index) => {
+      html += '<div class="choiceRow ' + (index === trade.selection ? 'selected ' : '') + (row.locked ? 'locked' : '') + '" data-action="tradeRow" data-argument="' + index + '"' + (row.locked ? ' data-tip="' + row.tip + '"' : '') + '>' +
+        '<span class="number">' + (index + 1) + '</span><span class="main">' + row.main + '</span><span class="detail">' + row.detail + '</span></div>';
+    });
+  }
+  html += '<div class="keys">' + (trade.step === 'amount' ? '<span class="key">← →</span> amount' : '<span class="key">1–' + Math.max(1, tradeRows().length) + '</span> choose') + ' <span class="key">Esc</span> back</div></div>';
+  showOverlay('trade', html, true);
+  const slider = element('tradeSlider');
+  if (slider) slider.addEventListener('input', () => { view.trade.percent = Number(slider.value); refreshAmount(); });
+}
+// Update only the numbers under the slider while it is dragged (redrawing would drop the drag).
+function refreshAmount() {
+  const preview = tradePreview(), card = element('overlay');
+  card.querySelector('.sliderEnds .gold').textContent = view.trade.percent + '%';
+  card.querySelector('.amount').textContent = preview.amount;
+  card.querySelector('.amountNote').textContent = preview.note;
+  card.querySelector('.confirm').classList.toggle('locked', preview.empty);
+}
+function pickTradeRow(index) {
+  const row = tradeRows()[index];
+  if (!row || row.locked) { sounds.denied(); return; }
+  row.pick();
+}
+function tradeBack() {
+  const trade = view.trade;
+  const previous = { action: null, kind: 'action', close: 'action', strike: 'kind', amount: trade.strike !== null && trade.kind ? 'strike' : 'action' }[trade.step];
+  if (!previous) { hideOverlay(); renderAll(); return; }
+  if (previous === 'action' || previous === 'kind') trade.strike = null;
+  goTo(previous, {});
+}
+function confirmTrade() {
+  const preview = tradePreview();
+  if (preview.empty) { sounds.denied(); return; }
+  const outcome = preview.run();
+  finishTrade(outcome, preview.confirm);
+}
+function finishTrade(outcome, label) {
+  hideOverlay();
+  if (typeof outcome === 'string') { sounds.denied(); addFloater(outcome, CHART_COLOURS.label, 14); }
+  else { sounds.trade(1); addFloater(label, CHART_COLOURS.insight, 16); }
+  saveRun(); renderAll();
+}
+
+// ── The shop: icon cards in rows, the full sentence only for the selected card, arrows move by position.
 const SHOP_ROWS = ['deck', 'trading', 'insider', 'stocks'];
 function showShop() {
   const run = view.run, items = shopCatalogue(run);
   view.shopItems = items;
   view.shopSelection = clamp(view.shopSelection, 0, items.length - 1);
-  let html = '<div class="card" style="text-align:left"><div class="shopHead"><h1>Shop</h1><span class="slot" style="width:auto"><small>cash</small><b>' + formatMoney(run.cash) + '</b></span>' +
-    '<span class="slot" style="width:auto"><small>prices</small><b>×' + inflationIndex(run.day).toFixed(2) + '</b></span><span class="spacer"></span>' +
-    '<button class="big gold" style="flex:none;padding:9px 22px" data-action="nextDay">DAY ' + (run.day + 1) + ' ▶<kbd>SPACE</kbd></button></div><div class="shopRows">';
+  let html = '<div class="card" style="text-align:left"><div class="shopHead"><h1>Shop</h1><span class="slot"><small>cash</small><b>' + formatMoney(run.cash) + '</b></span>' +
+    '<span class="slot"><small>prices</small><b>×' + inflationIndex(run.day).toFixed(2) + '</b></span><span class="spacer"></span>' +
+    '<button class="button primary" data-action="nextDay">DAY ' + (run.day + 1) + ' ▶<kbd>SPACE</kbd></button></div><div class="shopRows">';
   for (const rowId of SHOP_ROWS) {
     html += '<div class="shopRow"><span class="rowName">' + rowId + '</span>';
     items.forEach((item, index) => {
@@ -1342,12 +1386,11 @@ function showPicker() {
   const cards = pickerCards(run);
   view.pickerCardsShown = cards;
   view.pickerSelection = clamp(view.pickerSelection, 0, cards.length - 1);
-  let html = '<div class="card"><div class="shopHead"><h1>' + item.icon + ' ' + item.name + '</h1><span class="slot" style="width:auto"><small>price</small><b>' + formatMoney(item.price) + '</b></span><span class="spacer"></span>' +
-    run.tickersOwned.map(tickerId => '<button class="toggle ' + (tickerId === view.pickerTicker ? 'on' : '') + '" style="flex:none;padding:6px 12px" data-action="pickerTicker" data-argument="' + tickerId + '">' + TICKERS[tickerId].icon + ' ' + tickerId + ' · ' + deckSize(run.decks[tickerId]) + '</button>').join('') + '</div>';
+  let html = '<div class="card"><div class="shopHead"><h1>' + item.icon + ' ' + item.name + '</h1><span class="slot"><small>price</small><b>' + formatMoney(item.price) + '</b></span><span class="spacer"></span>' +
+    run.tickersOwned.map(tickerId => '<button class="toggle ' + (tickerId === view.pickerTicker ? 'on' : '') + '" data-action="pickerTicker" data-argument="' + tickerId + '">' + TICKERS[tickerId].icon + ' ' + tickerId + ' · ' + deckSize(run.decks[tickerId]) + '</button>').join('') + '</div>';
   html += '<div class="shopRows"><div class="shopRow" style="flex-wrap:wrap;max-width:1040px">';
   cards.forEach((cardId, index) => {
     const allowed = deckEditAllowed(run, item, view.pickerTicker, cardId);
-    const card = CARD_TYPES[cardId];
     const after = item.picker === 'remove' ? deck[cardId] - Math.min(deck[cardId], deckBatchSize(run.removalsDone)) : item.picker === 'add' ? deck[cardId] + deckBatchSize(run.additionsDone) : deck[cardId] + 1;
     html += '<div class="choice ' + (index === view.pickerSelection ? 'selected ' : '') + (allowed ? '' : 'locked') + '" data-action="pickCard" data-argument="' + index + '">' +
       chipHtml(cardId) + '<span class="nm">' + cardLabel(cardId) + '</span><span class="chipLine">' + deck[cardId] + ' → ' + after + '</span></div>';
@@ -1392,17 +1435,7 @@ function moveSelectionByPosition(selector, currentIndex, dx, dy) {
 // ═══════════════════════════════════════ § 12 INPUT ═══════════════════════════════════════
 function saveRun() { try { if (view.run) localStorage.setItem(SAVE_KEY, serialiseRun(view.run)); } catch (error) { /* storage blocked */ } }
 function savePreferences() { try { localStorage.setItem(PREFERENCES_KEY, JSON.stringify({ muted: sound.muted, speedIndex: view.speedIndex })); } catch (error) { /* storage blocked */ } }
-
-function reportTrade(outcome, label) {
-  if (typeof outcome === 'string') { sounds.denied(); addFloater(outcome, CHART_COLOURS.label, 14); return; }
-  sounds.trade(outcome);
-  addFloater(label, outcome > 0 ? CHART_COLOURS.up : CHART_COLOURS.down, 16);
-}
-
-function stepControl(name, delta, steps) {
-  const controls = view.run.controls;
-  controls[name] = clamp(controls[name] + delta, 0, steps.length - 1);
-}
+function tradingOpen() { const run = view.run; return run && (run.phase === 'preopen' || run.phase === 'trading') && run.today.tick < TICKS_PER_DAY; }
 
 const ACTIONS = {
   newRun() { view.run = newRun(); view.lastEquity = null; hideOverlay(); saveRun(); },
@@ -1410,74 +1443,69 @@ const ACTIONS = {
     const run = loadRun(localStorage.getItem(SAVE_KEY));
     if (!run) { ACTIONS.newRun(); return; }
     view.run = run; view.lastEquity = null; hideOverlay();
-    if (run.phase === 'trading') { view.paused = true; showMenu(); }
+    if (run.phase === 'trading') showMenu();
     else if (run.phase === 'result') showResult();
     else if (run.phase === 'shop') showShop();
   },
   toTitle() { saveRun(); view.paused = false; showTitle(); },
   resume() { view.paused = false; hideOverlay(); },
   menu() { if (view.overlay === 'menu') ACTIONS.resume(); else if (!view.overlay && view.run) showMenu(); },
+  closeOverlay() { hideOverlay(); },
   speed() { view.speedIndex = (view.speedIndex + 1) % GAME_SPEEDS.length; savePreferences(); },
-  sound() { sound.muted = !sound.muted; savePreferences(); },
-  stockSize(delta) { stepControl('stockSize', delta, SIZE_STEPS); },
-  optionSize(delta) { stepControl('optionSize', delta, SIZE_STEPS); },
-  strikeStep(delta) { stepControl('strikeStep', delta, STRIKE_OFFSETS); },
-  stopStep(delta) { stepControl('stopStep', delta, STOP_STEPS); },
-  targetStep(delta) { stepControl('targetStep', delta, STOP_STEPS); },
-  optionKind(kind) { if (view.run.unlocked[kind]) view.run.controls.optionKind = kind; },
-  long() { if (tradingOpen()) reportTrade(tradeStock(view.run, +1), 'BUY'); },
-  short() { if (tradingOpen()) reportTrade(tradeStock(view.run, -1), 'SELL'); },
-  close() {
-    if (!tradingOpen() || view.run.today.shares === 0) return;
-    const direction = -Math.sign(view.run.today.shares);
-    closeStock(view.run);
-    reportTrade(direction, 'CLOSED');
-  },
-  buyOption() {
-    if (!tradingOpen()) return;
-    const outcome = buyOption(view.run);
-    if (typeof outcome === 'string') { sounds.denied(); addFloater(outcome, CHART_COLOURS.label, 14); }
-    else { sounds.option(); addFloater(view.run.controls.optionKind.toUpperCase() + ' ' + formatMoney(outcome), CHART_COLOURS.insight, 16); }
-  },
-  sellOption(index) { if (tradingOpen()) { const proceeds = sellOptionLot(view.run, Number(index)); sounds.cash(true); addFloater('+' + formatMoney(proceeds), CHART_COLOURS.up, 16); } },
-  tip(tipId) {
-    if (useTip(view.run, tipId)) { sounds.tip(); saveRun(); }
-    else sounds.denied();
-  },
-  ticker(tickerId) { if (!switchTicker(view.run, tickerId)) sounds.denied(); else saveRun(); },
+  sound() { sound.muted = !sound.muted; savePreferences(); if (view.overlay === 'menu') showMenu(); },
+  pause() { if (view.run.phase === 'trading') view.paused = !view.paused; },
+  openDeck() { if (!view.overlay) showDeck(); },
+  openTrade() { openTrade(); },
+  tradeRow(index) { pickTradeRow(index); },
+  confirmTrade() { confirmTrade(); },
+  closeEverything() { if (tradingOpen() && hasPositions(view.run)) finishTrade(closeEverything(view.run), 'ALL CLOSED'); },
+  tip(tipId) { if (useTip(view.run, tipId)) { sounds.tip(); saveRun(); } else sounds.denied(); },
+  ticker(tickerId) { if (switchTicker(view.run, tickerId)) saveRun(); else sounds.denied(); },
   openMarket() { if (view.run.phase === 'preopen') { view.run.phase = 'trading'; view.run.today.tickerLocked = true; view.paused = false; saveRun(); } },
-  skipToClose() {
-    const run = view.run;
-    if (run.phase !== 'trading') return;
-    while (run.phase === 'trading') runOneTick(true);
-  },
+  skipToClose() { while (view.run.phase === 'trading') runOneTick(true); },
   afterResult() {
     if (view.run.gameOverReason) { showGameOver(); return; }
     view.run.phase = 'shop'; saveRun(); showShop();
   },
   nextDay() { startNextDay(view.run); view.lastEquity = null; hideOverlay(); saveRun(); },
-  shopItem(index) { chooseShopItem(Number(index)); },
-  pickCard(index) { pickCard(Number(index)); },
+  shopItem(index) { chooseShopItem(index); },
+  pickCard(index) { pickCard(index); },
   pickerTicker(tickerId) { view.pickerTicker = tickerId; view.pickerSelection = 0; showPicker(); },
 };
-function tradingOpen() { const run = view.run; return run && (run.phase === 'preopen' || run.phase === 'trading') && run.today.tick < TICKS_PER_DAY && !view.overlay; }
+const NUMBER_ARGUMENT_ACTIONS = ['tradeRow', 'shopItem', 'pickCard'];
 
 // Mouse: every clickable element names its action in data-action (and an optional data-argument).
 function handleClick(event) {
   const target = event.target.closest('[data-action]');
-  if (!target || target.classList.contains('locked')) { if (target) sounds.denied(); return; }
+  if (!target) return;
+  if (target.classList.contains('locked')) { sounds.denied(); return; }
   const action = ACTIONS[target.dataset.action];
   if (!action) return;
   const argument = target.dataset.argument;
-  action(argument !== undefined && /^-?\d+$/.test(argument) && !['tip', 'ticker', 'optionKind', 'pickerTicker'].includes(target.dataset.action) ? Number(argument) : argument);
-  if (view.run && view.run.today && !['shop', 'picker', 'title', 'result', 'gameover'].includes(view.overlay)) renderAll();
+  action(NUMBER_ARGUMENT_ACTIONS.includes(target.dataset.action) ? Number(argument) : argument);
+  if (!view.overlay || view.overlay === 'menu') renderAll();
 }
 
 function handleKey(event) {
   const key = event.key;
-  if (event.metaKey || event.ctrlKey) return;
-  if (view.overlay === 'shop' || view.overlay === 'picker') {
-    const isShop = view.overlay === 'shop';
+  if (event.metaKey || event.ctrlKey || !view.run) return;
+  const overlay = view.overlay;
+  if (overlay === 'trade') {
+    const trade = view.trade;
+    if (key === 'Escape') tradeBack();
+    else if (trade.step === 'amount') {
+      if (key === 'ArrowLeft' || key === 'ArrowRight') { trade.percent = clamp(trade.percent + (key === 'ArrowRight' ? 1 : -1) * SLIDER_STEP_PERCENT, 0, 100); element('tradeSlider').value = trade.percent; refreshAmount(); }
+      else if (key === 'Enter') confirmTrade();
+    } else {
+      const rows = tradeRows();
+      if (/^[1-9]$/.test(key)) pickTradeRow(Number(key) - 1);
+      else if (key === 'ArrowDown' || key === 'ArrowUp') { trade.selection = (trade.selection + (key === 'ArrowDown' ? 1 : rows.length - 1)) % rows.length; showTrade(); }
+      else if (key === 'Enter') pickTradeRow(trade.selection);
+    }
+    event.preventDefault(); return;
+  }
+  if (overlay === 'shop' || overlay === 'picker') {
+    const isShop = overlay === 'shop';
     const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
     if (arrows[key]) {
       const [dx, dy] = arrows[key];
@@ -1491,22 +1519,19 @@ function handleKey(event) {
     if (key === ' ' && isShop) { ACTIONS.nextDay(); renderAll(); event.preventDefault(); }
     return;
   }
-  if (view.overlay === 'title') { if (key === 'Enter' || key === ' ') { (localStorage.getItem(SAVE_KEY) ? ACTIONS.continueRun : ACTIONS.newRun)(); renderAll(); } return; }
-  if (view.overlay === 'result') { if (key === ' ' || key === 'Enter') { ACTIONS.afterResult(); event.preventDefault(); } return; }
-  if (view.overlay === 'gameover') { if (key === ' ' || key === 'Enter') { ACTIONS.newRun(); renderAll(); event.preventDefault(); } return; }
-  if (view.overlay === 'menu') { if (key === 'Escape' || key === ' ') ACTIONS.resume(); return; }
-  if (!view.run) return;
+  const confirmKey = key === ' ' || key === 'Enter';
+  if (overlay === 'title') { if (confirmKey) { (localStorage.getItem(SAVE_KEY) ? ACTIONS.continueRun : ACTIONS.newRun)(); renderAll(); } return; }
+  if (overlay === 'result') { if (confirmKey) { ACTIONS.afterResult(); event.preventDefault(); } return; }
+  if (overlay === 'gameover') { if (confirmKey) { ACTIONS.newRun(); renderAll(); event.preventDefault(); } return; }
+  if (overlay === 'menu') { if (key === 'Escape' || key === ' ') { ACTIONS.resume(); renderAll(); } return; }
+  if (overlay === 'deck') { if (key === 'Escape' || key.toLowerCase() === 'd') hideOverlay(); return; }
   const keyActions = {
-    b: () => ACTIONS.long(), s: () => ACTIONS.short(), x: () => ACTIONS.close(), o: () => ACTIONS.buyOption(),
-    t: () => ACTIONS.optionKind(view.run.controls.optionKind === 'call' ? 'put' : 'call'),
-    k: () => ACTIONS.skipToClose(), f: () => ACTIONS.speed(), m: () => ACTIONS.sound(),
-    ArrowUp: () => ACTIONS.stockSize(1), ArrowDown: () => ACTIONS.stockSize(-1),
-    ArrowRight: () => ACTIONS.strikeStep(1), ArrowLeft: () => ACTIONS.strikeStep(-1),
-    Escape: () => ACTIONS.menu(),
-    ' ': () => { if (view.run.phase === 'preopen') ACTIONS.openMarket(); else if (view.run.phase === 'trading') view.paused = !view.paused; },
+    t: ACTIONS.openTrade, x: ACTIONS.closeEverything, d: ACTIONS.openDeck, k: ACTIONS.skipToClose,
+    f: ACTIONS.speed, m: ACTIONS.sound, Escape: ACTIONS.menu,
+    ' ': () => (view.run.phase === 'preopen' ? ACTIONS.openMarket() : ACTIONS.pause()),
   };
   const handler = keyActions[key.length === 1 ? key.toLowerCase() : key];
-  if (handler) { handler(); event.preventDefault(); if (view.run.today && (!view.overlay || view.overlay === 'menu')) renderAll(); }
+  if (handler) { handler(); event.preventDefault(); if (!view.overlay || view.overlay === 'menu') renderAll(); }
 }
 
 // Instant tooltips for anything with data-tip.
@@ -1520,7 +1545,7 @@ function handleMouseMove(event) {
 }
 
 // ═══════════════════════════════════════ § 13 START ═══════════════════════════════════════
-// One tick of the live day, with all its sound and shake. quiet = skipping to the close.
+// One tick of the live day, with its sound and shake. quiet = skipping to the close.
 function runOneTick(quiet) {
   const run = view.run, before = totalEquity(run);
   const outcome = advanceTick(run);
