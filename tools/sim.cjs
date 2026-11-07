@@ -10,7 +10,7 @@ function loadGame() {
   const code = html.split('<script id="game">')[1].split('</script>')[0];
   return new Function(code + `
     ;return { newRun, prepareDay, advanceTick, closeDay, startNextDay, tradeStock, closeStock, buyOption, writeOption, useTip,
-      averagePayoff, simulateForecast, nextOpenPrice, tickMarket, closeEverything, makeRandom, deckToPile, shopCatalogue, buyShopItem, applyDeckEdit,
+      averagePayoff, simulateForecast, nextOpenPrice, tickMarket, closeEverything, makeRandom, deckToCardList, shopCatalogue, buyShopItem, applyDeckEdit,
       totalEquity, currentPrice, tipStatus, meetingTarget,
       TICKS_PER_DAY, OPTION_EXPIRY_DAYS, MEETING_EVERY_DAYS, MEETING_MULTIPLES };`)();
 }
@@ -22,21 +22,21 @@ function fairness(days = 300) {
   let premiums = 0, payoffs = 0, count = 0;
   const opens = [];
   for (let day = 0; day < days + game.OPTION_EXPIRY_DAYS; day++) {
-    const open = game.currentPrice(run.today);
-    if (day < days) opens.push({ open, fair: game.averagePayoff(run.today.forecast[game.OPTION_EXPIRY_DAYS], 'call', open) });
+    const openPrice = game.currentPrice(run.today);
+    if (day < days) opens.push({ openPrice, fair: game.averagePayoff(run.today.forecast[game.OPTION_EXPIRY_DAYS], 'call', openPrice) });
     run.phase = 'trading';
     while (run.phase === 'trading') { const outcome = game.advanceTick(run); if (outcome.closed) game.closeDay(run); }
     const settled = day - game.OPTION_EXPIRY_DAYS;
     if (settled >= 0) {
-      const { open: strike, fair } = opens[settled];
-      premiums += fair / strike; payoffs += Math.max(0, game.currentPrice(run.today) - strike) / strike; count++;
+      const { openPrice: strikePrice, fair } = opens[settled];
+      premiums += fair / strikePrice; payoffs += Math.max(0, game.currentPrice(run.today) - strikePrice) / strikePrice; count++;
     }
     run.gameOverReason = null; game.startNextDay(run);
   }
-  console.log(`7-day ATM call: fair ${(premiums / count * 100).toFixed(2)}% of the strike, real average payoff ${(payoffs / count * 100).toFixed(2)}% (${count} weeks)`);
+  console.log(`7-day ATM call: fair ${(premiums / count * 100).toFixed(2)}% of the strikePrice, real average payoff ${(payoffs / count * 100).toFixed(2)}% (${count} weeks)`);
 }
 
-// A day for a bot: decide before the open, then play every tick.
+// A day for a bot: decide before the openPrice, then play every tick.
 function playDay(run, strategy) {
   game.closeEverything(run);              // these bots only trade one day at a time
   strategy.beforeOpen(run);
@@ -53,14 +53,14 @@ function playDay(run, strategy) {
 
 function buyFirstAffordable(run, ids) {
   for (const id of ids) {
-    const item = game.shopCatalogue(run).find(entry => entry.id === id);
-    if (item && !item.owned && run.cash > item.price * 3 && game.buyShopItem(run, item)) return true;
+    const shopItem = game.shopCatalogue(run).find(entry => entry.id === id);
+    if (shopItem && !shopItem.owned && run.cash > shopItem.price * 3 && game.buyShopItem(run, shopItem)) return true;
   }
   return false;
 }
 function rigDeck(run) {
-  const item = game.shopCatalogue(run).find(entry => entry.id === 'remove');
-  if (run.cash > item.price * 5 && run.heat < 60) game.applyDeckEdit(run, item, run.ticker, run.decks[run.ticker].BEAR > 0 ? 'BEAR' : run.decks[run.ticker].DOWN > 0 ? 'DOWN' : 'bear');
+  const shopItem = game.shopCatalogue(run).find(entry => entry.id === 'remove');
+  if (run.cash > shopItem.price * 5 && run.heat < 60) game.applyDeckEdit(run, shopItem, run.ticker, run.decks[run.ticker].BEAR > 0 ? 'BEAR' : run.decks[run.ticker].DOWN > 0 ? 'DOWN' : 'bear');
 }
 
 const STRATEGIES = {
@@ -88,7 +88,7 @@ function bots(runs = 40) {
       if (!Number.isFinite(run.cash)) throw new Error(name + ': cash became ' + run.cash);
       daysSurvived.push(run.day); peaks.push(run.peakEquity);
     }
-    daysSurvived.sort((a, b) => a - b); peaks.sort((a, b) => a - b);
+    daysSurvived.sort((first, second) => first - second); peaks.sort((first, second) => first - second);
     const median = list => list[Math.floor(list.length / 2)];
     console.log(`${name.padEnd(8)} days: median ${median(daysSurvived)}, best ${daysSurvived.at(-1)} · peak equity: median ${median(peaks).toExponential(2)}, best ${peaks.at(-1).toExponential(2)}`);
   }

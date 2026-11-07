@@ -1,55 +1,99 @@
 // Usage: node tools/fuzz.cjs index.html [runs]
-// Random player: random trades (all kinds, add/close partial), tips, shop buys, deck edits, over many days.
-// Checks invariants after every action and tick.
-const fs=require('fs');const h=fs.readFileSync(process.argv[2],'utf8');const c=h.split('<script id="game">')[1].split('</script>')[0];
-const g=new Function(c+`;return {newRun,advanceTick,closeDay,startNextDay,tradeStock,buyOption,writeOption,closeLot,closeStockPart,closeEverything,
- useTip,tipStatus,totalEquity,marginEquity,exposure,currentPrice,shopCatalogue,buyShopItem,applyDeckEdit,deckEditAllowed,switchTicker,optionPrices,
- strikeOffsets,deckSize,serialiseRun,loadRun,CARD_ORDER,TIP_ORDER,TICKS_PER_DAY,hasPositions,maximumLeverage,newExpiryDay};`)();
-const seedRandom=(s)=>()=>{s=(s*1103515245+12345)%2147483648;return s/2147483648;};
-let problems=0; const fail=(m,run)=>{ if(problems++<15) console.log('PROBLEM day',run.day,'tick',run.today&&run.today.tick,m); };
-function check(run,where){
-  const t=run.today; if(!Number.isFinite(run.cash)) fail(where+' cash '+run.cash,run);
-  const e=g.totalEquity(run); if(!Number.isFinite(e)) fail(where+' equity '+e,run);
-  if(!Number.isFinite(t.shares)) fail(where+' shares',run);
-  for(const l of t.optionLots){ if(!(l.quantity>0)||!Number.isFinite(l.paid)||!(l.expiryDay>=run.day)) fail(where+' lot '+JSON.stringify(l),run); }
-  if(!(g.currentPrice(t)>0)) fail(where+' price '+g.currentPrice(t),run);
-  for(const id in run.decks) for(const k of g.CARD_ORDER) if(run.decks[id][k]<0) fail(where+' negative deck count '+id+k,run);
-  if(run.heat<0) fail(where+' heat<0',run);
+// A random player: random trades of every kind (long, short, add, partial close), tips, stock switches, shop buys and
+// deck edits, over many days. After every action and tick it checks that money, positions and decks stay valid, and
+// that saving and loading keeps the same equity. Prints every problem it finds (at most 15).
+const fs = require('fs');
+
+function loadGame(htmlFile) {
+  const html = fs.readFileSync(htmlFile, 'utf8');
+  const code = html.split('<script id="game">')[1].split('</script>')[0];
+  return new Function(code + `;return { newRun, advanceTick, closeDay, startNextDay, tradeStock, buyOption, writeOption,
+    closeOption, closeStockPart, closeEverything, useTip, totalEquity, currentPrice, shopCatalogue, buyShopItem,
+    applyDeckEdit, switchTicker, strikeOffsets, deckSize, serialiseRun, loadRun, CARD_ORDER, TIP_ORDER };`)();
 }
-let days=0, runs=0, maxEq=0;
-for(let seed=1; seed<=(Number(process.argv[3])||40); seed++){
-  const R=seedRandom(seed*7919); const run=g.newRun(seed); runs++;
-  run.cash*=1+R()*20;
-  for(let d=0; d<60 && !run.gameOverReason; d++){
-    // preopen: tips, maybe switch ticker
-    for(const tip of g.TIP_ORDER) if(R()<0.3) g.useTip(run,tip);
-    if(R()<0.1 && run.tickersOwned.length>1) g.switchTicker(run, run.tickersOwned[Math.floor(R()*run.tickersOwned.length)]);
-    run.phase='trading';
-    while(run.phase==='trading'){
-      if(R()<0.08){ const a=Math.floor(R()*7), f=R();
-        if(a===0) g.tradeStock(run, R()<0.5?1:-1, f);
-        else if(a===1){ const kind=R()<0.5?'call':'put'; const offs=g.strikeOffsets(kind); g.buyOption(run,kind,g.currentPrice(run.today)*(1+offs[Math.floor(R()*offs.length)]),f); }
-        else if(a===2){ const kind=R()<0.5?'call':'put'; const offs=g.strikeOffsets(kind); g.writeOption(run,kind,g.currentPrice(run.today)*(1+offs[Math.floor(R()*offs.length)]),f*0.3); }
-        else if(a===3 && run.today.optionLots.length) g.closeLot(run, Math.floor(R()*run.today.optionLots.length), R()<0.5?1:f);
-        else if(a===4) g.closeStockPart(run, R()<0.5?1:f);
-        else if(a===5 && run.today.optionLots.length){ const l=run.today.optionLots[0]; (l.side==='long'?g.buyOption:g.writeOption)(run,l.kind,l.strike,f*0.3,l.expiryDay); }
-        else if(a===6 && R()<0.2) g.closeEverything(run);
-        check(run,'after action '+a);
-      }
-      const o=g.advanceTick(run); check(run,'tick');
-      if(o.closed) g.closeDay(run);
+const game = loadGame(process.argv[2]);
+const RUNS = Number(process.argv[3]) || 40;
+const DAYS_PER_RUN = 60;
+
+// A small seeded random generator, so every fuzz run is repeatable.
+function seededRandom(seed) {
+  let state = seed;
+  return () => { state = (state * 1103515245 + 12345) % 2147483648; return state / 2147483648; };
+}
+const pickFrom = (list, random) => list[Math.floor(random() * list.length)];
+
+let problemCount = 0;
+function report(run, where, problem) {
+  if (problemCount++ < 15) console.log('PROBLEM day', run.day, 'tick', run.today && run.today.tick, where, problem);
+}
+function checkInvariants(run, where) {
+  const today = run.today;
+  if (!Number.isFinite(run.cash)) report(run, where, 'cash ' + run.cash);
+  if (!Number.isFinite(game.totalEquity(run))) report(run, where, 'equity ' + game.totalEquity(run));
+  if (!Number.isFinite(today.shares)) report(run, where, 'shares ' + today.shares);
+  if (!(game.currentPrice(today) > 0)) report(run, where, 'price ' + game.currentPrice(today));
+  for (const option of today.options)
+    if (!(option.quantity > 0) || !Number.isFinite(option.premiumTotal) || !(option.expiryDay >= run.day)) report(run, where, 'option ' + JSON.stringify(option));
+  for (const tickerId in run.decks)
+    for (const cardId of game.CARD_ORDER) if (run.decks[tickerId][cardId] < 0) report(run, where, `negative count ${tickerId} ${cardId}`);
+  if (run.heat < 0) report(run, where, 'heat below 0');
+}
+
+// One random trade.
+function randomTrade(run, random) {
+  const action = Math.floor(random() * 7), fraction = random(), price = game.currentPrice(run.today);
+  const randomStrike = type => price * (1 + pickFrom(game.strikeOffsets(type), random));
+  const randomType = () => (random() < 0.5 ? 'call' : 'put');
+  const options = run.today.options;
+  if (action === 0) game.tradeStock(run, random() < 0.5 ? 1 : -1, fraction);
+  if (action === 1) { const type = randomType(); game.buyOption(run, type, randomStrike(type), fraction); }
+  if (action === 2) { const type = randomType(); game.writeOption(run, type, randomStrike(type), fraction * 0.3); }
+  if (action === 3 && options.length) game.closeOption(run, Math.floor(random() * options.length), random() < 0.5 ? 1 : fraction);
+  if (action === 4) game.closeStockPart(run, random() < 0.5 ? 1 : fraction);
+  if (action === 5 && options.length) {                     // add more of an open option
+    const option = options[0], addMore = option.direction === 'long' ? game.buyOption : game.writeOption;
+    addMore(run, option.type, option.strikePrice, fraction * 0.3, option.expiryDay);
+  }
+  if (action === 6 && random() < 0.2) game.closeEverything(run);
+  return action;
+}
+
+// A few random purchases in the shop, deck edits included.
+function randomShopping(run, random) {
+  for (let purchase = 0; purchase < 4; purchase++) {
+    const shopItem = pickFrom(game.shopCatalogue(run), random);
+    if (!shopItem.deckEdit) { game.buyShopItem(run, shopItem); continue; }
+    const tickerId = pickFrom(run.tickersOwned, random);
+    const cardId = shopItem.deckEdit.startsWith('event:') ? shopItem.deckEdit.slice('event:'.length) : pickFrom(game.CARD_ORDER.slice(0, 16), random);
+    game.applyDeckEdit(run, shopItem, tickerId, cardId);
+  }
+  for (const tickerId in run.decks) if (game.deckSize(run.decks[tickerId]) < 150) report(run, 'shop', 'deck below the minimum ' + tickerId);
+}
+
+let daysPlayed = 0, highestEquity = 0;
+for (let seed = 1; seed <= RUNS; seed++) {
+  const random = seededRandom(seed * 7919), run = game.newRun(seed);
+  run.cash *= 1 + random() * 20;
+  for (let dayNumber = 0; dayNumber < DAYS_PER_RUN && !run.gameOverReason; dayNumber++) {
+    for (const tipId of game.TIP_ORDER) if (random() < 0.3) game.useTip(run, tipId);
+    if (random() < 0.1 && run.tickersOwned.length > 1) game.switchTicker(run, pickFrom(run.tickersOwned, random));
+    run.phase = 'trading';
+    while (run.phase === 'trading') {
+      if (random() < 0.08) checkInvariants(run, 'after trade ' + randomTrade(run, random));
+      const outcome = game.advanceTick(run);
+      checkInvariants(run, 'tick');
+      if (outcome.closed) game.closeDay(run);
     }
-    days++; maxEq=Math.max(maxEq,g.totalEquity(run));
-    // save/load round trip keeps the state
-    const copy=g.loadRun(g.serialiseRun(run)); if(Math.abs(g.totalEquity(copy)-g.totalEquity(run))>1e-6*Math.max(1,Math.abs(g.totalEquity(run)))) fail('save/load equity '+g.totalEquity(copy)+' vs '+g.totalEquity(run),run);
-    if(run.gameOverReason) break;
-    // shop: random purchases and deck edits
-    run.phase='shop';
-    for(let k=0;k<4;k++){ const items=g.shopCatalogue(run); const it=items[Math.floor(R()*items.length)];
-      if(it.picker){ const tick=run.tickersOwned[Math.floor(R()*run.tickersOwned.length)]; const card=it.picker.startsWith('event:')?it.picker.slice(6):g.CARD_ORDER[Math.floor(R()*16)]; g.applyDeckEdit(run,it,tick,card); }
-      else g.buyShopItem(run,it); }
-    for(const id in run.decks) if(g.deckSize(run.decks[id])<150) fail('deck below minimum '+id,run);
-    g.startNextDay(run); check(run,'next day');
+    daysPlayed++;
+    highestEquity = Math.max(highestEquity, game.totalEquity(run));
+    const reloaded = game.loadRun(game.serialiseRun(run));
+    if (Math.abs(game.totalEquity(reloaded) - game.totalEquity(run)) > 1e-6 * Math.max(1, Math.abs(game.totalEquity(run))))
+      report(run, 'save/load', `equity ${game.totalEquity(reloaded)} vs ${game.totalEquity(run)}`);
+    if (run.gameOverReason) break;
+    run.phase = 'shop';
+    randomShopping(run, random);
+    game.startNextDay(run);
+    checkInvariants(run, 'next day');
   }
 }
-console.log('runs',runs,'days',days,'problems',problems,'max equity',maxEq.toExponential(2));
+console.log('runs', RUNS, 'days', daysPlayed, 'problems', problemCount, 'highest equity', highestEquity.toExponential(2));

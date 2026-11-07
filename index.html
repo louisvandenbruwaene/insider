@@ -167,7 +167,7 @@ button{font:inherit;color:inherit}
 
 // ═══════════════════════════════════════ § 1 SETTINGS ═══════════════════════════════════════
 const SAVE_KEY = 'insider.save.v1';             // the running game (written every tick, so quitting mid-day resumes there)
-const SAVE_VERSION = 2;                         // saves from other versions are not resumed
+const SAVE_VERSION = 3;                         // saves from other versions are not resumed
 const RECORDS_KEY = 'insider.records.v1';       // best equity and longest run, kept across runs
 const PREFERENCES_KEY = 'insider.preferences.v1'; // sound and speed
 
@@ -185,36 +185,36 @@ const HALT_SECONDS = 10;                        // a Halt card freezes the price
 
 // 1.3 Cards. Price cards move the price by move × σ. Vol cards multiply σ by factor. σ starts each day at 1.
 const CARD_TYPES = {
-  up:       { kind: 'price', move: +0.01 },
-  down:     { kind: 'price', move: -0.01 },
-  UP:       { kind: 'price', move: +0.05 },
-  DOWN:     { kind: 'price', move: -0.05 },
-  bull:     { kind: 'price', move: +0.10 },
-  bear:     { kind: 'price', move: -0.10 },
-  BULL:     { kind: 'price', move: +0.50 },
-  BEAR:     { kind: 'price', move: -0.50 },
-  volup:    { kind: 'vol', factor: 1.01 },
-  voldown:  { kind: 'vol', factor: 0.99 },
-  volUP:    { kind: 'vol', factor: 1.05 },
-  volDOWN:  { kind: 'vol', factor: 0.95 },
-  volbull:  { kind: 'vol', factor: 1.10 },
-  volbear:  { kind: 'vol', factor: 0.90 },
-  volBULL:  { kind: 'vol', factor: 1.50 },
-  volBEAR:  { kind: 'vol', factor: 0.50 },
-  earnings: { kind: 'event', icon: '📊', name: 'Earnings', sentence: 'The next 3 cards all hit the price in the same second.' },
-  fed:      { kind: 'event', icon: '🏛', name: 'Fed speech', sentence: 'σ is doubled for the next 15 ticks.' },
-  halt:     { kind: 'event', icon: '⏸', name: 'Halt', sentence: 'The price freezes for 10 seconds. You can still trade.' },
-  momentum: { kind: 'event', icon: '🔁', name: 'Momentum', sentence: 'Repeats the last price move.' },
-  squeeze:  { kind: 'event', icon: '🚀', name: 'Squeeze', sentence: 'Shorts are forced to buy: price +25% × σ.' },
+  up:       { category: 'price', move: +0.01 },
+  down:     { category: 'price', move: -0.01 },
+  UP:       { category: 'price', move: +0.05 },
+  DOWN:     { category: 'price', move: -0.05 },
+  bull:     { category: 'price', move: +0.10 },
+  bear:     { category: 'price', move: -0.10 },
+  BULL:     { category: 'price', move: +0.50 },
+  BEAR:     { category: 'price', move: -0.50 },
+  volup:    { category: 'vol', factor: 1.01 },
+  voldown:  { category: 'vol', factor: 0.99 },
+  volUP:    { category: 'vol', factor: 1.05 },
+  volDOWN:  { category: 'vol', factor: 0.95 },
+  volbull:  { category: 'vol', factor: 1.10 },
+  volbear:  { category: 'vol', factor: 0.90 },
+  volBULL:  { category: 'vol', factor: 1.50 },
+  volBEAR:  { category: 'vol', factor: 0.50 },
+  earnings: { category: 'event', icon: '📊', name: 'Earnings', sentence: 'The next 3 cards all hit the price in the same second.' },
+  fed:      { category: 'event', icon: '🏛', name: 'Fed speech', sentence: 'σ is doubled for the next 15 ticks.' },
+  halt:     { category: 'event', icon: '⏸', name: 'Halt', sentence: 'The price freezes for 10 seconds. You can still trade.' },
+  momentum: { category: 'event', icon: '🔁', name: 'Momentum', sentence: 'Repeats the last price move.' },
+  squeeze:  { category: 'event', icon: '🚀', name: 'Squeeze', sentence: 'Shorts are forced to buy: price +25% × σ.' },
 };
 const CARD_ORDER = ['up', 'down', 'UP', 'DOWN', 'bull', 'bear', 'BULL', 'BEAR',
   'volup', 'voldown', 'volUP', 'volDOWN', 'volbull', 'volbear', 'volBULL', 'volBEAR',
   'earnings', 'fed', 'halt', 'momentum', 'squeeze'];
 const EVENT_CARDS = ['earnings', 'fed', 'halt', 'momentum', 'squeeze'];
 const PRICE_MOVE_FLOOR = -0.9;                  // no single move takes more than 90% off the price
-const SIGMA_MINIMUM = 0.25, SIGMA_MAXIMUM = 4;
+const VOLATILITY_MINIMUM = 0.25, VOLATILITY_MAXIMUM = 4;
 const EARNINGS_EXTRA_CARDS = 3;
-const FED_TICKS = 15, FED_SIGMA_MULTIPLIER = 2;
+const FED_TICKS = 15, FED_VOLATILITY_MULTIPLIER = 2;
 const SQUEEZE_MOVE = 0.25;
 const BIG_CARD_MOVE = 0.10;                     // price moves this big (or vol factors this far from 1) shake the chart
 
@@ -295,29 +295,29 @@ const EVENT_CARD_PRICES = { earnings: 250, fed: 200, halt: 150, momentum: 300, s
 const EVENT_PRICE_GROWTH = 1.3;                 // each copy bought costs this much more
 // The four option positions, each bought separately in the shop (shorting stock needs no unlock).
 // P&L per option. S = the stock price when the option is exercised (any time up to expiry, OPTION_EXPIRY_DAYS
-// trading days after the trade), K = the strike, premium = the option's price (paid long, received short).
+// trading days after the trade), K = the strike price, premium = the option's price (paid long, received short).
 const OPTION_POSITIONS = {
-  longCall:  { side: 'long',  kind: 'call', name: 'Long call',  icon: '📈', price: 300, formula: 'P&L = max(S − K, 0) − premium' },
-  shortCall: { side: 'short', kind: 'call', name: 'Short call', icon: '🧾', price: 400, formula: 'P&L = premium − max(S − K, 0)' },
-  longPut:   { side: 'long',  kind: 'put',  name: 'Long put',   icon: '🛡', price: 300, formula: 'P&L = max(K − S, 0) − premium' },
-  shortPut:  { side: 'short', kind: 'put',  name: 'Short put',  icon: '🪙', price: 400, formula: 'P&L = premium − max(K − S, 0)' },
+  longCall:  { direction: 'long',  type: 'call', name: 'Long call',  icon: '📈', price: 300, formula: 'P&L = max(S − K, 0) − premium' },
+  shortCall: { direction: 'short', type: 'call', name: 'Short call', icon: '🧾', price: 400, formula: 'P&L = premium − max(S − K, 0)' },
+  longPut:   { direction: 'long',  type: 'put',  name: 'Long put',   icon: '🛡', price: 300, formula: 'P&L = max(K − S, 0) − premium' },
+  shortPut:  { direction: 'short', type: 'put',  name: 'Short put',  icon: '🪙', price: 400, formula: 'P&L = premium − max(K − S, 0)' },
 };
 const TICKER_PRICES = { UTIL: 800, BIOX: 1500 };
 
 // 1.12 Look
-const CHART_COLOURS = { up: '#3ddc84', down: '#ff5a5f', average: '#edf1f5', open: '#3a4350', label: '#8592a3', grid: '#1e242d', history: '#6b7686',
-  entry: '#ffc94d', stop: '#ff8a3d', insight: '#ffc94d', sigma: '#6cb6ff' };
+const CHART_COLOURS = { up: '#3ddc84', down: '#ff5a5f', average: '#edf1f5', openPrice: '#3a4350', label: '#8592a3', grid: '#1e242d', history: '#6b7686',
+  entry: '#ffc94d', stop: '#ff8a3d', insight: '#ffc94d', volatility: '#6cb6ff' };
 const CHART_ANALYST_BAND = 'rgba(255,201,77,.22)'; // the Analyst tip's band at the close
 const CHART_HISTORY_SHARE = 0.34;               // share of the chart's width for the previous week …
 const CHART_TODAY_SHARE = 0.42;                 // … for today (the rest is the forecast fan)
 const CHART_HISTORY_STEP = 3;                   // draw every 3rd tick of past days
-const SIDE_LOTS_SHOWN = 3;                      // option lots listed in the side menu
+const SIDE_OPTIONS_SHOWN = 3;                   // option positions listed in the side menu
 const STOCK_ICON = '📦';                         // marks the open stock position in the trade menu (options use their own icon)
 const OPEN_TRADE_KEYS = 'abcdefghijklmnopqrstuvwxyz'; // keys that open the open trades' icons, in order
 const EQUITY_FLASH_CHANGE = 0.002;              // the equity number flashes when it moves more than 0.2% …
 const POPUP_CHANGE = 0.01;                      // … and a +$ / −$ popup appears over the chart above 1%
-const FLOATER_SECONDS = 1.2;                    // P&L pops and messages over the chart fade in this time
-const FLOATERS_SHOWN = 3;                       // at most this many at once, stacked
+const POPUP_SECONDS = 1.2;                    // P&L pops and messages over the chart fade in this time
+const POPUPS_SHOWN = 3;                       // at most this many at once, stacked
 
 // ═══════════════════════════════════════ § 2 HELPERS ═══════════════════════════════════════
 // Money and big numbers: plain below 10 000, then K/M/B/T, then scientific notation.
@@ -343,12 +343,12 @@ function formatCount(value) {
 // makeRandom is a standard small generator (mulberry32) and mixSeed a standard hash (FNV-1a); their details
 // do not matter for the game.
 function makeRandom(seed) {
-  let state = seed >>> 0;
-  return function random() {
-    state = (state + 0x6D2B79F5) >>> 0;
-    let mixed = Math.imul(state ^ (state >>> 15), 1 | state);
-    mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
-    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
+  let counter = seed >>> 0;
+  return function random() {                                // a number from 0 up to (not including) 1
+    counter = (counter + 0x6D2B79F5) >>> 0;
+    let scrambled = Math.imul(counter ^ (counter >>> 15), 1 | counter);
+    scrambled = (scrambled + Math.imul(scrambled ^ (scrambled >>> 7), 61 | scrambled)) ^ scrambled;
+    return ((scrambled ^ (scrambled >>> 14)) >>> 0) / 4294967296;
   };
 }
 function mixSeed(...numbers) {
@@ -370,46 +370,46 @@ function inflationIndex(day) { return Math.pow(1 + INFLATION_PER_DAY, day - 1); 
 // The short text on a card chip: "+5%" for price cards, "σ+5%" for vol cards, the icon for events.
 function cardValueText(cardId) {
   const card = CARD_TYPES[cardId];
-  if (card.kind === 'price') return (card.move > 0 ? '+' : '−') + Math.abs(card.move * 100) + '%';
-  if (card.kind === 'vol') return 'σ' + (card.factor > 1 ? '+' : '−') + Math.round(Math.abs(card.factor - 1) * 100) + '%';
+  if (card.category === 'price') return (card.move > 0 ? '+' : '−') + Math.abs(card.move * 100) + '%';
+  if (card.category === 'vol') return 'σ' + (card.factor > 1 ? '+' : '−') + Math.round(Math.abs(card.factor - 1) * 100) + '%';
   return card.icon;
 }
-function cardLabel(cardId) { return CARD_TYPES[cardId].kind === 'event' ? CARD_TYPES[cardId].name : cardId; }
+function cardLabel(cardId) { return CARD_TYPES[cardId].category === 'event' ? CARD_TYPES[cardId].name : cardId; }
 // Is this card dramatic enough to shake the chart? (2 = a BULL/BEAR-sized shock)
-function cardDrama(cardId) {
+function cardImpact(cardId) {
   const card = CARD_TYPES[cardId];
-  if (card.kind === 'price') return Math.abs(card.move) >= 0.5 ? 2 : Math.abs(card.move) >= BIG_CARD_MOVE ? 1 : 0;
-  if (card.kind === 'vol') return Math.abs(card.factor - 1) >= 0.5 ? 2 : Math.abs(card.factor - 1) >= BIG_CARD_MOVE ? 1 : 0;
+  if (card.category === 'price') return Math.abs(card.move) >= 0.5 ? 2 : Math.abs(card.move) >= BIG_CARD_MOVE ? 1 : 0;
+  if (card.category === 'vol') return Math.abs(card.factor - 1) >= 0.5 ? 2 : Math.abs(card.factor - 1) >= BIG_CARD_MOVE ? 1 : 0;
   return 1;
 }
 function deckSize(deck) { return CARD_ORDER.reduce((total, cardId) => total + (deck[cardId] || 0), 0); }
 // All the cards of a deck as one list of ids, ready to shuffle.
-function deckToPile(deck) {
-  const pile = [];
-  for (const cardId of CARD_ORDER) for (let copy = 0; copy < (deck[cardId] || 0); copy++) pile.push(cardId);
-  return pile;
+function deckToCardList(deck) {
+  const cardList = [];
+  for (const cardId of CARD_ORDER) for (let copy = 0; copy < (deck[cardId] || 0); copy++) cardList.push(cardId);
+  return cardList;
 }
-function countCards(pile) {
+function countCards(cardList) {
   const counts = {};
   for (const cardId of CARD_ORDER) counts[cardId] = 0;
-  for (const cardId of pile) counts[cardId]++;
+  for (const cardId of cardList) counts[cardId]++;
   return counts;
 }
 
 // ═══════════════════════════════════════ § 4 MARKET ═══════════════════════════════════════
-// The market state is { price, sigma, fedTicksLeft, lastPriceMove }. One tick draws one card (an Earnings card draws
+// The market state is { price, volatility (σ), fedTicksLeft, lastPriceMove }. One tick draws one card (an Earnings card draws
 // three more) through drawCard(), which always returns a card id. The same function runs the real day and the
 // market maker's simulations, so the forecast is exactly as fair as the game.
 function applyPriceMove(market, rawMove) {
-  const sigma = market.sigma * (market.fedTicksLeft > 0 ? FED_SIGMA_MULTIPLIER : 1);
-  market.price *= 1 + Math.max(PRICE_MOVE_FLOOR, rawMove * sigma);
+  const volatility = market.volatility * (market.fedTicksLeft > 0 ? FED_VOLATILITY_MULTIPLIER : 1);
+  market.price *= 1 + Math.max(PRICE_MOVE_FLOOR, rawMove * volatility);
   market.lastPriceMove = rawMove;
 }
 function applyCard(market, cardId, drawCard, cardsApplied) {
   const card = CARD_TYPES[cardId];
   cardsApplied.push(cardId);
-  if (card.kind === 'price') applyPriceMove(market, card.move);
-  else if (card.kind === 'vol') market.sigma = clamp(market.sigma * card.factor, SIGMA_MINIMUM, SIGMA_MAXIMUM);
+  if (card.category === 'price') applyPriceMove(market, card.move);
+  else if (card.category === 'vol') market.volatility = clamp(market.volatility * card.factor, VOLATILITY_MINIMUM, VOLATILITY_MAXIMUM);
   else if (cardId === 'earnings') {
     for (let extra = 0; extra < EARNINGS_EXTRA_CARDS; extra++) applyCard(market, drawCard(), drawCard, cardsApplied);
   }
@@ -425,76 +425,81 @@ function tickMarket(market, drawCard) {
   return cardsApplied;
 }
 
-// The deck is dealt from a shoe: the shuffled cards not drawn yet. The shoe lasts several days (NOVA: 844 cards at
+// The deck is dealt from a draw pile: the shuffled cards not drawn yet. It lasts several days (NOVA: 844 cards at
 // 90 a day); when it runs out a fresh shuffle of the whole deck replaces it, in the middle of a day if need be.
 // The whole day is fixed at the open: insider tips read this schedule, the live day replays it one tick per second.
-// schedule.shoes holds the shoe the day starts with (and a fresh one if it ran out); positions[tick] = [shoe, index].
-function scheduleDay(shoe, deck, openPrice, random) {
-  const shoes = [shoe.slice()];
-  let shoeIndex = 0, position = 0, drawn = 0;
+// schedule.drawPiles holds the draw pile the day starts with (and a fresh one if it ran out);
+// positions[tick] = [which draw pile, how many cards of it are drawn].
+function scheduleDay(drawPile, deck, openPrice, random) {
+  const drawPiles = [drawPile.slice()];
+  let drawPileIndex = 0, cardsTakenFromPile = 0, cardsDrawnToday = 0;
   const drawCard = () => {
-    if (position >= shoes[shoeIndex].length) { shoes.push(shuffleInPlace(deckToPile(deck), random)); shoeIndex++; position = 0; }
-    drawn++;
-    return shoes[shoeIndex][position++];
+    if (cardsTakenFromPile >= drawPiles[drawPileIndex].length) {          // the pile is empty: shuffle the whole deck
+      drawPiles.push(shuffleInPlace(deckToCardList(deck), random));
+      drawPileIndex++;
+      cardsTakenFromPile = 0;
+    }
+    cardsDrawnToday++;
+    return drawPiles[drawPileIndex][cardsTakenFromPile++];
   };
-  const market = { price: openPrice, sigma: 1, fedTicksLeft: 0, lastPriceMove: 0 };
-  const schedule = { states: [{ ...market }], cards: [[]], shoes, positions: [[0, 0]], drawnBefore: [0] };
+  const market = { price: openPrice, volatility: 1, fedTicksLeft: 0, lastPriceMove: 0 };
+  const schedule = { states: [{ ...market }], cards: [[]], drawPiles, pilePositions: [[0, 0]], drawnBefore: [0] };
   for (let tick = 1; tick <= TICKS_PER_DAY; tick++) {
     schedule.cards.push(tickMarket(market, drawCard));
     schedule.states.push({ ...market });
-    schedule.positions.push([shoeIndex, position]);
-    schedule.drawnBefore.push(drawn);
+    schedule.pilePositions.push([drawPileIndex, cardsTakenFromPile]);
+    schedule.drawnBefore.push(cardsDrawnToday);
   }
   return schedule;
 }
-// The cards still in the shoe after this tick (what the market maker counts on).
-function shoeAfter(schedule, tick) {
-  const [shoeIndex, position] = schedule.positions[tick];
-  return schedule.shoes[shoeIndex].slice(position);
+// The cards still in the draw pile after this tick (what the market maker counts on).
+function drawPileAfter(schedule, tick) {
+  const [drawPileIndex, cardsTaken] = schedule.pilePositions[tick];
+  return schedule.drawPiles[drawPileIndex].slice(cardsTaken);
 }
 // Overnight the price grows with inflation; σ, the Fed and momentum reset.
-function nextOpenPrice(close) { return close * (1 + INFLATION_PER_DAY); }
+function nextOpenPrice(closePrice) { return closePrice * (1 + INFLATION_PER_DAY); }
 
-// The market maker knows which cards are left in the shoe and what the whole deck holds, but not the order. It
+// The market maker knows which cards are left in the draw pile and what the whole deck holds, but not the order. It
 // plays out the rest of today and the next daysAhead days many times, with the same tickMarket as the real day.
 // Returns closesByDay[k][path]: the close k days from today (k = 0 is today's close).
-function simulateForecast(market, remainingShoe, deck, ticksLeftToday, daysAhead, paths, random) {
-  const fullDeck = deckToPile(deck);
+function simulateForecast(market, remainingDrawPile, deck, ticksLeftToday, daysAhead, paths, random) {
+  const wholeDeck = deckToCardList(deck);
   const closesByDay = Array.from({ length: daysAhead + 1 }, () => []);
   for (let path = 0; path < paths; path++) {
-    const state = { ...market };
-    let pool = remainingShoe.slice();
-    const drawCard = () => {                       // a random card from what is left; a fresh deck when the shoe is empty
-      if (pool.length === 0) pool = fullDeck.slice();
-      const index = Math.floor(random() * pool.length);
-      const card = pool[index];
-      pool[index] = pool[pool.length - 1];
-      pool.pop();
+    const marketState = { ...market };
+    let cardsLeft = remainingDrawPile.slice();
+    const drawCard = () => {                       // a random card from what is left; a fresh deck when the pile is empty
+      if (cardsLeft.length === 0) cardsLeft = wholeDeck.slice();
+      const index = Math.floor(random() * cardsLeft.length);
+      const card = cardsLeft[index];
+      cardsLeft[index] = cardsLeft[cardsLeft.length - 1];
+      cardsLeft.pop();
       return card;
     };
     for (let day = 0; day <= daysAhead; day++) {
-      if (day > 0) Object.assign(state, { price: nextOpenPrice(state.price), sigma: 1, fedTicksLeft: 0, lastPriceMove: 0 });
+      if (day > 0) Object.assign(marketState, { price: nextOpenPrice(marketState.price), volatility: 1, fedTicksLeft: 0, lastPriceMove: 0 });
       const ticks = day === 0 ? ticksLeftToday : TICKS_PER_DAY;
-      for (let tick = 0; tick < ticks; tick++) tickMarket(state, drawCard);
-      closesByDay[day].push(state.price);
+      for (let tick = 0; tick < ticks; tick++) tickMarket(marketState, drawCard);
+      closesByDay[day].push(marketState.price);
     }
   }
   return closesByDay;
 }
 
 // What one option pays when exercised at price S: max(S − K, 0) for a call, max(K − S, 0) for a put.
-function payoff(kind, strike, price) { return Math.max(0, kind === 'call' ? price - strike : strike - price); }
+function payoff(type, strikePrice, price) { return Math.max(0, type === 'call' ? price - strikePrice : strikePrice - price); }
 // The value of an option held to expiry: its average payoff over the simulated closes.
-function averagePayoff(closes, kind, strike) {
+function averagePayoff(closes, type, strikePrice) {
   let total = 0;
-  for (const close of closes) total += payoff(kind, strike, close);
+  for (const closePrice of closes) total += payoff(type, strikePrice, closePrice);
   return total / closes.length;
 }
 
 // ═══════════════════════════════════════ § 5 ACCOUNT ═══════════════════════════════════════
 // What you own. run.cash can go negative (money borrowed on margin) and grows when you short stock or options (you
-// receive the money). run.today.shares is the stock position: positive = long, negative = short. Each option lot is
-// { kind: 'call' | 'put', side: 'long' | 'short', strike, quantity, paid, expiryDay }, where paid is what was paid
+// receive the money). run.today.shares is the stock position: positive = long, negative = short. Each option position is
+// { type: 'call' | 'put', direction: 'long' | 'short', strikePrice, quantity, premiumTotal, expiryDay }, where premiumTotal is what was paid
 // (long) or received (short). Positions are held overnight; options expire at the close of their expiryDay.
 
 // ── 5.1 Prices and values
@@ -506,35 +511,35 @@ function maximumLeverage(run) { return run.today && run.today.investigation ? 1 
 
 // One option is worth the higher of exercising it now (its payoff at today's price) and holding it to expiry (the
 // forecast's average payoff at the expiry day's close). At the close of its last day only exercising is left.
-function optionValue(run, kind, strike, expiryDay) {
+function valueOfOneOption(run, type, strikePrice, expiryDay) {
   const today = run.today, daysLeft = expiryDay - run.day;
-  const exerciseNow = payoff(kind, strike, currentPrice(today));
+  const exerciseNow = payoff(type, strikePrice, currentPrice(today));
   const lastMoment = daysLeft <= 0 && today.tick >= TICKS_PER_DAY;
   if (lastMoment || !today.forecast) return exerciseNow;
-  const holdToExpiry = averagePayoff(today.forecast[clamp(daysLeft, 0, FORECAST_DAYS_AHEAD)], kind, strike);
+  const holdToExpiry = averagePayoff(today.forecast[clamp(daysLeft, 0, FORECAST_DAYS_AHEAD)], type, strikePrice);
   return Math.max(exerciseNow, holdToExpiry);
 }
-// For a lot: lotWorth is what its options are worth (never negative). lotBuyIn and lotValueNow carry the sign of the
-// position: + for long, − for short (a short lot is money received, and a debt now).
-function lotSign(lot) { return lot.side === 'short' ? -1 : 1; }
-function lotWorth(run, lot) { return optionValue(run, lot.kind, lot.strike, lot.expiryDay) * lot.quantity; }
-function lotBuyIn(lot) { return lotSign(lot) * lot.paid; }
-function lotValueNow(run, lot) { return lotSign(lot) * lotWorth(run, lot); }
-function daysToExpiry(run, lot) { return lot.expiryDay - run.day; }
+// For an option position: optionWorth is what its options are worth (never negative). optionBuyIn and optionValueNow
+// carry the sign of the position: + for long, − for short (a short option is money received, and a debt now).
+function directionSign(option) { return option.direction === 'short' ? -1 : 1; }
+function optionWorth(run, option) { return valueOfOneOption(run, option.type, option.strikePrice, option.expiryDay) * option.quantity; }
+function optionBuyIn(option) { return directionSign(option) * option.premiumTotal; }
+function optionValueNow(run, option) { return directionSign(option) * optionWorth(run, option); }
+function daysToExpiry(run, option) { return option.expiryDay - run.day; }
 
 // Equity: cash plus everything at its value now.
 function totalEquity(run) {
   if (!run.today) return run.cash;
-  const optionsValue = run.today.optionLots.reduce((total, lot) => total + lotValueNow(run, lot), 0);
+  const optionsValue = run.today.options.reduce((total, option) => total + optionValueNow(run, option), 0);
   return run.cash + run.today.shares * currentPrice(run.today) + optionsValue;
 }
-function hasPositions(run) { return run.today.shares !== 0 || run.today.optionLots.length > 0; }
+function hasPositions(run) { return run.today.shares !== 0 || run.today.options.length > 0; }
 
 // ── 5.2 Margin. Margin equity leaves out bought options (a broker lends nothing on them). Exposure is the stock
 // position's size plus short options counted like a short of that many shares.
-function shortLots(run) { return run.today.optionLots.filter(lot => lot.side === 'short'); }
-function shortOptionDebt(run) { return shortLots(run).reduce((total, lot) => total + lotWorth(run, lot), 0); }
-function shortOptionShares(run) { return shortLots(run).reduce((total, lot) => total + lot.quantity, 0); }
+function shortOptions(run) { return run.today.options.filter(option => option.direction === 'short'); }
+function shortOptionDebt(run) { return shortOptions(run).reduce((total, option) => total + optionWorth(run, option), 0); }
+function shortOptionShares(run) { return shortOptions(run).reduce((total, option) => total + option.quantity, 0); }
 function marginEquity(run) { return run.cash + run.today.shares * currentPrice(run.today) - shortOptionDebt(run); }
 function exposure(run) {
   const price = currentPrice(run.today);
@@ -549,8 +554,8 @@ function checkMargin(run) {
   if (exposure(run) === 0) return null;
   if (marginEquity(run) >= exposure(run) * MAINTENANCE_SHARE / accountLeverage(run)) return null;
   closeStock(run);
-  for (let index = run.today.optionLots.length - 1; index >= 0; index--)
-    if (run.today.optionLots[index].side === 'short') closeLot(run, index);
+  for (let index = run.today.options.length - 1; index >= 0; index--)
+    if (run.today.options[index].direction === 'short') closeOption(run, index);
   return 'Margin call!';
 }
 
@@ -564,21 +569,21 @@ function setShares(run, newShares) {
   run.cash -= change * price + Math.abs(change) * price * STOCK_TRANSACTION_COST;
   const sameDirection = today.shares !== 0 && Math.sign(newShares) === Math.sign(today.shares);
   const growing = Math.abs(newShares) > Math.abs(today.shares);
-  if (newShares === 0) today.averageEntry = 0;
-  else if (!sameDirection) today.averageEntry = price;
-  else if (growing) today.averageEntry = (today.averageEntry * today.shares + price * change) / newShares;
+  if (newShares === 0) today.averageEntryPrice = 0;
+  else if (!sameDirection) today.averageEntryPrice = price;
+  else if (growing) today.averageEntryPrice = (today.averageEntryPrice * today.shares + price * change) / newShares;
   today.shares = newShares;
   today.tradeCount++;
   return change;
 }
 // How many shares can still be bought (direction +1) or shorted (−1) with the buying power left.
-function stockRoom(run, direction) {
+function sharesAvailable(run, direction) {
   const largestPosition = Math.max(0, buyingPower(run) - shortOptionShares(run) * currentPrice(run.today)) / currentPrice(run.today);
   return Math.max(0, largestPosition - direction * run.today.shares);
 }
-// Buy (+1) or short (−1) this fraction of the room. Returns the share change, or why nothing happened.
+// Buy (+1) or short (−1) this fraction of the shares available. Returns the share change, or why nothing happened.
 function tradeStock(run, direction, fraction) {
-  const change = direction * fraction * stockRoom(run, direction);
+  const change = direction * fraction * sharesAvailable(run, direction);
   if (Math.abs(change) * currentPrice(run.today) < SMALLEST_TRADE) return 'Nothing to trade';
   setShares(run, run.today.shares + change);
   return change;
@@ -588,77 +593,77 @@ function closeStock(run) { return setShares(run, 0); }
 function closeStockPart(run, fraction) { return setShares(run, fraction >= 1 ? 0 : run.today.shares * (1 - fraction)); }
 
 // ── 5.4 Option trades
-function optionPositionId(side, kind) { return side + kind[0].toUpperCase() + kind.slice(1); }   // 'long', 'call' → 'longCall'
-function optionsAllowed(run, side, kind) {
-  return run.unlocked[optionPositionId(side, kind)] && !run.today.investigation && run.today.tick < TICKS_PER_DAY;
+function optionPositionId(direction, type) { return direction + type[0].toUpperCase() + type.slice(1); }   // 'long', 'call' → 'longCall'
+function optionsAllowed(run, direction, type) {
+  return run.unlocked[optionPositionId(direction, type)] && !run.today.investigation && run.today.tick < TICKS_PER_DAY;
 }
-function strikeOffsets(kind) { return kind === 'call' ? CALL_STRIKE_OFFSETS : PUT_STRIKE_OFFSETS; }
+function strikeOffsets(type) { return type === 'call' ? CALL_STRIKE_OFFSETS : PUT_STRIKE_OFFSETS; }
 function newExpiryDay(run) { return run.day + OPTION_EXPIRY_DAYS; }
-// The prices of one option: ask = what you pay to go long, bid = what you receive to go short.
-function optionPrices(run, kind, strike, expiryDay = newExpiryDay(run)) {
-  const fairValue = optionValue(run, kind, strike, expiryDay);
-  return { fairValue, ask: fairValue * (1 + OPTION_TRANSACTION_COST), bid: fairValue * (1 - OPTION_TRANSACTION_COST) };
+// The prices of one option: buyPrice = what you pay to go long, sellPrice = what you receive to go short.
+function optionPrices(run, type, strikePrice, expiryDay = newExpiryDay(run)) {
+  const fairValue = valueOfOneOption(run, type, strikePrice, expiryDay);
+  return { fairValue, buyPrice: fairValue * (1 + OPTION_TRANSACTION_COST), sellPrice: fairValue * (1 - OPTION_TRANSACTION_COST) };
 }
 function isWorthless(premium, run) { return premium <= currentPrice(run.today) * WORTHLESS_OPTION; }
 // How many options can be shorted: like shorting that many shares.
-function shortOptionRoom(run) {
+function optionsAvailableToShort(run) {
   return Math.max(0, (Math.max(0, marginEquity(run)) * maximumLeverage(run) - exposure(run)) / currentPrice(run.today));
 }
-// A new lot joins an open lot of the same option (same kind, side, strike and expiry).
-function addLot(run, newLot) {
-  const same = run.today.optionLots.find(lot => lot.kind === newLot.kind && lot.side === newLot.side
-    && lot.expiryDay === newLot.expiryDay && Math.abs(lot.strike - newLot.strike) < 1e-9);
-  if (same) { same.quantity += newLot.quantity; same.paid += newLot.paid; }
-  else run.today.optionLots.push(newLot);
+// A new option position joins an open one of the same option (same type, direction, strike price and expiry).
+function addOption(run, newOption) {
+  const same = run.today.options.find(option => option.type === newOption.type && option.direction === newOption.direction
+    && option.expiryDay === newOption.expiryDay && Math.abs(option.strikePrice - newOption.strikePrice) < 1e-9);
+  if (same) { same.quantity += newOption.quantity; same.premiumTotal += newOption.premiumTotal; }
+  else run.today.options.push(newOption);
   run.today.tradeCount++;
 }
 // Long options for this fraction of free cash. Returns the quantity, or why nothing happened.
-function buyOption(run, kind, strike, fraction, expiryDay = newExpiryDay(run)) {
-  if (!optionsAllowed(run, 'long', kind)) return 'Options locked';
-  const { ask } = optionPrices(run, kind, strike, expiryDay);
-  if (isWorthless(ask, run)) return 'Worth nothing at that strike';
-  const spend = fraction * freeCash(run);
-  if (spend < SMALLEST_TRADE) return 'No free cash';
-  run.cash -= spend;
-  addLot(run, { kind, side: 'long', strike, quantity: spend / ask, paid: spend, expiryDay });
-  return spend / ask;
+function buyOption(run, type, strikePrice, fraction, expiryDay = newExpiryDay(run)) {
+  if (!optionsAllowed(run, 'long', type)) return 'Options locked';
+  const { buyPrice } = optionPrices(run, type, strikePrice, expiryDay);
+  if (isWorthless(buyPrice, run)) return 'Worth nothing at that strike';
+  const cashToSpend = fraction * freeCash(run);
+  if (cashToSpend < SMALLEST_TRADE) return 'No free cash';
+  run.cash -= cashToSpend;
+  addOption(run, { type, direction: 'long', strikePrice, quantity: cashToSpend / buyPrice, premiumTotal: cashToSpend, expiryDay });
+  return cashToSpend / buyPrice;
 }
-// Short options for this fraction of the room: the premium comes in now, the payoff is owed when exercised.
-function writeOption(run, kind, strike, fraction, expiryDay = newExpiryDay(run)) {
-  if (!optionsAllowed(run, 'short', kind)) return 'Options locked';
-  const { bid } = optionPrices(run, kind, strike, expiryDay);
-  if (isWorthless(bid, run)) return 'Worth nothing at that strike';
-  const quantity = fraction * shortOptionRoom(run);
-  if (quantity * bid < SMALLEST_TRADE) return 'No margin left';
-  run.cash += quantity * bid;
-  addLot(run, { kind, side: 'short', strike, quantity, paid: quantity * bid, expiryDay });
+// Short options for this fraction of what is available: the premium comes in now, the payoff is owed when exercised.
+function writeOption(run, type, strikePrice, fraction, expiryDay = newExpiryDay(run)) {
+  if (!optionsAllowed(run, 'short', type)) return 'Options locked';
+  const { sellPrice } = optionPrices(run, type, strikePrice, expiryDay);
+  if (isWorthless(sellPrice, run)) return 'Worth nothing at that strike';
+  const quantity = fraction * optionsAvailableToShort(run);
+  if (quantity * sellPrice < SMALLEST_TRADE) return 'No margin left';
+  run.cash += quantity * sellPrice;
+  addOption(run, { type, direction: 'short', strikePrice, quantity, premiumTotal: quantity * sellPrice, expiryDay });
   return quantity;
 }
-// The cash from closing this fraction of a lot: a long lot is sold at its worth −cost, a short lot costs its worth +cost.
-function lotCloseCash(run, lot, fraction) {
-  const worth = lotWorth(run, lot) * fraction;
-  return lot.side === 'long' ? worth * (1 - OPTION_TRANSACTION_COST) : -worth * (1 + OPTION_TRANSACTION_COST);
+// The cash from closing this fraction of an option position: long is sold at its worth −cost, short costs its worth +cost.
+function cashFromClosingOption(run, option, fraction) {
+  const worth = optionWorth(run, option) * fraction;
+  return option.direction === 'long' ? worth * (1 - OPTION_TRANSACTION_COST) : -worth * (1 + OPTION_TRANSACTION_COST);
 }
-// Close this fraction (0..1, default all) of a lot.
-function closeLot(run, lotIndex, fraction = 1) {
-  const lot = run.today.optionLots[lotIndex];
-  if (!lot) return 0;
-  const cashChange = lotCloseCash(run, lot, fraction);
+// Close this fraction (0..1, default all) of an option position.
+function closeOption(run, optionIndex, fraction = 1) {
+  const option = run.today.options[optionIndex];
+  if (!option) return 0;
+  const cashChange = cashFromClosingOption(run, option, fraction);
   run.cash += cashChange;
-  if (fraction >= 1) run.today.optionLots.splice(lotIndex, 1);
-  else { lot.quantity *= 1 - fraction; lot.paid *= 1 - fraction; }
+  if (fraction >= 1) run.today.options.splice(optionIndex, 1);
+  else { option.quantity *= 1 - fraction; option.premiumTotal *= 1 - fraction; }
   return cashChange;
 }
 function closeEverything(run) {
   closeStock(run);
-  while (run.today.optionLots.length) closeLot(run, 0);
+  while (run.today.options.length) closeOption(run, 0);
 }
 // At the close: options on their last day pay out (long) or are paid (short). The stock is held overnight.
 function expireOptions(run) {
-  const today = run.today, close = currentPrice(today);
-  const expiring = today.optionLots.filter(lot => lot.expiryDay <= run.day);
-  for (const lot of expiring) run.cash += lotSign(lot) * payoff(lot.kind, lot.strike, close) * lot.quantity;
-  today.optionLots = today.optionLots.filter(lot => lot.expiryDay > run.day);
+  const today = run.today, closePrice = currentPrice(today);
+  const expiring = today.options.filter(option => option.expiryDay <= run.day);
+  for (const option of expiring) run.cash += directionSign(option) * payoff(option.type, option.strikePrice, closePrice) * option.quantity;
+  today.options = today.options.filter(option => option.expiryDay > run.day);
   return expiring.length;
 }
 
@@ -667,16 +672,16 @@ function expireOptions(run) {
 // (§ 4) is about the week ahead.
 function revealTip(run, tipId) {
   const schedule = run.today.schedule;
-  const open = schedule.states[0].price, close = schedule.states[TICKS_PER_DAY].price;
-  if (tipId === 'rumour') return { direction: close >= open ? 'up' : 'down' };
+  const openPrice = schedule.states[0].price, closePrice = schedule.states[TICKS_PER_DAY].price;
+  if (tipId === 'rumour') return { direction: closePrice >= openPrice ? 'up' : 'down' };
   if (tipId === 'analyst') {
     const random = makeRandom(mixSeed(run.seed, run.day, 77));
-    const centre = close * (1 + (random() * 2 - 1) * ANALYST_BAND);       // the band sits somewhere around the close
+    const centre = closePrice * (1 + (random() * 2 - 1) * ANALYST_BAND);       // the band sits somewhere around the close
     return { low: centre * (1 - ANALYST_BAND), high: centre * (1 + ANALYST_BAND) };
   }
   if (tipId === 'peek') return { cards: schedule.cards.flat().slice(0, PEEK_CARDS) };
-  if (tipId === 'volatility') return { sigmas: schedule.states.map(state => state.sigma * (state.fedTicksLeft > 0 ? FED_SIGMA_MULTIPLIER : 1)) };
-  return { close };                                                         // 'exactClose'
+  if (tipId === 'volatility') return { volatilities: schedule.states.map(marketState => marketState.volatility * (marketState.fedTicksLeft > 0 ? FED_VOLATILITY_MULTIPLIER : 1)) };
+  return { closePrice };                                                         // 'exactClose'
 }
 // locked (not bought) · used (today) · cooling (resting) · unavailable (after the open, or investigated) · ready
 function tipStatus(run, tipId) {
@@ -715,7 +720,7 @@ function updateHeat(run, dayReturn) {
 }
 
 // ═══════════════════════════════════════ § 7 RUN ═══════════════════════════════════════
-// Each stock has a market that lives across days: { shoe (cards not drawn yet), history (the last HISTORY_DAYS days
+// Each stock has a market that lives across days: { drawPile (cards not drawn yet), history (the last HISTORY_DAYS days
 // as { day, prices }), lastClose }. Every owned stock trades every day; you trade one of them.
 function newRun(seed = Math.floor(Math.random() * 2 ** 31)) {
   const decks = {};
@@ -744,33 +749,33 @@ function newRun(seed = Math.floor(Math.random() * 2 ** 31)) {
 function tickerNumber(tickerId) { return Object.keys(TICKERS).indexOf(tickerId); }
 function dayRandom(run, tickerId) { return makeRandom(mixSeed(run.seed, run.day, tickerNumber(tickerId), 0)); }
 
-// A stock joins the run with a week of history already played (from its own shoe), scaled so that its next open
+// A stock joins the run with a week of history already played (from its own draw pile), scaled so that its next open
 // is BASE_OPEN_PRICE × inflation. Bought in the shop after a close, its history runs up to that day.
 function createMarket(run, tickerId) {
   const deck = run.decks[tickerId], random = makeRandom(mixSeed(run.seed, run.day, tickerNumber(tickerId), 99));
-  let shoe = shuffleInPlace(deckToPile(deck), random), price = 1;
+  let drawPile = shuffleInPlace(deckToCardList(deck), random), price = 1;
   const history = [];
   const lastHistoryDay = run.phase === 'preopen' ? run.day - 1 : run.day;
   for (let back = HISTORY_DAYS - 1; back >= 0; back--) {
-    const schedule = scheduleDay(shoe, deck, price, random);
-    history.push({ day: lastHistoryDay - back, prices: schedule.states.map(state => state.price) });
-    shoe = shoeAfter(schedule, TICKS_PER_DAY);
+    const schedule = scheduleDay(drawPile, deck, price, random);
+    history.push({ day: lastHistoryDay - back, prices: schedule.states.map(marketState => marketState.price) });
+    drawPile = drawPileAfter(schedule, TICKS_PER_DAY);
     price = nextOpenPrice(schedule.states[TICKS_PER_DAY].price);
   }
   const scale = BASE_OPEN_PRICE * inflationIndex(run.day) / price;
   for (const day of history) day.prices = day.prices.map(value => value * scale);
-  run.markets[tickerId] = { shoe, history, lastClose: history[history.length - 1].prices[TICKS_PER_DAY] };
+  run.markets[tickerId] = { drawPile, history, lastClose: history[history.length - 1].prices[TICKS_PER_DAY] };
 }
-// A stock's day, dealt from its shoe.
+// A stock's day, dealt from its draw pile.
 function scheduleMarketDay(run, tickerId) {
   const market = run.markets[tickerId];
-  return scheduleDay(market.shoe, run.decks[tickerId], nextOpenPrice(market.lastClose), dayRandom(run, tickerId));
+  return scheduleDay(market.drawPile, run.decks[tickerId], nextOpenPrice(market.lastClose), dayRandom(run, tickerId));
 }
-// After the close: the shoe moves on and the day joins the history.
+// After the close: the draw pile moves on and the day joins the history.
 function commitMarketDay(run, tickerId, schedule) {
   const market = run.markets[tickerId];
-  market.shoe = shoeAfter(schedule, TICKS_PER_DAY);
-  market.history.push({ day: run.day, prices: schedule.states.map(state => state.price) });
+  market.drawPile = drawPileAfter(schedule, TICKS_PER_DAY);
+  market.history.push({ day: run.day, prices: schedule.states.map(marketState => marketState.price) });
   market.history = market.history.slice(-HISTORY_DAYS);
   market.lastClose = schedule.states[TICKS_PER_DAY].price;
 }
@@ -780,7 +785,7 @@ function prepareDay(run) {
   const yesterday = run.today, carry = yesterday && yesterday.ticker === run.ticker;
   run.today = {
     ticker: run.ticker, tick: 0, schedule: scheduleMarketDay(run, run.ticker),
-    shares: carry ? yesterday.shares : 0, averageEntry: carry ? yesterday.averageEntry : 0, optionLots: carry ? yesterday.optionLots : [],
+    shares: carry ? yesterday.shares : 0, averageEntryPrice: carry ? yesterday.averageEntryPrice : 0, options: carry ? yesterday.options : [],
     tradeCount: 0, tickerLocked: false, insights: {}, investigation: run.investigationDaysLeft > 0,
     startEquity: 0, haltSecondsLeft: 0, tickClock: 0, forecast: null, forecastSummary: null,
   };
@@ -788,12 +793,12 @@ function prepareDay(run) {
   refreshForecast(run);
   run.today.startEquity = totalEquity(run);
 }
-function remainingShoe(today) { return shoeAfter(today.schedule, today.tick); }
+function remainingDrawPile(today) { return drawPileAfter(today.schedule, today.tick); }
 // The market maker's forecast from this tick to the close FORECAST_DAYS_AHEAD days from now.
 function refreshForecast(run) {
   const today = run.today;
   const random = makeRandom(mixSeed(run.seed, run.day, today.tick, 5));
-  today.forecast = simulateForecast(today.schedule.states[today.tick], remainingShoe(today), run.decks[today.ticker],
+  today.forecast = simulateForecast(today.schedule.states[today.tick], remainingDrawPile(today), run.decks[today.ticker],
     TICKS_PER_DAY - today.tick, FORECAST_DAYS_AHEAD, FORECAST_PATHS, random);
   today.forecastSummary = summariseForecast(today.forecast[FORECAST_DAYS_AHEAD]);
 }
@@ -801,7 +806,7 @@ function refreshForecast(run) {
 function summariseForecast(closes) {
   const sorted = Float64Array.from(closes).sort();
   let total = 0;
-  for (const close of sorted) total += close;
+  for (const closePrice of sorted) total += closePrice;
   return {
     low: sorted[Math.floor(sorted.length * FORECAST_LOW_QUANTILE)],
     average: total / sorted.length,
@@ -863,7 +868,7 @@ function closeDay(run) {
   if (endEquity < MINIMUM_CASH_TO_TRADE * inflationIndex(run.day + 1)) run.gameOverReason = 'broke';
   else if (meeting && !meeting.passed) run.gameOverReason = 'meeting';
   run.lastResult = {
-    day: run.day, ticker: today.ticker, open: today.schedule.states[0].price, close: currentPrice(today),
+    day: run.day, ticker: today.ticker, openPrice: today.schedule.states[0].price, closePrice: currentPrice(today),
     startEquity: today.startEquity, endEquity, dayReturn, expired,
     heatAdded: run.heat - heatBefore, investigationNote, meeting,
   };
@@ -878,8 +883,8 @@ function startNextDay(run) {
   prepareDay(run);
 }
 
-// ── 7.1 The shop catalogue. Every item: icon, name, a short line (chips), one full sentence, a price, and either
-// owned / a deck picker (deck edits are applied to a card in § 11) / a plain purchase (buyShopItem).
+// ── 7.1 The shop catalogue. Every shop item: icon, name, a short line (shortText), one full sentence, a price, and
+// either owned / a deck edit (applied to a card in the deck picker, § 11) / a plain purchase (buyShopItem).
 function deckBatchSize(doneSoFar) { return Math.max(DECK_BATCH_MINIMUM, DECK_BATCH_FIRST - doneSoFar); }
 function shopCatalogue(run) {
   const inflation = inflationIndex(run.day);
@@ -887,39 +892,39 @@ function shopCatalogue(run) {
 }
 function deckItems(run, inflation) {
   const removeBatch = deckBatchSize(run.removalsDone), addBatch = deckBatchSize(run.additionsDone);
-  const items = [
-    { id: 'remove', row: 'deck', icon: '🗑', name: 'Remove ' + removeBatch, chips: '−' + removeBatch + ' of one card', picker: 'remove',
+  const shopItems = [
+    { id: 'remove', row: 'deck', icon: '🗑', name: 'Remove ' + removeBatch, shortText: '−' + removeBatch + ' of one card', deckEdit: 'remove',
       sentence: `Take ${removeBatch} copies of one card out of a deck. Next time ${deckBatchSize(run.removalsDone + 1)}.`,
       price: REMOVE_PRICE * Math.pow(DECK_EDIT_PRICE_GROWTH, run.removalsDone) * inflation },
-    { id: 'add', row: 'deck', icon: '➕', name: 'Add ' + addBatch, chips: '+' + addBatch + ' of one card', picker: 'add',
+    { id: 'add', row: 'deck', icon: '➕', name: 'Add ' + addBatch, shortText: '+' + addBatch + ' of one card', deckEdit: 'add',
       sentence: `Put ${addBatch} more copies of one card into a deck. Next time ${deckBatchSize(run.additionsDone + 1)}.`,
       price: ADD_PRICE * Math.pow(DECK_EDIT_PRICE_GROWTH, run.additionsDone) * inflation },
   ];
   for (const cardId of EVENT_CARDS) {
     const card = CARD_TYPES[cardId];
-    items.push({ id: 'event:' + cardId, row: 'deck', icon: card.icon, name: card.name, chips: '+1 card', picker: 'event:' + cardId,
+    shopItems.push({ id: 'event:' + cardId, row: 'deck', icon: card.icon, name: card.name, shortText: '+1 card', deckEdit: 'event:' + cardId,
       sentence: card.sentence + ' (Added to one deck.)',
       price: EVENT_CARD_PRICES[cardId] * Math.pow(EVENT_PRICE_GROWTH, run.eventCopiesBought[cardId]) * inflation });
   }
-  return items;
+  return shopItems;
 }
 function tradingItems(run, inflation) {
-  const items = [];
+  const shopItems = [];
   for (const [positionId, position] of Object.entries(OPTION_POSITIONS))
-    items.push({ id: 'unlock:' + positionId, row: 'trading', icon: position.icon, name: position.name, chips: OPTION_EXPIRY_DAYS + '-day option',
+    shopItems.push({ id: 'unlock:' + positionId, row: 'trading', icon: position.icon, name: position.name, shortText: OPTION_EXPIRY_DAYS + '-day option',
       sentence: `${position.name}: ${position.formula} per option. S = the price when exercised (any time, at the latest after ${OPTION_EXPIRY_DAYS} trading days), K = the strike you choose.`,
       price: position.price * inflation, owned: run.unlocked[positionId] });
   const now = LEVERAGE_TIERS[run.leverageTier], next = LEVERAGE_TIERS[run.leverageTier + 1];
-  if (next) items.push({ id: 'leverage', row: 'trading', icon: '⚙', name: `Leverage ${next}×`, chips: `${now}× → ${next}×`,
+  if (next) shopItems.push({ id: 'leverage', row: 'trading', icon: '⚙', name: `Leverage ${next}×`, shortText: `${now}× → ${next}×`,
     sentence: `Buying power becomes ${next}× your equity. Margin call when you lose half your margin.`,
     price: LEVERAGE_PRICES[run.leverageTier + 1] * inflation });
-  else items.push({ id: 'leverage', row: 'trading', icon: '⚙', name: 'Leverage max', chips: `${now}×`, sentence: 'The highest leverage there is.', price: 0, owned: true });
-  return items;
+  else shopItems.push({ id: 'leverage', row: 'trading', icon: '⚙', name: 'Leverage max', shortText: `${now}×`, sentence: 'The highest leverage there is.', price: 0, owned: true });
+  return shopItems;
 }
 function insiderItems(run, inflation) {
   return TIP_ORDER.filter(tipId => !STARTING_TIPS.includes(tipId)).map(tipId => {
     const tip = INSIDER_TIPS[tipId];
-    return { id: 'tip:' + tipId, row: 'insider', icon: tip.icon, name: tip.name, chips: `${tip.short} · 🔥${tip.heat}`,
+    return { id: 'tip:' + tipId, row: 'insider', icon: tip.icon, name: tip.name, shortText: `${tip.short} · 🔥${tip.heat}`,
       sentence: `${tip.sentence} Heat +${tip.heat}, rests ${tip.cooldownDays} day${tip.cooldownDays > 1 ? 's' : ''}.`,
       price: tip.price * inflation, owned: run.tips[tipId].owned };
   });
@@ -927,67 +932,67 @@ function insiderItems(run, inflation) {
 function stockItems(run, inflation) {
   return Object.keys(TICKER_PRICES).map(tickerId => {
     const ticker = TICKERS[tickerId];
-    return { id: 'ticker:' + tickerId, row: 'stocks', icon: ticker.icon, name: tickerId, chips: deckSize(ticker.deck) + ' cards',
+    return { id: 'ticker:' + tickerId, row: 'stocks', icon: ticker.icon, name: tickerId, shortText: deckSize(ticker.deck) + ' cards',
       sentence: `${ticker.name}. ${ticker.sentence} Pick it before the open.`,
       price: TICKER_PRICES[tickerId] * inflation, owned: run.tickersOwned.includes(tickerId) };
   });
 }
 // Buy a plain item (not a deck edit). Returns true when bought.
-function buyShopItem(run, item) {
-  if (item.owned || run.cash < item.price) return false;
-  const [kind, which] = item.id.split(':');
-  if (kind === 'unlock') run.unlocked[which] = true;
-  else if (kind === 'leverage') run.leverageTier++;
-  else if (kind === 'tip') run.tips[which].owned = true;
-  else if (kind === 'ticker') { run.tickersOwned.push(which); createMarket(run, which); }
+function buyShopItem(run, shopItem) {
+  if (shopItem.owned || run.cash < shopItem.price) return false;
+  const [type, which] = shopItem.id.split(':');
+  if (type === 'unlock') run.unlocked[which] = true;
+  else if (type === 'leverage') run.leverageTier++;
+  else if (type === 'tip') run.tips[which].owned = true;
+  else if (type === 'ticker') { run.tickersOwned.push(which); createMarket(run, which); }
   else return false;
-  run.cash -= item.price;
+  run.cash -= shopItem.price;
   return true;
 }
 
 // ── 7.2 Deck edits
 // How many copies a deck edit leaves of this card.
-function countAfterEdit(run, item, deck, cardId) {
-  if (item.picker === 'remove') return deck[cardId] - Math.min(deck[cardId], deckBatchSize(run.removalsDone));
-  if (item.picker === 'add') return deck[cardId] + deckBatchSize(run.additionsDone);
+function countAfterEdit(run, shopItem, deck, cardId) {
+  if (shopItem.deckEdit === 'remove') return deck[cardId] - Math.min(deck[cardId], deckBatchSize(run.removalsDone));
+  if (shopItem.deckEdit === 'add') return deck[cardId] + deckBatchSize(run.additionsDone);
   return deck[cardId] + 1;                                                  // an event card
 }
-function deckEditAllowed(run, item, tickerId, cardId) {
+function deckEditAllowed(run, shopItem, tickerId, cardId) {
   const deck = run.decks[tickerId];
-  if (run.cash < item.price) return false;
-  if (item.picker === 'remove') return deck[cardId] > 0 && deckSize(deck) - deck[cardId] + countAfterEdit(run, item, deck, cardId) >= MINIMUM_DECK_SIZE;
-  if (item.picker === 'add') return CARD_TYPES[cardId].kind !== 'event';
+  if (run.cash < shopItem.price) return false;
+  if (shopItem.deckEdit === 'remove') return deck[cardId] > 0 && deckSize(deck) - deck[cardId] + countAfterEdit(run, shopItem, deck, cardId) >= MINIMUM_DECK_SIZE;
+  if (shopItem.deckEdit === 'add') return CARD_TYPES[cardId].category !== 'event';
   return true;
 }
-// A deck edit changes the deck and, at once, the shoe being dealt: removed cards come out of the shoe where they
+// A deck edit changes the deck and, at once, the draw pile: removed cards come out of the draw pile where they
 // are still in it, added cards are shuffled into it.
-function applyDeckEdit(run, item, tickerId, cardId) {
-  if (!deckEditAllowed(run, item, tickerId, cardId)) return false;
+function applyDeckEdit(run, shopItem, tickerId, cardId) {
+  if (!deckEditAllowed(run, shopItem, tickerId, cardId)) return false;
   const deck = run.decks[tickerId], market = run.markets[tickerId];
-  const change = countAfterEdit(run, item, deck, cardId) - deck[cardId];
+  const change = countAfterEdit(run, shopItem, deck, cardId) - deck[cardId];
   deck[cardId] += change;
-  if (change < 0) removeFromShoe(market, cardId, -change);
-  else addToShoe(market, cardId, change, makeRandom(mixSeed(run.seed, run.day, run.additionsDone, run.removalsDone, 31)));
-  if (item.picker === 'remove') run.removalsDone++;
-  else if (item.picker === 'add') run.additionsDone++;
+  if (change < 0) removeFromDrawPile(market, cardId, -change);
+  else addToDrawPile(market, cardId, change, makeRandom(mixSeed(run.seed, run.day, run.additionsDone, run.removalsDone, 31)));
+  if (shopItem.deckEdit === 'remove') run.removalsDone++;
+  else if (shopItem.deckEdit === 'add') run.additionsDone++;
   else run.eventCopiesBought[cardId]++;
-  run.cash -= item.price;
+  run.cash -= shopItem.price;
   run.heat += HEAT_PER_DECK_EDIT;
   return true;
 }
-// Take up to `copies` of this card out of the shoe (the first ones found: the shoe is shuffled anyway).
-function removeFromShoe(market, cardId, copies) {
+// Take up to `copies` of this card out of the draw pile (the first ones found: the pile is shuffled anyway).
+function removeFromDrawPile(market, cardId, copies) {
   const kept = [];
   let removed = 0;
-  for (const card of market.shoe) {
+  for (const card of market.drawPile) {
     if (card === cardId && removed < copies) removed++;
     else kept.push(card);
   }
-  market.shoe = kept;
+  market.drawPile = kept;
 }
-// Put copies of this card into the shoe at random places.
-function addToShoe(market, cardId, copies, random) {
-  for (let copy = 0; copy < copies; copy++) market.shoe.splice(Math.floor(random() * (market.shoe.length + 1)), 0, cardId);
+// Put copies of this card into the draw pile at random places.
+function addToDrawPile(market, cardId, copies, random) {
+  for (let copy = 0; copy < copies; copy++) market.drawPile.splice(Math.floor(random() * (market.drawPile.length + 1)), 0, cardId);
 }
 
 // ── 7.3 Saving: the whole run is plain data. Forecasts are rebuilt on load.
@@ -997,10 +1002,6 @@ function serialiseRun(run) {
 function loadRun(text) {
   const run = JSON.parse(text);
   if (!run || run.version !== SAVE_VERSION) return null;
-  if (run.unlocked.call !== undefined || run.unlocked.put !== undefined) {   // runs from before the four separate unlocks
-    const { call, put } = run.unlocked;
-    run.unlocked = { longCall: !!call, shortCall: !!call, longPut: !!put, shortPut: !!put };
-  }
   if (run.today) refreshForecast(run);
   return run;
 }
@@ -1027,7 +1028,7 @@ function playTone(frequency, seconds, { type = 'triangle', volume = 0.05, slideT
 const sounds = {
   tick(move) { playTone(move >= 0 ? 660 : 440, 0.05, { volume: 0.012, type: 'sine' }); },
   bigCard(rising) { playTone(rising ? 520 : 300, 0.35, { volume: 0.06, slideTo: rising ? 1040 : 120, type: 'sawtooth' }); },
-  trade() { playTone(880, 0.09, { volume: 0.05, type: 'square' }); },
+  tradeMenu() { playTone(880, 0.09, { volume: 0.05, type: 'square' }); },
   bad() { playTone(220, 0.4, { volume: 0.07, slideTo: 90, type: 'sawtooth' }); },
   tip() { playTone(1200, 0.12, { volume: 0.03, type: 'sine', slideTo: 1600 }); },
   cash(gained) { (gained ? [523, 659, 784, 1047] : [392, 330, 262]).forEach((frequency, index) => playTone(frequency, 0.14, { volume: 0.05, delay: index * 0.08 })); },
@@ -1039,23 +1040,23 @@ const sounds = {
 // Everything the screen keeps that is not part of the saved run.
 const view = {
   run: null, speedIndex: 0, paused: false, overlay: null,
-  floaters: [], lastEquity: null, freshTick: -1,            // chart popups, equity flash, the newest card chip
-  trade: null,                                              // the open trade menu (see § 11.3)
+  popups: [], lastEquity: null, freshTick: -1,            // chart popups, equity flash, the newest card chip
+  tradeMenu: null,                                              // the open trade menu (see § 11.3)
   shopItems: [], shopSelection: 0,                          // the shop's cards and the selected one
-  pickerItem: null, pickerTicker: null, pickerCardsShown: [], pickerSelection: 0,   // the deck picker
+  deckPickerItem: null, deckPickerTicker: null, deckPickerCardsShown: [], deckPickerSelection: 0,   // the deck picker
 };
 const element = id => document.getElementById(id);
 const chartFont = (weight, size) => `${weight} ${size}px JetBrains Mono, Menlo, monospace`;
 
 function fitCanvas(canvas) {
-  const ratio = window.devicePixelRatio || 1, box = canvas.getBoundingClientRect();
-  if (canvas.width !== Math.round(box.width * ratio) || canvas.height !== Math.round(box.height * ratio)) {
-    canvas.width = Math.round(box.width * ratio);
-    canvas.height = Math.round(box.height * ratio);
+  const pixelRatio = window.devicePixelRatio || 1, bounds = canvas.getBoundingClientRect();
+  if (canvas.width !== Math.round(bounds.width * pixelRatio) || canvas.height !== Math.round(bounds.height * pixelRatio)) {
+    canvas.width = Math.round(bounds.width * pixelRatio);
+    canvas.height = Math.round(bounds.height * pixelRatio);
   }
   const context = canvas.getContext('2d');
-  context.setTransform(ratio, 0, 0, ratio, 0, 0);
-  return { context, width: box.width, height: box.height };
+  context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  return { context, width: bounds.width, height: bounds.height };
 }
 
 // The chart, left to right: the previous week (thin), today (live), and three dashed lines from now to the close
@@ -1083,7 +1084,7 @@ function chartLayout(run, context, width, height) {
   const historyEnd = left + (right - left) * CHART_HISTORY_SHARE;
   const todayEnd = historyEnd + (right - left) * CHART_TODAY_SHARE;
 
-  const prices = history.flatMap(day => day.prices).concat(states.slice(0, today.tick + 1).map(state => state.price), chartLevels(run));
+  const prices = history.flatMap(day => day.prices).concat(states.slice(0, today.tick + 1).map(marketState => marketState.price), chartLevels(run));
   let low = Math.min(...prices), high = Math.max(...prices);
   if (high / low < 1.06) { const middle = Math.sqrt(high * low); low = middle / 1.03; high = middle * 1.03; }   // never zoom in too far
   const margin = 0.05 * Math.log(high / low);
@@ -1091,20 +1092,20 @@ function chartLayout(run, context, width, height) {
 
   return {
     run, today, context, history, left, right, top, bottom, height, historyEnd, todayEnd,
-    open: states[0].price, price: currentPrice(today),
-    xHistory: (dayIndex, tick) => left + (historyEnd - left) * (dayIndex * TICKS_PER_DAY + tick) / (Math.max(1, history.length) * TICKS_PER_DAY),
-    xToday: tick => historyEnd + (todayEnd - historyEnd) * tick / TICKS_PER_DAY,
-    y: price => bottom - (bottom - top) * (Math.log(price) - logLow) / (logHigh - logLow),
+    openPrice: states[0].price, price: currentPrice(today),
+    xOfPastTick: (dayIndex, tick) => left + (historyEnd - left) * (dayIndex * TICKS_PER_DAY + tick) / (Math.max(1, history.length) * TICKS_PER_DAY),
+    xOfTodayTick: tick => historyEnd + (todayEnd - historyEnd) * tick / TICKS_PER_DAY,
+    yOfPrice: price => bottom - (bottom - top) * (Math.log(price) - logLow) / (logHigh - logLow),
   };
 }
 // Price levels the chart keeps in view besides the paths: the forecast, your entry and strikes, insider marks.
 function chartLevels(run) {
   const today = run.today, levels = [];
   if (today.forecastSummary) levels.push(today.forecastSummary.low, today.forecastSummary.high);
-  if (today.shares !== 0) levels.push(today.averageEntry);
-  for (const lot of today.optionLots) levels.push(lot.strike);
+  if (today.shares !== 0) levels.push(today.averageEntryPrice);
+  for (const option of today.options) levels.push(option.strikePrice);
   if (today.insights.analyst) levels.push(today.insights.analyst.low, today.insights.analyst.high);
-  if (today.insights.exactClose) levels.push(today.insights.exactClose.close);
+  if (today.insights.exactClose) levels.push(today.insights.exactClose.closePrice);
   return levels;
 }
 
@@ -1114,72 +1115,72 @@ function drawLine(context, fromX, fromY, toX, toY, colour, { width = 1, dashed =
   context.beginPath(); context.moveTo(fromX, fromY); context.lineTo(toX, toY); context.stroke();
   context.setLineDash([]); context.globalAlpha = 1;
 }
-function drawDot(context, x, y, radius, colour) {
+function drawDot(context, screenX, screenY, radius, colour) {
   context.fillStyle = colour;
-  context.beginPath(); context.arc(x, y, radius, 0, Math.PI * 2); context.fill();
+  context.beginPath(); context.arc(screenX, screenY, radius, 0, Math.PI * 2); context.fill();
 }
-function drawText(context, text, x, y, colour, { weight = 800, size = 14, align = 'left', alpha = 1 } = {}) {
+function drawText(context, text, screenX, screenY, colour, { weight = 800, size = 14, align = 'left', alpha = 1 } = {}) {
   context.fillStyle = colour; context.font = chartFont(weight, size); context.globalAlpha = alpha;
   context.textAlign = align; context.textBaseline = 'middle';
-  context.fillText(text, x, y);
+  context.fillText(text, screenX, screenY);
   context.globalAlpha = 1;
 }
-// A path through points [[x, y], …].
+// A path through points [[screenX, screenY], …].
 function drawPath(context, points, colour, width) {
   context.strokeStyle = colour; context.lineWidth = width; context.lineJoin = 'round';
   context.beginPath();
-  points.forEach(([x, y], index) => (index === 0 ? context.moveTo(x, y) : context.lineTo(x, y)));
+  points.forEach(([screenX, screenY], index) => (index === 0 ? context.moveTo(screenX, screenY) : context.lineTo(screenX, screenY)));
   context.stroke();
 }
 
 // Day boundaries, the open (dashed), your entry price and your strikes.
-function drawGrid({ context, history, top, bottom, right, historyEnd, todayEnd, xHistory, y, open, today }) {
-  for (let dayIndex = 1; dayIndex < history.length; dayIndex++) drawLine(context, xHistory(dayIndex, 0), top - 10, xHistory(dayIndex, 0), bottom + 10, CHART_COLOURS.grid);
-  drawLine(context, historyEnd, top - 10, historyEnd, bottom + 10, CHART_COLOURS.open);
-  drawLine(context, todayEnd, top - 10, todayEnd, bottom + 10, CHART_COLOURS.open);
-  drawLine(context, historyEnd, y(open), right, y(open), CHART_COLOURS.open, { dashed: true });
-  if (today.shares !== 0) drawLine(context, historyEnd, y(today.averageEntry), right, y(today.averageEntry), CHART_COLOURS.entry);
-  for (const lot of today.optionLots)
-    drawLine(context, historyEnd, y(lot.strike), right, y(lot.strike), lot.kind === 'call' ? CHART_COLOURS.up : CHART_COLOURS.down, { dashed: true });
+function drawGrid({ context, history, top, bottom, right, historyEnd, todayEnd, xOfPastTick, yOfPrice, openPrice, today }) {
+  for (let dayIndex = 1; dayIndex < history.length; dayIndex++) drawLine(context, xOfPastTick(dayIndex, 0), top - 10, xOfPastTick(dayIndex, 0), bottom + 10, CHART_COLOURS.grid);
+  drawLine(context, historyEnd, top - 10, historyEnd, bottom + 10, CHART_COLOURS.openPrice);
+  drawLine(context, todayEnd, top - 10, todayEnd, bottom + 10, CHART_COLOURS.openPrice);
+  drawLine(context, historyEnd, yOfPrice(openPrice), right, yOfPrice(openPrice), CHART_COLOURS.openPrice, { dashed: true });
+  if (today.shares !== 0) drawLine(context, historyEnd, yOfPrice(today.averageEntryPrice), right, yOfPrice(today.averageEntryPrice), CHART_COLOURS.entry);
+  for (const option of today.options)
+    drawLine(context, historyEnd, yOfPrice(option.strikePrice), right, yOfPrice(option.strikePrice), option.type === 'call' ? CHART_COLOURS.up : CHART_COLOURS.down, { dashed: true });
 }
 
-function drawHistory({ context, history, xHistory, xToday, y, open }) {
+function drawHistory({ context, history, xOfPastTick, xOfTodayTick, yOfPrice, openPrice }) {
   const points = [];
   history.forEach((day, dayIndex) => {
-    for (let tick = 0; tick <= TICKS_PER_DAY; tick += CHART_HISTORY_STEP) points.push([xHistory(dayIndex, tick), y(day.prices[tick])]);
+    for (let tick = 0; tick <= TICKS_PER_DAY; tick += CHART_HISTORY_STEP) points.push([xOfPastTick(dayIndex, tick), yOfPrice(day.prices[tick])]);
   });
-  points.push([xToday(0), y(open)]);
+  points.push([xOfTodayTick(0), yOfPrice(openPrice)]);
   drawPath(context, points, CHART_COLOURS.history, 1.5);
 }
 
 // Rumour: an arrow at the close. Analyst: a band. The Call: a dot. Vol tip: the σ line along the bottom.
-function drawInsiderMarks({ context, today, todayEnd, xToday, y, bottom, open }) {
+function drawInsiderMarks({ context, today, todayEnd, xOfTodayTick, yOfPrice, bottom, openPrice }) {
   const insights = today.insights;
   if (insights.volatility) {
-    const tallest = Math.max(2, ...insights.volatility.sigmas);
+    const tallest = Math.max(2, ...insights.volatility.volatilities);
     context.globalAlpha = 0.45;
-    drawPath(context, insights.volatility.sigmas.map((sigma, tick) => [xToday(tick), bottom - 46 * sigma / tallest]), CHART_COLOURS.sigma, 1.5);
+    drawPath(context, insights.volatility.volatilities.map((volatility, tick) => [xOfTodayTick(tick), bottom - 46 * volatility / tallest]), CHART_COLOURS.volatility, 1.5);
     context.globalAlpha = 1;
   }
   if (insights.analyst) {
     context.fillStyle = CHART_ANALYST_BAND;
-    context.fillRect(todayEnd - 7, y(insights.analyst.high), 14, y(insights.analyst.low) - y(insights.analyst.high));
+    context.fillRect(todayEnd - 7, yOfPrice(insights.analyst.high), 14, yOfPrice(insights.analyst.low) - yOfPrice(insights.analyst.high));
   }
-  if (insights.exactClose) drawDot(context, todayEnd, y(insights.exactClose.close), 6, CHART_COLOURS.insight);
+  if (insights.exactClose) drawDot(context, todayEnd, yOfPrice(insights.exactClose.closePrice), 6, CHART_COLOURS.insight);
   if (insights.rumour) {
     const up = insights.rumour.direction === 'up';
-    drawText(context, up ? '▲' : '▼', todayEnd, y(open) + (up ? -18 : 18), up ? CHART_COLOURS.up : CHART_COLOURS.down, { size: 20, align: 'center' });
+    drawText(context, up ? '▲' : '▼', todayEnd, yOfPrice(openPrice) + (up ? -18 : 18), up ? CHART_COLOURS.up : CHART_COLOURS.down, { size: 20, align: 'center' });
   }
 }
 
 // Three dashed lines from now to the close FORECAST_DAYS_AHEAD days ahead, labelled with their prices only.
-function drawForecast({ context, today, right, xToday, y, price }) {
+function drawForecast({ context, today, right, xOfTodayTick, yOfPrice, price }) {
   const summary = today.forecastSummary;
   if (!summary) return;
-  const nowX = xToday(today.tick), nowY = y(price), labelYs = [];
+  const currentX = xOfTodayTick(today.tick), currentY = yOfPrice(price), labelYs = [];
   for (const [level, colour] of [[summary.high, CHART_COLOURS.up], [summary.average, CHART_COLOURS.average], [summary.low, CHART_COLOURS.down]]) {
-    drawLine(context, nowX, nowY, right, y(level), colour, { width: 1.5, alpha: 0.5, dashed: true });
-    let labelY = y(level);
+    drawLine(context, currentX, currentY, right, yOfPrice(level), colour, { width: 1.5, alpha: 0.5, dashed: true });
+    let labelY = yOfPrice(level);
     for (const used of labelYs) if (Math.abs(labelY - used) < 18) labelY = used + (labelY >= used ? 18 : -18);   // labels never overlap
     labelYs.push(labelY);
     drawText(context, formatPlain(level), right + 10, labelY, colour);
@@ -1187,37 +1188,37 @@ function drawForecast({ context, today, right, xToday, y, price }) {
 }
 
 // Today's path: green above the open, red below. Then the current price.
-function drawToday({ context, today, height, historyEnd, todayEnd, xToday, y, open, price }) {
-  const points = today.schedule.states.slice(0, today.tick + 1).map((state, tick) => [xToday(tick), y(state.price)]);
-  for (const [colour, clipTop, clipBottom] of [[CHART_COLOURS.up, 0, y(open)], [CHART_COLOURS.down, y(open), height]]) {
+function drawToday({ context, today, height, historyEnd, todayEnd, xOfTodayTick, yOfPrice, openPrice, price }) {
+  const points = today.schedule.states.slice(0, today.tick + 1).map((marketState, tick) => [xOfTodayTick(tick), yOfPrice(marketState.price)]);
+  for (const [colour, clipTop, clipBottom] of [[CHART_COLOURS.up, 0, yOfPrice(openPrice)], [CHART_COLOURS.down, yOfPrice(openPrice), height]]) {
     context.save();
     context.beginPath(); context.rect(historyEnd, clipTop, todayEnd - historyEnd + 4, clipBottom - clipTop); context.clip();
     drawPath(context, points, colour, 2.6);
     context.restore();
   }
-  const nowX = xToday(today.tick), nowY = y(price);
-  drawDot(context, nowX, nowY, 5.5, price >= open ? CHART_COLOURS.up : CHART_COLOURS.down);
-  drawText(context, formatPlain(price), nowX - 10, nowY - 18, CHART_COLOURS.average, { size: 15, align: 'right' });
+  const currentX = xOfTodayTick(today.tick), currentY = yOfPrice(price);
+  drawDot(context, currentX, currentY, 5.5, price >= openPrice ? CHART_COLOURS.up : CHART_COLOURS.down);
+  drawText(context, formatPlain(price), currentX - 10, currentY - 18, CHART_COLOURS.average, { size: 15, align: 'right' });
 }
 
 // Popups (+$ / −$, messages) rise and fade above the current price; the newest sits lowest.
-function drawPopups({ context, today, left, right, top, xToday, y, price }) {
+function drawPopups({ context, today, left, right, top, xOfTodayTick, yOfPrice, price }) {
   const now = performance.now() / 1000;
-  view.floaters = view.floaters.filter(floater => now - floater.born < FLOATER_SECONDS).slice(-FLOATERS_SHOWN);
-  view.floaters.forEach((floater, index) => {
-    const age = (now - floater.born) / FLOATER_SECONDS;
-    const stackOffset = (view.floaters.length - 1 - index) * (floater.size + 6);
-    const x = clamp(xToday(today.tick), left + 80, right - 80);
-    const textY = Math.max(top + 10, y(price) - 46 - stackOffset - age * 30);
-    drawText(context, floater.text, x, textY, floater.colour, { size: floater.size, align: 'center', alpha: 1 - age });
+  view.popups = view.popups.filter(popup => now - popup.born < POPUP_SECONDS).slice(-POPUPS_SHOWN);
+  view.popups.forEach((popup, index) => {
+    const age = (now - popup.born) / POPUP_SECONDS;
+    const stackOffset = (view.popups.length - 1 - index) * (popup.size + 6);
+    const textX = clamp(xOfTodayTick(today.tick), left + 80, right - 80);
+    const textY = Math.max(top + 10, yOfPrice(price) - 46 - stackOffset - age * 30);
+    drawText(context, popup.text, textX, textY, popup.colour, { size: popup.size, align: 'center', alpha: 1 - age });
   });
 }
-function addFloater(text, colour, size = 18) { view.floaters.push({ text, colour, size, born: performance.now() / 1000 }); }
+function addPopup(text, colour, size = 18) { view.popups.push({ text, colour, size, born: performance.now() / 1000 }); }
 function shakeChart(strength) {
-  const box = element('chartBox');
-  box.classList.remove('shake', 'shakeBig');
-  void box.offsetWidth;                                     // restart the animation
-  box.classList.add(strength >= 2 ? 'shakeBig' : 'shake');
+  const bounds = element('chartBox');
+  bounds.classList.remove('shake', 'shakeBig');
+  void bounds.offsetWidth;                                     // restart the animation
+  bounds.classList.add(strength >= 2 ? 'shakeBig' : 'shake');
 }
 
 // Number formats for the screen. formatPlain: chart labels (no $, few digits). formatFull: every digit, never K/M/B.
@@ -1234,11 +1235,11 @@ const colourClass = value => (value >= 0 ? 'up' : 'down');
 // A card as a small chip: "+5%", "σ+5%" or an event's icon.
 function chipHtml(cardId, extraClass = '') {
   const card = CARD_TYPES[cardId];
-  const sign = card.kind === 'price' ? (card.move > 0 ? 'pos' : 'neg') : '';
-  const extreme = cardDrama(cardId) === 2 ? 'extreme' : '';
-  const tip = card.kind === 'event' ? `${card.name}: ${card.sentence}` : `${cardId} ${cardValueText(cardId)}`;
-  const face = card.kind === 'event' ? card.icon : cardValueText(cardId);
-  return `<span class="chip ${card.kind} ${sign} ${extreme} ${extraClass}" data-tip="${tip}">${face}</span>`;
+  const sign = card.category === 'price' ? (card.move > 0 ? 'pos' : 'neg') : '';
+  const extreme = cardImpact(cardId) === 2 ? 'extreme' : '';
+  const tip = card.category === 'event' ? `${card.name}: ${card.sentence}` : `${cardId} ${cardValueText(cardId)}`;
+  const face = card.category === 'event' ? card.icon : cardValueText(cardId);
+  return `<span class="chip ${card.category} ${sign} ${extreme} ${extraClass}" data-tip="${tip}">${face}</span>`;
 }
 // Two lines for a position: "x × price = buy-in", then "now value  ±P&L" (green for a profit, red for a loss).
 function positionLines(firstLine, buyIn, valueNow) {
@@ -1246,7 +1247,7 @@ function positionLines(firstLine, buyIn, valueNow) {
     <div class="line"><span>${firstLine}</span><span>= ${formatMoney(buyIn)}</span></div>
     <div class="line ${colourClass(valueNow - buyIn)}"><span>now ${formatMoney(valueNow)}</span><span>${formatSignedMoney(valueNow - buyIn)}</span></div>`;
 }
-function lotTitle(run, lot) { return `${formatSignedCount(lotSign(lot) * lot.quantity)} ${lot.kind === 'call' ? 'C' : 'P'}${formatPlain(lot.strike)}`; }
+function optionLabel(run, option) { return `${formatSignedCount(directionSign(option) * option.quantity)} ${option.type === 'call' ? 'C' : 'P'}${formatPlain(option.strikePrice)}`; }
 
 // The side menu: day, cash, the stock, options, equity, heat, the next meeting.
 function renderSide() {
@@ -1254,13 +1255,13 @@ function renderSide() {
   const secondsLeft = (TICKS_PER_DAY - today.tick) * SECONDS_PER_TICK;
   const minutes = Math.floor(secondsLeft / 60), seconds = String(Math.floor(secondsLeft % 60)).padStart(2, '0');
   const clock = run.phase === 'preopen' ? '<span class="dim">pre-open</span>' : `${minutes}:${seconds}`;
-  const stock = today.shares === 0
+  const stockHtml = today.shares === 0
     ? '<div class="line dim">—</div><div class="line"></div>'
-    : positionLines(`${formatSignedCount(today.shares)} × ${formatPrice(today.averageEntry)}`, today.shares * today.averageEntry, today.shares * price);
-  const lots = today.optionLots;
-  const options = lots.length === 0 ? '<div class="line dim">—</div>'
-    : lots.slice(0, SIDE_LOTS_SHOWN).map(lot => positionLines(`${lotTitle(run, lot)} <span class="dim">${daysToExpiry(run, lot)}d</span>`, lotBuyIn(lot), lotValueNow(run, lot))).join('')
-      + (lots.length > SIDE_LOTS_SHOWN ? `<div class="line dim">+${lots.length - SIDE_LOTS_SHOWN} more</div>` : '');
+    : positionLines(`${formatSignedCount(today.shares)} × ${formatPrice(today.averageEntryPrice)}`, today.shares * today.averageEntryPrice, today.shares * price);
+  const options = today.options;
+  const optionsHtml = options.length === 0 ? '<div class="line dim">—</div>'
+    : options.slice(0, SIDE_OPTIONS_SHOWN).map(option => positionLines(`${optionLabel(run, option)} <span class="dim">${daysToExpiry(run, option)}d</span>`, optionBuyIn(option), optionValueNow(run, option))).join('')
+      + (options.length > SIDE_OPTIONS_SHOWN ? `<div class="line dim">+${options.length - SIDE_OPTIONS_SHOWN} more</div>` : '');
   const meetingNumber = nextMeetingNumber(run), target = meetingTarget(run, meetingNumber);
   const investigation = run.investigationDaysLeft > 0 ? ` · SEC ${run.investigationDaysLeft}d` : '';
 
@@ -1268,8 +1269,8 @@ function renderSide() {
     <div id="brand">INSIDER</div>
     <div class="sideHead"><b>DAY ${run.day} · ${today.ticker}</b><span class="clock">${clock}</span></div>
     <div class="label">cash</div><div class="value">${formatMoney(run.cash)}</div>
-    <div class="label"><span>stock</span><span>${formatPrice(price)}</span></div>${stock}
-    <div class="label"><span>options</span><span>${lots.length || ''}</span></div>${options}
+    <div class="label"><span>stock</span><span>${formatPrice(price)}</span></div>${stockHtml}
+    <div class="label"><span>options</span><span>${options.length || ''}</span></div>${optionsHtml}
     <div class="rule"></div>
     <div class="label">equity</div><div class="value ${colourClass(equity - today.startEquity)}" id="equityValue">${formatMoney(equity)}</div>
     <div class="label" data-tip="SEC heat: ending a day at ${HEAT_LIMIT} starts an investigation"><span>heat</span><span class="heat">${Math.round(run.heat)} / ${HEAT_LIMIT}${investigation}</span></div>
@@ -1347,7 +1348,7 @@ function showOverlay(name, html, soft = false) {
 }
 function hideOverlay() {
   view.overlay = null;
-  view.trade = null;
+  view.tradeMenu = null;
   element('overlay').classList.remove('show', 'soft');
   element('overlay').innerHTML = '';
 }
@@ -1404,7 +1405,7 @@ function showResult() {
   showOverlay('result', `
     <div class="card">
       <h1>Day ${result.day} · ${result.ticker}</h1>
-      <div class="note">${formatPrice(result.open)} → ${formatPrice(result.close)} <span class="${colourClass(result.close - result.open)}">${formatPercent(result.close / result.open - 1)}</span></div>
+      <div class="note">${formatPrice(result.openPrice)} → ${formatPrice(result.closePrice)} <span class="${colourClass(result.closePrice - result.openPrice)}">${formatPercent(result.closePrice / result.openPrice - 1)}</span></div>
       <div class="huge ${colourClass(profit)}" id="countUp">${formatSignedMoney(0)}</div>
       <div class="note">equity ${formatMoney(result.endEquity)}</div>
       ${notes.join('')}
@@ -1438,15 +1439,15 @@ function showGameOver() {
   try { localStorage.removeItem(SAVE_KEY); } catch (error) { /* storage blocked */ }
 }
 
-// The deck window: every card of today's stock: how many are left in the shoe / how many the deck holds.
+// The deck window: every card of today's stock: how many are left in the draw pile / how many the deck holds.
 function showDeck() {
-  const today = view.run.today, deck = view.run.decks[today.ticker], left = countCards(remainingShoe(today));
-  const cards = CARD_ORDER.filter(cardId => CARD_TYPES[cardId].kind !== 'event' || deck[cardId] > 0);
+  const today = view.run.today, deck = view.run.decks[today.ticker], left = countCards(remainingDrawPile(today));
+  const cards = CARD_ORDER.filter(cardId => CARD_TYPES[cardId].category !== 'event' || deck[cardId] > 0);
   showOverlay('deck', `
     <div class="card fullScreen">
       <div class="shopHead">
         <h1>${TICKERS[today.ticker].icon} ${today.ticker}</h1>
-        <span class="slot"><small>left in the shoe</small><b>${remainingShoe(today).length} / ${deckSize(deck)}</b></span>
+        <span class="slot"><small>left in the draw pile</small><b>${remainingDrawPile(today).length} / ${deckSize(deck)}</b></span>
         <span class="spacer"></span>
         <button class="button" data-action="closeOverlay">CLOSE<kbd>D</kbd></button>
       </div>
@@ -1462,41 +1463,41 @@ function showDeck() {
 // ── 11.3 The trade menu: one question per step.
 //   'action'   the six trades (long / short stock, long / short call, long / short put). Open trades sit as small
 //              icons on their own row: a key letter or a click opens one.
-//   'strike'   a new option: choose K (each row shows K and the premium).
+//   'strike'   a new option: choose the strike price K (each row shows K and the premium).
 //   'position' an open trade: ADD (more of the same: direction, K and expiry) or CLOSE (part or all).
 //   'amount'   the slider, the numbers it gives, and the button that makes the trade.
-// view.trade = { step, mode: 'new' | 'add' | 'close', action: 'long' | 'short' | 'longOption' | 'shortOption',
-//   kind, strike, expiryDay, position: { type: 'stock' } | { type: 'lot', index }, percent, selection, message }.
+// view.tradeMenu = { step, mode: 'new' | 'add' | 'close', action: 'long' | 'short' | 'longOption' | 'shortOption',
+//   type, strikePrice, expiryDay, position: { type: 'stock' } | { type: 'option', index }, percent, selection, message }.
 // After a trade the menu returns to 'action', so the game stays paused until Esc.
 function openTrade() {
   if (!tradingOpen()) return;
-  view.trade = freshTradeMenu();
+  view.tradeMenu = freshTradeMenu();
   showTrade();
 }
 function freshTradeMenu(message = null) {
-  return { step: 'action', mode: 'new', action: null, kind: null, strike: null, expiryDay: null, position: null, percent: SLIDER_DEFAULT_PERCENT, selection: 0, message };
+  return { step: 'action', mode: 'new', action: null, type: null, strikePrice: null, expiryDay: null, position: null, percent: SLIDER_DEFAULT_PERCENT, selection: 0, message };
 }
 function goTo(step, changes) {
-  Object.assign(view.trade, changes, { step, selection: 0, message: null });
-  if (step === 'amount') view.trade.percent = view.trade.mode === 'close' ? 100 : SLIDER_DEFAULT_PERCENT;
+  Object.assign(view.tradeMenu, changes, { step, selection: 0, message: null });
+  if (step === 'amount') view.tradeMenu.percent = view.tradeMenu.mode === 'close' ? 100 : SLIDER_DEFAULT_PERCENT;
   showTrade();
 }
 function tradeBack() {
-  const trade = view.trade;
-  if (trade.step === 'action') { hideOverlay(); renderAll(); return; }
-  if (trade.step === 'amount' && trade.mode !== 'new') { goTo('position', {}); return; }
-  if (trade.step === 'amount' && trade.strike !== null) { goTo('strike', { strike: null }); return; }
-  goTo('action', { strike: null, position: null, mode: 'new' });
+  const tradeMenu = view.tradeMenu;
+  if (tradeMenu.step === 'action') { hideOverlay(); renderAll(); return; }
+  if (tradeMenu.step === 'amount' && tradeMenu.mode !== 'new') { goTo('position', {}); return; }
+  if (tradeMenu.step === 'amount' && tradeMenu.strikePrice !== null) { goTo('strike', { strikePrice: null }); return; }
+  goTo('action', { strikePrice: null, position: null, mode: 'new' });
 }
-function lotPosition(lot) { return OPTION_POSITIONS[optionPositionId(lot.side, lot.kind)]; }
-function selectedLot() {
-  const position = view.trade.position;
-  return position && position.type === 'lot' ? view.run.today.optionLots[position.index] : null;
+function optionPositionInfo(option) { return OPTION_POSITIONS[optionPositionId(option.direction, option.type)]; }
+function selectedOption() {
+  const position = view.tradeMenu.position;
+  return position && position.type === 'option' ? view.run.today.options[position.index] : null;
 }
 
 // The rows of the current step: { main, detail, locked, tip, openTrades, pick() }.
 function tradeRows() {
-  const step = view.trade.step;
+  const step = view.tradeMenu.step;
   if (step === 'action') return actionRows();
   if (step === 'strike') return strikeRows();
   if (step === 'position') return positionRows();
@@ -1504,159 +1505,159 @@ function tradeRows() {
 }
 function actionRows() {
   const run = view.run, today = run.today;
-  const optionRow = (side, kind) => {
-    const positionId = optionPositionId(side, kind), position = OPTION_POSITIONS[positionId];
+  const optionRow = (direction, type) => {
+    const positionId = optionPositionId(direction, type), position = OPTION_POSITIONS[positionId];
     return {
       main: position.name.toUpperCase(), detail: position.formula, openTrades: openTradesOn(positionId),
       locked: !run.unlocked[positionId] || today.investigation,
       tip: today.investigation ? 'No options during an investigation' : `${position.name} is unlocked in the shop`,
-      pick: () => goTo('strike', { action: side + 'Option', kind, mode: 'new', expiryDay: newExpiryDay(run) }),
+      choose: () => goTo('strike', { action: direction + 'Option', type, mode: 'new', expiryDay: newExpiryDay(run) }),
     };
   };
   return [
-    { main: 'LONG STOCK', detail: 'P&L = S − entry price', openTrades: openTradesOn('longStock'), pick: () => goTo('amount', { action: 'long', mode: 'new' }) },
-    { main: 'SHORT STOCK', detail: 'P&L = entry price − S', openTrades: openTradesOn('shortStock'), pick: () => goTo('amount', { action: 'short', mode: 'new' }) },
+    { main: 'LONG STOCK', detail: 'P&L = S − entry price', openTrades: openTradesOn('longStock'), choose: () => goTo('amount', { action: 'long', mode: 'new' }) },
+    { main: 'SHORT STOCK', detail: 'P&L = entry price − S', openTrades: openTradesOn('shortStock'), choose: () => goTo('amount', { action: 'short', mode: 'new' }) },
     optionRow('long', 'call'), optionRow('short', 'call'), optionRow('long', 'put'), optionRow('short', 'put'),
   ];
 }
-// The open trades that belong on a row ('longStock', 'shortStock' or an option position id): { icon, hover, profit, open() }.
+// The open trades that belong on a row ('longStock', 'shortStock' or an option position id): { icon, hover, profit, show() }.
 function openTradesOn(rowId) {
   const run = view.run, today = run.today, price = currentPrice(today), trades = [];
   if (today.shares !== 0 && rowId === (today.shares > 0 ? 'longStock' : 'shortStock'))
-    trades.push({ icon: STOCK_ICON, hover: `average price = ${formatFull(today.averageEntry)}, S = ${formatFull(price)}`,
-      profit: today.shares * (price - today.averageEntry), open: () => goTo('position', { position: { type: 'stock' } }) });
-  today.optionLots.forEach((lot, index) => {
-    if (optionPositionId(lot.side, lot.kind) !== rowId) return;
-    trades.push({ icon: lotPosition(lot).icon, hover: `K = ${formatFull(lot.strike)}, S = ${formatFull(price)}`,
-      profit: lotValueNow(run, lot) - lotBuyIn(lot), open: () => goTo('position', { position: { type: 'lot', index } }) });
+    trades.push({ icon: STOCK_ICON, hover: `average price = ${formatFull(today.averageEntryPrice)}, S = ${formatFull(price)}`,
+      profit: today.shares * (price - today.averageEntryPrice), show: () => goTo('position', { position: { type: 'stock' } }) });
+  today.options.forEach((option, index) => {
+    if (optionPositionId(option.direction, option.type) !== rowId) return;
+    trades.push({ icon: optionPositionInfo(option).icon, hover: `K = ${formatFull(option.strikePrice)}, S = ${formatFull(price)}`,
+      profit: optionValueNow(run, option) - optionBuyIn(option), show: () => goTo('position', { position: { type: 'option', index } }) });
   });
   return trades;
 }
 // All open trades in the order their icons are drawn, so key letters and clicks agree.
 function openTradeIcons() { return actionRows().flatMap(row => row.openTrades); }
 function strikeRows() {
-  const run = view.run, trade = view.trade, price = currentPrice(run.today);
-  return strikeOffsets(trade.kind).map(offset => {
-    const strike = price * (1 + offset), prices = optionPrices(run, trade.kind, strike);
-    const premium = trade.action === 'longOption' ? prices.ask : prices.bid;           // what you pay or receive
-    return { main: 'K ' + formatPlain(strike), detail: `<span class="gold" style="font-size:15px">${formatPrice(premium)}</span>`,
-      locked: isWorthless(premium, run), tip: 'Worth nothing at this strike', pick: () => goTo('amount', { strike }) };
+  const run = view.run, tradeMenu = view.tradeMenu, price = currentPrice(run.today);
+  return strikeOffsets(tradeMenu.type).map(offset => {
+    const strikePrice = price * (1 + offset), prices = optionPrices(run, tradeMenu.type, strikePrice);
+    const premium = tradeMenu.action === 'longOption' ? prices.buyPrice : prices.sellPrice;           // what you pay or receive
+    return { main: 'K ' + formatPlain(strikePrice), detail: `<span class="gold" style="font-size:15px">${formatPrice(premium)}</span>`,
+      locked: isWorthless(premium, run), tip: 'Worth nothing at this strike', choose: () => goTo('amount', { strikePrice }) };
   });
 }
 function positionRows() {
-  const run = view.run, lot = selectedLot();
-  const addMore = lot
-    ? { action: lot.side + 'Option', kind: lot.kind, strike: lot.strike, expiryDay: lot.expiryDay, mode: 'add' }
+  const run = view.run, option = selectedOption();
+  const addMore = option
+    ? { action: option.direction + 'Option', type: option.type, strikePrice: option.strikePrice, expiryDay: option.expiryDay, mode: 'add' }
     : { action: run.today.shares > 0 ? 'long' : 'short', mode: 'add' };
   return [
-    { main: 'ADD', detail: 'more of the same', locked: !!lot && !optionsAllowed(run, lot.side, lot.kind), tip: 'No options during an investigation', pick: () => goTo('amount', addMore) },
-    { main: 'CLOSE', detail: 'part or all of it', pick: () => goTo('amount', { mode: 'close' }) },
+    { main: 'ADD', detail: 'more of the same', locked: !!option && !optionsAllowed(run, option.direction, option.type), tip: 'No options during an investigation', choose: () => goTo('amount', addMore) },
+    { main: 'CLOSE', detail: 'part or all of it', choose: () => goTo('amount', { mode: 'close' }) },
   ];
 }
 
 // What the slider's percentage does right now: { amount, note, confirm, empty, run() }.
 function tradePreview() {
-  const trade = view.trade;
-  if (trade.mode === 'close') return selectedLot() ? closeLotPreview() : closeStockPreview();
-  if (trade.action === 'long' || trade.action === 'short') return stockPreview();
-  return trade.action === 'longOption' ? longOptionPreview() : shortOptionPreview();
+  const tradeMenu = view.tradeMenu;
+  if (tradeMenu.mode === 'close') return selectedOption() ? closeOptionPreview() : closeStockPreview();
+  if (tradeMenu.action === 'long' || tradeMenu.action === 'short') return stockPreview();
+  return tradeMenu.action === 'longOption' ? longOptionPreview() : shortOptionPreview();
 }
 function closeStockPreview() {
-  const run = view.run, today = run.today, price = currentPrice(today), fraction = view.trade.percent / 100;
+  const run = view.run, today = run.today, price = currentPrice(today), fraction = view.tradeMenu.percent / 100;
   const shares = today.shares * fraction;
   return {
     amount: `${formatSignedCount(-shares)} × ${formatPrice(price)} = ${formatMoney(-shares * price)}`,
-    note: 'P&L on these ' + formatSignedMoney(shares * (price - today.averageEntry)),
-    confirm: `CLOSE ${view.trade.percent}%`, empty: Math.abs(shares) * price < SMALLEST_TRADE,
+    note: 'P&L on these ' + formatSignedMoney(shares * (price - today.averageEntryPrice)),
+    confirm: `CLOSE ${view.tradeMenu.percent}%`, empty: Math.abs(shares) * price < SMALLEST_TRADE,
     run: () => closeStockPart(run, fraction),
   };
 }
-function closeLotPreview() {
-  const run = view.run, lot = selectedLot(), fraction = view.trade.percent / 100;
-  const quantity = lot.quantity * fraction, cash = lotCloseCash(run, lot, fraction);
+function closeOptionPreview() {
+  const run = view.run, option = selectedOption(), fraction = view.tradeMenu.percent / 100;
+  const quantity = option.quantity * fraction, cash = cashFromClosingOption(run, option, fraction);
   return {
-    amount: `${formatSignedCount(-lotSign(lot) * quantity)} × ${formatPrice(Math.abs(cash) / Math.max(quantity, 1e-12))} = ${formatMoney(cash)}`,
-    note: 'P&L on these ' + formatSignedMoney(cash - lotBuyIn(lot) * fraction),
-    confirm: `CLOSE ${view.trade.percent}%`, empty: quantity * currentPrice(run.today) < SMALLEST_TRADE,
-    run: () => closeLot(run, view.trade.position.index, fraction),
+    amount: `${formatSignedCount(-directionSign(option) * quantity)} × ${formatPrice(Math.abs(cash) / Math.max(quantity, 1e-12))} = ${formatMoney(cash)}`,
+    note: 'P&L on these ' + formatSignedMoney(cash - optionBuyIn(option) * fraction),
+    confirm: `CLOSE ${view.tradeMenu.percent}%`, empty: quantity * currentPrice(run.today) < SMALLEST_TRADE,
+    run: () => closeOption(run, view.tradeMenu.position.index, fraction),
   };
 }
 function stockPreview() {
-  const run = view.run, price = currentPrice(run.today), fraction = view.trade.percent / 100;
-  const direction = view.trade.action === 'long' ? 1 : -1, room = stockRoom(run, direction), shares = direction * fraction * room;
+  const run = view.run, price = currentPrice(run.today), fraction = view.tradeMenu.percent / 100;
+  const direction = view.tradeMenu.action === 'long' ? 1 : -1, available = sharesAvailable(run, direction), shares = direction * fraction * available;
   const leverage = maximumLeverage(run) > 1 ? ` · ${maximumLeverage(run)}×` : '';
   return {
     amount: `${formatSignedCount(shares)} × ${formatPrice(price)} = ${formatMoney(shares * price)}`,
-    note: (direction > 0 ? 'of buying power ' : 'of the largest short ') + formatMoney(room * price) + leverage,
-    confirm: direction > 0 ? 'LONG STOCK' : 'SHORT STOCK', empty: room * price < SMALLEST_TRADE,
+    note: (direction > 0 ? 'of buying power ' : 'of the largest short ') + formatMoney(available * price) + leverage,
+    confirm: direction > 0 ? 'LONG STOCK' : 'SHORT STOCK', empty: available * price < SMALLEST_TRADE,
     run: () => tradeStock(run, direction, fraction),
   };
 }
-function optionSeries(trade, run) { return `K ${formatPlain(trade.strike)} · ${trade.expiryDay - run.day} days`; }
+function optionSeries(tradeMenu, run) { return `K ${formatPlain(tradeMenu.strikePrice)} · ${tradeMenu.expiryDay - run.day} days`; }
 function longOptionPreview() {
-  const run = view.run, trade = view.trade, fraction = trade.percent / 100;
-  const { ask } = optionPrices(run, trade.kind, trade.strike, trade.expiryDay);
-  const spend = fraction * freeCash(run);
+  const run = view.run, tradeMenu = view.tradeMenu, fraction = tradeMenu.percent / 100;
+  const { buyPrice } = optionPrices(run, tradeMenu.type, tradeMenu.strikePrice, tradeMenu.expiryDay);
+  const cashToSpend = fraction * freeCash(run);
   return {
-    amount: `${formatSignedCount(spend / ask)} × ${formatPrice(ask)} = ${formatMoney(spend)}`,
-    note: `${optionSeries(trade, run)} · you pay ${formatPrice(ask)} per option`,
-    confirm: 'LONG ' + trade.kind.toUpperCase(), empty: spend < SMALLEST_TRADE,
-    run: () => buyOption(run, trade.kind, trade.strike, fraction, trade.expiryDay),
+    amount: `${formatSignedCount(cashToSpend / buyPrice)} × ${formatPrice(buyPrice)} = ${formatMoney(cashToSpend)}`,
+    note: `${optionSeries(tradeMenu, run)} · you pay ${formatPrice(buyPrice)} per option`,
+    confirm: 'LONG ' + tradeMenu.type.toUpperCase(), empty: cashToSpend < SMALLEST_TRADE,
+    run: () => buyOption(run, tradeMenu.type, tradeMenu.strikePrice, fraction, tradeMenu.expiryDay),
   };
 }
 function shortOptionPreview() {
-  const run = view.run, trade = view.trade, fraction = trade.percent / 100;
-  const { bid } = optionPrices(run, trade.kind, trade.strike, trade.expiryDay);
-  const quantity = fraction * shortOptionRoom(run);
+  const run = view.run, tradeMenu = view.tradeMenu, fraction = tradeMenu.percent / 100;
+  const { sellPrice } = optionPrices(run, tradeMenu.type, tradeMenu.strikePrice, tradeMenu.expiryDay);
+  const quantity = fraction * optionsAvailableToShort(run);
   return {
-    amount: `${formatSignedCount(-quantity)} × ${formatPrice(bid)} = ${formatMoney(-quantity * bid)}`,
-    note: `${optionSeries(trade, run)} · you receive ${formatPrice(bid)} per option`,
-    confirm: 'SHORT ' + trade.kind.toUpperCase(), empty: quantity * bid < SMALLEST_TRADE,
-    run: () => writeOption(run, trade.kind, trade.strike, fraction, trade.expiryDay),
+    amount: `${formatSignedCount(-quantity)} × ${formatPrice(sellPrice)} = ${formatMoney(-quantity * sellPrice)}`,
+    note: `${optionSeries(tradeMenu, run)} · you receive ${formatPrice(sellPrice)} per option`,
+    confirm: 'SHORT ' + tradeMenu.type.toUpperCase(), empty: quantity * sellPrice < SMALLEST_TRADE,
+    run: () => writeOption(run, tradeMenu.type, tradeMenu.strikePrice, fraction, tradeMenu.expiryDay),
   };
 }
 
 function showTrade() {
-  const run = view.run, trade = view.trade;
+  const run = view.run, tradeMenu = view.tradeMenu;
   showOverlay('trade', `
     <div class="card tradeCard">
       <h1>${tradeTitle()}<small>${run.today.ticker} ${formatPrice(currentPrice(run.today))}</small></h1>
-      ${trade.step === 'action' && trade.message ? `<div class="amountNote gold" style="text-align:left">${trade.message}</div>` : ''}
-      ${trade.step === 'position' || (trade.step === 'amount' && trade.mode !== 'new') ? positionBox() : ''}
-      ${trade.step === 'strike' ? strikeHeader() : ''}
-      ${trade.step === 'amount' ? amountStep() : rowsHtml()}
+      ${tradeMenu.step === 'action' && tradeMenu.message ? `<div class="amountNote gold" style="text-align:left">${tradeMenu.message}</div>` : ''}
+      ${tradeMenu.step === 'position' || (tradeMenu.step === 'amount' && tradeMenu.mode !== 'new') ? positionBox() : ''}
+      ${tradeMenu.step === 'strike' ? strikeHeader() : ''}
+      ${tradeMenu.step === 'amount' ? amountStep() : rowsHtml()}
       <div class="keys">${tradeKeysHint()} <span class="key">Esc</span> back</div>
     </div>`, true);
   const slider = element('tradeSlider');
-  if (slider) slider.addEventListener('input', () => { view.trade.percent = Number(slider.value); refreshAmount(); });
+  if (slider) slider.addEventListener('input', () => { view.tradeMenu.percent = Number(slider.value); refreshAmount(); });
 }
 function tradeTitle() {
-  const trade = view.trade;
-  if (trade.step === 'strike') return OPTION_POSITIONS[optionPositionId(trade.action === 'longOption' ? 'long' : 'short', trade.kind)].name + ': choose K';
-  if (trade.step === 'position') return 'Open trade';
-  if (trade.step === 'amount') return { new: 'How much?', add: 'How much to add?', close: 'How much to close?' }[trade.mode];
+  const tradeMenu = view.tradeMenu;
+  if (tradeMenu.step === 'strike') return OPTION_POSITIONS[optionPositionId(tradeMenu.action === 'longOption' ? 'long' : 'short', tradeMenu.type)].name + ': choose K';
+  if (tradeMenu.step === 'position') return 'Open trade';
+  if (tradeMenu.step === 'amount') return { new: 'How much?', add: 'How much to add?', closePrice: 'How much to close?' }[tradeMenu.mode];
   return 'Trade';
 }
 // The open trade at the top of 'position' and of its 'amount': what it is, x × price = buy-in, value now and P&L.
 function positionBox() {
-  const run = view.run, today = run.today, lot = selectedLot();
-  if (!lot) return `<div class="positionBox"><div class="line"><span class="gold">Stock ${today.ticker}</span></div>
-    ${positionLines(`${formatSignedCount(today.shares)} × ${formatPrice(today.averageEntry)}`, today.shares * today.averageEntry, today.shares * currentPrice(today))}</div>`;
-  return `<div class="positionBox"><div class="line"><span class="gold">${lotPosition(lot).name} · K ${formatPlain(lot.strike)} · ${daysToExpiry(run, lot)} days left</span></div>
-    ${positionLines(`${formatSignedCount(lotSign(lot) * lot.quantity)} × ${formatPrice(lot.paid / lot.quantity)}`, lotBuyIn(lot), lotValueNow(run, lot))}</div>`;
+  const run = view.run, today = run.today, option = selectedOption();
+  if (!option) return `<div class="positionBox"><div class="line"><span class="gold">Stock ${today.ticker}</span></div>
+    ${positionLines(`${formatSignedCount(today.shares)} × ${formatPrice(today.averageEntryPrice)}`, today.shares * today.averageEntryPrice, today.shares * currentPrice(today))}</div>`;
+  return `<div class="positionBox"><div class="line"><span class="gold">${optionPositionInfo(option).name} · K ${formatPlain(option.strikePrice)} · ${daysToExpiry(run, option)} days left</span></div>
+    ${positionLines(`${formatSignedCount(directionSign(option) * option.quantity)} × ${formatPrice(option.premiumTotal / option.quantity)}`, optionBuyIn(option), optionValueNow(run, option))}</div>`;
 }
 function strikeHeader() {
-  const trade = view.trade, long = trade.action === 'longOption';
-  const formula = OPTION_POSITIONS[optionPositionId(long ? 'long' : 'short', trade.kind)].formula;
+  const tradeMenu = view.tradeMenu, long = tradeMenu.action === 'longOption';
+  const formula = OPTION_POSITIONS[optionPositionId(long ? 'long' : 'short', tradeMenu.type)].formula;
   return `
     <div class="amountNote" style="text-align:left;display:flex;justify-content:space-between"><span>${formula}</span><span>${long ? 'premium you pay' : 'premium you get'}</span></div>
     <div class="amountNote" style="text-align:left">S = the price when you exercise: any time, at the latest after ${OPTION_EXPIRY_DAYS} trading days</div>`;
 }
 function amountStep() {
-  const trade = view.trade, preview = tradePreview();
+  const tradeMenu = view.tradeMenu, preview = tradePreview();
   return `
-    <input class="slider" type="range" min="0" max="100" step="${SLIDER_STEP_PERCENT}" value="${trade.percent}" id="tradeSlider">
-    <div class="sliderEnds"><span>0%</span><span class="gold" style="font-size:14px">${trade.percent}%</span><span>100%</span></div>
+    <input class="slider" type="range" min="0" max="100" step="${SLIDER_STEP_PERCENT}" value="${tradeMenu.percent}" id="tradeSlider">
+    <div class="sliderEnds"><span>0%</span><span class="gold" style="font-size:14px">${tradeMenu.percent}%</span><span>100%</span></div>
     <div class="amount">${preview.amount}</div>
     <div class="amountNote">${preview.note}</div>
     <button class="button primary confirm ${preview.empty ? 'locked' : ''}" data-action="confirmTrade">${preview.confirm}<kbd>ENTER</kbd></button>`;
@@ -1665,26 +1666,26 @@ function amountStep() {
 function rowsHtml() {
   let iconIndex = 0;
   return tradeRows().map((row, index) => {
-    const icons = (row.openTrades || []).map(open => {
+    const icons = (row.openTrades || []).map(openPosition => {
       const letter = OPEN_TRADE_KEYS[iconIndex];
-      return `<span class="openChip ${colourClass(open.profit)}" data-action="openTradeIcon" data-argument="${iconIndex++}" data-tip="${open.hover}">${open.icon}<kbd>${letter}</kbd></span>`;
+      return `<span class="openChip ${colourClass(openPosition.profit)}" data-action="openTradeIcon" data-argument="${iconIndex++}" data-tip="${openPosition.hover}">${openPosition.icon}<kbd>${letter}</kbd></span>`;
     }).join('');
-    const classes = `${index === view.trade.selection ? 'selected' : ''} ${row.locked && !icons ? 'locked' : ''}`;
+    const classes = `${index === view.tradeMenu.selection ? 'selected' : ''} ${row.locked && !icons ? 'locked' : ''}`;
     return `<div class="choiceRow ${classes}" data-action="tradeRow" data-argument="${index}" ${row.locked ? `data-tip="${row.tip}"` : ''}>
       <span class="number">${index + 1}</span><span class="main">${row.main}</span>${icons}<span class="detail">${row.detail}</span></div>`;
   }).join('');
 }
 function tradeKeysHint() {
-  const trade = view.trade;
-  if (trade.step === 'amount') return '<span class="key">← →</span> amount';
-  const icons = trade.step === 'action' ? openTradeIcons().length : 0;
+  const tradeMenu = view.tradeMenu;
+  if (tradeMenu.step === 'amount') return '<span class="key">← →</span> amount';
+  const icons = tradeMenu.step === 'action' ? openTradeIcons().length : 0;
   const lettersHint = icons ? ` <span class="key">a${icons > 1 ? '–' + OPEN_TRADE_KEYS[icons - 1] : ''}</span> open trade` : '';
-  return `<span class="key">1–${tradeRows().length}</span> ${trade.step === 'action' ? 'new' : 'choose'}${lettersHint}`;
+  return `<span class="key">1–${tradeRows().length}</span> ${tradeMenu.step === 'action' ? 'new' : 'choose'}${lettersHint}`;
 }
 // While the slider is dragged only its numbers change (redrawing the menu would drop the drag).
 function refreshAmount() {
   const preview = tradePreview(), card = element('overlay');
-  card.querySelector('.sliderEnds .gold').textContent = view.trade.percent + '%';
+  card.querySelector('.sliderEnds .gold').textContent = view.tradeMenu.percent + '%';
   card.querySelector('.amount').textContent = preview.amount;
   card.querySelector('.amountNote').textContent = preview.note;
   card.querySelector('.confirm').classList.toggle('locked', preview.empty);
@@ -1693,11 +1694,11 @@ function refreshAmount() {
 function pickTradeRow(index) {
   const row = tradeRows()[index];
   if (!row || row.locked) { sounds.denied(); return; }
-  row.pick();
+  row.choose();
 }
 function openTradeIcon(index) {
-  const open = openTradeIcons()[index];
-  if (open) open.open(); else sounds.denied();
+  const openPosition = openTradeIcons()[index];
+  if (openPosition) openPosition.show(); else sounds.denied();
 }
 function confirmTrade() {
   const preview = tradePreview();
@@ -1707,27 +1708,27 @@ function confirmTrade() {
 // After a trade: sound, popup, save. In the menu, back to its first step with what was done.
 function finishTrade(outcome, label) {
   const failed = typeof outcome === 'string';
-  if (failed) sounds.denied(); else sounds.trade();
-  addFloater(failed ? outcome : label, failed ? CHART_COLOURS.label : CHART_COLOURS.insight, failed ? 14 : 16);
+  if (failed) sounds.denied(); else sounds.tradeMenu();
+  addPopup(failed ? outcome : label, failed ? CHART_COLOURS.label : CHART_COLOURS.insight, failed ? 14 : 16);
   saveRun();
   renderAll();
-  if (view.trade) { view.trade = freshTradeMenu(failed ? outcome : '✓ ' + label); showTrade(); }
+  if (view.tradeMenu) { view.tradeMenu = freshTradeMenu(failed ? outcome : '✓ ' + label); showTrade(); }
 }
 
 // ── 11.4 The shop: icon cards in rows, the full sentence only for the selected card, arrows move by position.
 const SHOP_ROWS = ['deck', 'trading', 'insider', 'stocks'];
 function showShop() {
-  const run = view.run, items = shopCatalogue(run);
-  view.shopItems = items;
-  view.shopSelection = clamp(view.shopSelection, 0, items.length - 1);
-  const card = (item, index) => {
-    const poor = !item.owned && run.cash < item.price;
-    return `<div class="choice ${index === view.shopSelection ? 'selected' : ''} ${item.owned ? 'owned' : ''}" data-action="shopItem" data-argument="${index}">
-      <span class="icon">${item.icon}</span><span class="nm">${item.name}</span><span class="chipLine">${item.chips}</span>
-      <span class="price ${poor ? 'poor' : ''}" ${poor ? `data-tip="Needs ${formatMoney(item.price - run.cash)} more"` : ''}>${item.owned ? '✓ owned' : formatMoney(item.price)}</span></div>`;
+  const run = view.run, shopItems = shopCatalogue(run);
+  view.shopItems = shopItems;
+  view.shopSelection = clamp(view.shopSelection, 0, shopItems.length - 1);
+  const card = (shopItem, index) => {
+    const poor = !shopItem.owned && run.cash < shopItem.price;
+    return `<div class="choice ${index === view.shopSelection ? 'selected' : ''} ${shopItem.owned ? 'owned' : ''}" data-action="shopItem" data-argument="${index}">
+      <span class="icon">${shopItem.icon}</span><span class="nm">${shopItem.name}</span><span class="chipLine">${shopItem.shortText}</span>
+      <span class="price ${poor ? 'poor' : ''}" ${poor ? `data-tip="Needs ${formatMoney(shopItem.price - run.cash)} more"` : ''}>${shopItem.owned ? '✓ owned' : formatMoney(shopItem.price)}</span></div>`;
   };
   const rows = SHOP_ROWS.map(rowId => `
-    <div class="shopRow"><span class="rowName">${rowId}</span>${items.map((item, index) => (item.row === rowId ? card(item, index) : '')).join('')}</div>`).join('');
+    <div class="shopRow"><span class="rowName">${rowId}</span>${shopItems.map((shopItem, index) => (shopItem.row === rowId ? card(shopItem, index) : '')).join('')}</div>`).join('');
   showOverlay('shop', `
     <div class="card" style="text-align:left">
       <div class="shopHead">
@@ -1738,47 +1739,47 @@ function showShop() {
         <button class="button primary" data-action="nextDay">DAY ${run.day + 1} ▶<kbd>SPACE</kbd></button>
       </div>
       <div class="shopRows">${rows}</div>
-      <div id="selectedSentence">${items[view.shopSelection] ? items[view.shopSelection].sentence : ''}</div>
+      <div id="selectedSentence">${shopItems[view.shopSelection] ? shopItems[view.shopSelection].sentence : ''}</div>
     </div>`);
 }
 function chooseShopItem(index) {
-  const run = view.run, item = view.shopItems[index];
+  const run = view.run, shopItem = view.shopItems[index];
   view.shopSelection = index;
-  if (!item) return;
-  if (item.owned || run.cash < item.price) { sounds.denied(); showShop(); return; }
-  if (item.picker) { view.pickerItem = item; view.pickerTicker = run.ticker; view.pickerSelection = 0; showPicker(); return; }
-  if (buyShopItem(run, item)) { sounds.buy(); saveRun(); }
+  if (!shopItem) return;
+  if (shopItem.owned || run.cash < shopItem.price) { sounds.denied(); showShop(); return; }
+  if (shopItem.deckEdit) { view.deckPickerItem = shopItem; view.deckPickerTicker = run.ticker; view.deckPickerSelection = 0; showPicker(); return; }
+  if (buyShopItem(run, shopItem)) { sounds.buy(); saveRun(); }
   showShop();
 }
 
 // ── 11.5 The deck picker: which card (in which deck) a remove / add / event card goes to.
-function pickerCards(run) {
-  const item = view.pickerItem;
-  if (item.picker.startsWith('event:')) return [item.picker.slice('event:'.length)];
-  if (item.picker === 'add') return CARD_ORDER.filter(cardId => CARD_TYPES[cardId].kind !== 'event');
-  return CARD_ORDER.filter(cardId => run.decks[view.pickerTicker][cardId] > 0);
+function deckPickerCards(run) {
+  const shopItem = view.deckPickerItem;
+  if (shopItem.deckEdit.startsWith('event:')) return [shopItem.deckEdit.slice('event:'.length)];
+  if (shopItem.deckEdit === 'add') return CARD_ORDER.filter(cardId => CARD_TYPES[cardId].category !== 'event');
+  return CARD_ORDER.filter(cardId => run.decks[view.deckPickerTicker][cardId] > 0);
 }
 function showPicker() {
-  const run = view.run, item = view.pickerItem, deck = run.decks[view.pickerTicker];
-  const cards = pickerCards(run);
-  view.pickerCardsShown = cards;
-  view.pickerSelection = clamp(view.pickerSelection, 0, cards.length - 1);
-  const selected = cards[view.pickerSelection];
+  const run = view.run, shopItem = view.deckPickerItem, deck = run.decks[view.deckPickerTicker];
+  const cards = deckPickerCards(run);
+  view.deckPickerCardsShown = cards;
+  view.deckPickerSelection = clamp(view.deckPickerSelection, 0, cards.length - 1);
+  const selected = cards[view.deckPickerSelection];
   const deckButtons = run.tickersOwned.map(tickerId => `
-    <button class="toggle ${tickerId === view.pickerTicker ? 'on' : ''}" data-action="pickerTicker" data-argument="${tickerId}">${TICKERS[tickerId].icon} ${tickerId} · ${deckSize(run.decks[tickerId])}</button>`).join('');
+    <button class="toggle ${tickerId === view.deckPickerTicker ? 'on' : ''}" data-action="pickerTicker" data-argument="${tickerId}">${TICKERS[tickerId].icon} ${tickerId} · ${deckSize(run.decks[tickerId])}</button>`).join('');
   const cardsHtml = cards.map((cardId, index) => `
-    <div class="choice ${index === view.pickerSelection ? 'selected' : ''} ${deckEditAllowed(run, item, view.pickerTicker, cardId) ? '' : 'locked'}" data-action="pickCard" data-argument="${index}">
-      ${chipHtml(cardId)}<span class="nm">${cardLabel(cardId)}</span><span class="chipLine">${deck[cardId]} → ${countAfterEdit(run, item, deck, cardId)}</span></div>`).join('');
+    <div class="choice ${index === view.deckPickerSelection ? 'selected' : ''} ${deckEditAllowed(run, shopItem, view.deckPickerTicker, cardId) ? '' : 'locked'}" data-action="pickCard" data-argument="${index}">
+      ${chipHtml(cardId)}<span class="nm">${cardLabel(cardId)}</span><span class="chipLine">${deck[cardId]} → ${countAfterEdit(run, shopItem, deck, cardId)}</span></div>`).join('');
   let sentence = '';
   if (selected) {
-    sentence = `${cardLabel(selected)} is ${(deck[selected] / deckSize(deck) * 100).toFixed(1)}% of ${view.pickerTicker}. Heat +${HEAT_PER_DECK_EDIT}.`;
-    if (!deckEditAllowed(run, item, view.pickerTicker, selected)) sentence += ` Not possible (deck minimum ${MINIMUM_DECK_SIZE}).`;
+    sentence = `${cardLabel(selected)} is ${(deck[selected] / deckSize(deck) * 100).toFixed(1)}% of ${view.deckPickerTicker}. Heat +${HEAT_PER_DECK_EDIT}.`;
+    if (!deckEditAllowed(run, shopItem, view.deckPickerTicker, selected)) sentence += ` Not possible (deck minimum ${MINIMUM_DECK_SIZE}).`;
   }
   showOverlay('picker', `
     <div class="card">
       <div class="shopHead">
-        <h1>${item.icon} ${item.name}</h1>
-        <span class="slot"><small>price</small><b>${formatMoney(item.price)}</b></span>
+        <h1>${shopItem.icon} ${shopItem.name}</h1>
+        <span class="slot"><small>price</small><b>${formatMoney(shopItem.price)}</b></span>
         <span class="spacer"></span>${deckButtons}
       </div>
       <div class="shopRows"><div class="shopRow" style="flex-wrap:wrap;max-width:1040px">${cardsHtml}</div></div>
@@ -1787,35 +1788,35 @@ function showPicker() {
     </div>`);
 }
 function pickCard(index) {
-  const run = view.run, cardId = view.pickerCardsShown[index];
-  view.pickerSelection = index;
-  if (!cardId || !applyDeckEdit(run, view.pickerItem, view.pickerTicker, cardId)) { sounds.denied(); showPicker(); return; }
+  const run = view.run, cardId = view.deckPickerCardsShown[index];
+  view.deckPickerSelection = index;
+  if (!cardId || !applyDeckEdit(run, view.deckPickerItem, view.deckPickerTicker, cardId)) { sounds.denied(); showPicker(); return; }
   sounds.buy();
   saveRun();
   showShop();
 }
 
 // Arrow keys move to the nearest card in that direction, by where the cards sit on screen (wrapping along a row).
-function moveSelectionByPosition(selector, currentIndex, dx, dy) {
+function moveSelectionByPosition(selector, currentIndex, arrowX, arrowY) {
   const cards = [...document.querySelectorAll(selector)];
   if (!cards.length) return currentIndex;
-  const centre = card => {
-    const box = card.getBoundingClientRect();
-    return { x: box.left + box.width / 2, y: box.top + box.height / 2, top: box.top, left: box.left };
+  const placeOf = card => {
+    const bounds = card.getBoundingClientRect();
+    return { centreX: bounds.left + bounds.width / 2, centreY: bounds.top + bounds.height / 2, top: bounds.top, left: bounds.left };
   };
-  const from = centre(cards[currentIndex]);
+  const from = placeOf(cards[currentIndex]);
   let best = currentIndex, bestScore = Infinity;
   cards.forEach((card, index) => {
-    const to = centre(card);
-    const along = dx ? (to.x - from.x) * dx : (to.y - from.y) * dy;          // how far in the arrow's direction
-    const across = dx ? Math.abs(to.y - from.y) : Math.abs(to.x - from.x);   // how far off to the side
-    if (index === currentIndex || along <= 4) return;
-    if (along + across * 3 < bestScore) { bestScore = along + across * 3; best = index; }
+    const to = placeOf(card);
+    const ahead = arrowX ? (to.centreX - from.centreX) * arrowX : (to.centreY - from.centreY) * arrowY;   // how far in the arrow's direction
+    const aside = arrowX ? Math.abs(to.centreY - from.centreY) : Math.abs(to.centreX - from.centreX);    // how far off to the side
+    if (index === currentIndex || ahead <= 4) return;
+    if (ahead + aside * 3 < bestScore) { bestScore = ahead + aside * 3; best = index; }
   });
-  if (best === currentIndex && dx) {
-    const row = cards.map((card, index) => ({ index, ...centre(card) })).filter(card => Math.abs(card.top - from.top) < 10);
-    row.sort((a, b) => a.left - b.left);
-    best = (dx > 0 ? row[0] : row[row.length - 1]).index;
+  if (best === currentIndex && arrowX) {                    // nothing further along: wrap to the other end of the row
+    const row = cards.map((card, index) => ({ index, ...placeOf(card) })).filter(place => Math.abs(place.top - from.top) < 10);
+    row.sort((first, second) => first.left - second.left);
+    best = (arrowX > 0 ? row[0] : row[row.length - 1]).index;
   }
   return best;
 }
@@ -1854,7 +1855,7 @@ const ACTIONS = {
   tradeRow(index) { pickTradeRow(index); },
   openTradeIcon(index) { openTradeIcon(index); },
   confirmTrade() { confirmTrade(); },
-  closeEverything() { if (tradingOpen() && hasPositions(view.run) && !view.trade) finishTrade(closeEverything(view.run), 'ALL CLOSED'); },
+  closeEverything() { if (tradingOpen() && hasPositions(view.run) && !view.tradeMenu) finishTrade(closeEverything(view.run), 'ALL CLOSED'); },
   tip(tipId) { if (useTip(view.run, tipId)) { sounds.tip(); saveRun(); } else sounds.denied(); },
   ticker(tickerId) { if (switchTicker(view.run, tickerId)) saveRun(); else sounds.denied(); },
   openMarket() { if (view.run.phase === 'preopen') { view.run.phase = 'trading'; view.run.today.tickerLocked = true; view.paused = false; saveRun(); } },
@@ -1868,7 +1869,7 @@ const ACTIONS = {
   nextDay() { startNextDay(view.run); view.lastEquity = null; hideOverlay(); saveRun(); },
   shopItem(index) { chooseShopItem(index); },
   pickCard(index) { pickCard(index); },
-  pickerTicker(tickerId) { view.pickerTicker = tickerId; view.pickerSelection = 0; showPicker(); },
+  deckPickerTicker(tickerId) { view.deckPickerTicker = tickerId; view.deckPickerSelection = 0; showPicker(); },
 };
 const NUMBER_ARGUMENT_ACTIONS = ['tradeRow', 'openTradeIcon', 'shopItem', 'pickCard'];
 
@@ -1893,41 +1894,41 @@ function handleKey(event) {
   gameKey(event);
 }
 function tradeMenuKey(key) {
-  const trade = view.trade;
+  const tradeMenu = view.tradeMenu;
   if (key === 'Escape') { tradeBack(); return; }
-  if (trade.step === 'amount') {
+  if (tradeMenu.step === 'amount') {
     if (key === 'Enter') confirmTrade();
     if (key === 'ArrowLeft' || key === 'ArrowRight') {
-      trade.percent = clamp(trade.percent + (key === 'ArrowRight' ? 1 : -1) * SLIDER_STEP_PERCENT, 0, 100);
-      element('tradeSlider').value = trade.percent;
+      tradeMenu.percent = clamp(tradeMenu.percent + (key === 'ArrowRight' ? 1 : -1) * SLIDER_STEP_PERCENT, 0, 100);
+      element('tradeSlider').value = tradeMenu.percent;
       refreshAmount();
     }
     return;
   }
   const rows = tradeRows(), letter = key.length === 1 ? key.toLowerCase() : '';
   if (/^[1-9]$/.test(key)) pickTradeRow(Number(key) - 1);
-  else if (trade.step === 'action' && letter && OPEN_TRADE_KEYS.includes(letter)) openTradeIcon(OPEN_TRADE_KEYS.indexOf(letter));
-  else if (key === 'ArrowDown') { trade.selection = (trade.selection + 1) % rows.length; showTrade(); }
-  else if (key === 'ArrowUp') { trade.selection = (trade.selection + rows.length - 1) % rows.length; showTrade(); }
-  else if (key === 'Enter') pickTradeRow(trade.selection);
+  else if (tradeMenu.step === 'action' && letter && OPEN_TRADE_KEYS.includes(letter)) openTradeIcon(OPEN_TRADE_KEYS.indexOf(letter));
+  else if (key === 'ArrowDown') { tradeMenu.selection = (tradeMenu.selection + 1) % rows.length; showTrade(); }
+  else if (key === 'ArrowUp') { tradeMenu.selection = (tradeMenu.selection + rows.length - 1) % rows.length; showTrade(); }
+  else if (key === 'Enter') pickTradeRow(tradeMenu.selection);
 }
 function shopKey(event) {
   const key = event.key, inShop = view.overlay === 'shop';
   const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
   if (arrows[key]) {
-    const [dx, dy] = arrows[key];
-    if (inShop) { view.shopSelection = moveSelectionByPosition('.choice', view.shopSelection, dx, dy); showShop(); }
-    else { view.pickerSelection = moveSelectionByPosition('.choice', view.pickerSelection, dx, dy); showPicker(); }
+    const [arrowX, arrowY] = arrows[key];
+    if (inShop) { view.shopSelection = moveSelectionByPosition('.choice', view.shopSelection, arrowX, arrowY); showShop(); }
+    else { view.deckPickerSelection = moveSelectionByPosition('.choice', view.deckPickerSelection, arrowX, arrowY); showPicker(); }
     event.preventDefault();
   } else if (key === 'Enter') {
-    if (inShop) chooseShopItem(view.shopSelection); else pickCard(view.pickerSelection);
+    if (inShop) chooseShopItem(view.shopSelection); else pickCard(view.deckPickerSelection);
   } else if (key === ' ' && inShop) {
     ACTIONS.nextDay(); renderAll(); event.preventDefault();
   } else if (key === 'Escape' && !inShop) {
     showShop();
   } else if (key === 'Tab' && !inShop) {
     const owned = view.run.tickersOwned;
-    view.pickerTicker = owned[(owned.indexOf(view.pickerTicker) + 1) % owned.length];
+    view.deckPickerTicker = owned[(owned.indexOf(view.deckPickerTicker) + 1) % owned.length];
     showPicker(); event.preventDefault();
   }
 }
@@ -1969,15 +1970,15 @@ function runOneTick(quiet) {
   const outcome = advanceTick(run);
   view.freshTick = run.today.tick;
   if (!quiet) {
-    const drama = Math.max(0, ...outcome.cards.map(cardDrama));
+    const impact = Math.max(0, ...outcome.cards.map(cardImpact));
     const priceNow = currentPrice(run.today), priceBefore = run.today.schedule.states[run.today.tick - 1].price;
-    if (drama > 0) { shakeChart(drama); sounds.bigCard(priceNow >= priceBefore); }
+    if (impact > 0) { shakeChart(impact); sounds.bigCard(priceNow >= priceBefore); }
     else if (outcome.cards.length) sounds.tick(priceNow - priceBefore);
     const change = totalEquity(run) - equityBefore;
     if (Math.abs(change) > Math.max(1, Math.abs(equityBefore) * POPUP_CHANGE))
-      addFloater(formatSignedMoney(change), change > 0 ? CHART_COLOURS.up : CHART_COLOURS.down, drama === 2 ? 26 : 18);
+      addPopup(formatSignedMoney(change), change > 0 ? CHART_COLOURS.up : CHART_COLOURS.down, impact === 2 ? 26 : 18);
   }
-  if (outcome.message) { sounds.bad(); addFloater(outcome.message, CHART_COLOURS.stop, 22); }
+  if (outcome.message) { sounds.bad(); addPopup(outcome.message, CHART_COLOURS.stop, 22); }
   if (outcome.closed) {
     const result = closeDay(run);
     saveRun();

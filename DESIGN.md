@@ -5,18 +5,18 @@ Every number named here lives in `index.html` § 1 SETTINGS.
 ## The price is a deck, dealt over many days
 - A stock is a deck of cards. NOVA (the starting stock) has 844 cards: `up/down/UP/DOWN` ×100, `bull/bear` ×10, `BULL/BEAR` ×1, and the same counts for the vol cards (`CARD_TYPES`, `TICKERS`).
 - Price cards move the price by move × σ. Vol cards multiply σ (`volUP` ×1.05). σ starts each day at 1 and stays between `SIGMA_MINIMUM` and `SIGMA_MAXIMUM`.
-- A day is `TICKS_PER_DAY` (90) ticks, one per `SECONDS_PER_TICK`. The cards are dealt from a **shoe**: the shuffled deck, which lasts several days (NOVA: about 9). Only when it runs out is the whole deck reshuffled. A BULL drawn this week is gone until the next shuffle, so the cards left in the shoe (the 🂠 DECK window) are long-term information.
+- A day is `TICKS_PER_DAY` (90) ticks, one per `SECONDS_PER_TICK`. The cards are dealt from a **draw pile**: the shuffled deck, which lasts several days (NOVA: about 9). Only when it runs out is the whole deck reshuffled. A BULL drawn this week is gone until the next shuffle, so the cards left in the draw pile (the 🂠 DECK window) are long-term information.
 - Positions are held overnight. Each day opens at yesterday's close × (1 + `INFLATION_PER_DAY`).
 - Each stock joins the run with `HISTORY_DAYS` of history already dealt, so day 1 opens at `BASE_OPEN_PRICE` with a week behind it. Every owned stock trades every day, even the ones you're not trading.
 - The deck is symmetric, so the average move per card is zero. Moves multiply, though, and +5% then −5% is −0.25%. The more σ there is, the more the price drifts down (volatility drag), against the 1% overnight inflation.
 - Today is fixed at the open (`scheduleDay`), seeded by run, day and stock, so a reload gives the same cards.
-- Deck edits in the shop change the shoe at once: removed copies come out of it, added copies are shuffled in.
+- Deck edits in the shop change the draw pile at once: removed copies come out of it, added copies are shuffled in.
 
 ## Event cards (bought in the shop, one copy at a time)
 `earnings` (the next `EARNINGS_EXTRA_CARDS` cards land in the same second), `fed` (σ ×`FED_SIGMA_MULTIPLIER` for `FED_TICKS`), `halt` (price frozen `HALT_SECONDS`, trading still allowed), `momentum` (repeats the last price move), `squeeze` (+`SQUEEZE_MOVE` × σ).
 
 ## Fair market maker
-The market maker knows the cards left in the shoe and what the whole deck holds, but not the order. Every `FORECAST_EVERY_TICKS` ticks it plays out the rest of today plus `FORECAST_DAYS_AHEAD` (7) more days `FORECAST_PATHS` times (`simulateForecast`, using the same `tickMarket` as the real day). That gives:
+The market maker knows the cards left in the draw pile and what the whole deck holds, but not the order. Every `FORECAST_EVERY_TICKS` ticks it plays out the rest of today plus `FORECAST_DAYS_AHEAD` (7) more days `FORECAST_PATHS` times (`simulateForecast`, using the same `tickMarket` as the real day). That gives:
 - the chart's three numbers: the bottom 10%, the average and the top 10% of the close 7 days ahead. Nothing is shown for today's close: the insider tips are the only edge on today.
 - option prices: the higher of exercising now and the average payoff at the expiry day's close; bought at +`OPTION_TRANSACTION_COST` and sold at −`OPTION_TRANSACTION_COST`.
 
@@ -26,7 +26,7 @@ Without information or a rigged deck, nothing has an edge. `node tools/sim.cjs f
 - **Side menu:** the only place with numbers. It shows the day and clock, cash, the stock line `x × average price = buy-in` (negative when short) with its value now, each option lot the same way, equity, heat and the next meeting. "Now" lines are green for a profit and red for a loss, whether long or short.
 - **Chart:** the previous week (thin grey), today (live), then three dashed lines to the close 7 days ahead with only their numbers (top 10%, average, bottom 10%). It also shows the last card drawn, the cards a Peek revealed, and faint lines for your entry and strikes.
 - **Action bar:** before the open it holds the tips, the ticker switch, TRADE and OPEN. During the day it holds TRADE, CLOSE ALL, speed, ⏭ CLOSE and pause. The next sensible button glows.
-- **🂠 DECK:** opens the full-screen deck (left in the shoe / in the deck).
+- **🂠 DECK:** opens the full-screen deck (left in the draw pile / in the deck).
 
 ## Trading (any time: before the open or during the day. The TRADE menu asks one question at a time, and the day pauses while it is open)
 - **LONG STOCK / SHORT STOCK:** the slider sets the share of the room. For a long, the room is buying power = equity × leverage (`LEVERAGE_TIERS`, bought in order). For a short, it's the largest allowed short.
