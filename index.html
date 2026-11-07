@@ -92,6 +92,10 @@ button{font:inherit;color:inherit}
 .choiceRow .detail{margin-left:auto;color:var(--dim);font-size:12px}
 .choiceRow.selected{border-color:var(--accent);background:#2a2514}
 .choiceRow.locked{opacity:.35;cursor:default}
+.openChip{height:28px;padding:0 6px;border-radius:7px;border:1px solid currentColor;background:var(--panel);display:inline-flex;align-items:center;gap:3px;font-size:15px;cursor:pointer;flex:none}
+.openChip kbd{font:700 10px var(--mono)}
+.openChip:hover{filter:brightness(1.3)}
+.positionBox{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 14px;margin:10px 0 4px;font-family:var(--mono);font-variant-numeric:tabular-nums}
 .slider{width:100%;accent-color:var(--accent);margin:18px 0 6px;height:26px}
 .sliderEnds{display:flex;justify-content:space-between;font:600 11px var(--mono);color:var(--faint)}
 .amount{font:800 20px var(--mono);text-align:center;margin:14px 0 4px;font-variant-numeric:tabular-nums}
@@ -309,7 +313,9 @@ const CHART_COLOURS = { up: '#3ddc84', down: '#ff5a5f', average: '#edf1f5', open
 const CHART_HISTORY_SHARE = 0.34;               // share of the chart's width for the previous week …
 const CHART_TODAY_SHARE = 0.42;                 // … for today (the rest is the forecast fan)
 const CHART_HISTORY_STEP = 3;                   // draw every 3rd tick of past days
-const SIDE_LOTS_SHOWN = 3;                      // option lots listed in the side menu
+const SIDE_LOTS_SHOWN = 3;
+const STOCK_ICON = '📦';                         // marks the open stock position in the trade menu (options use their own icon)
+const OPEN_TRADE_KEYS = 'abcdefghijklmnopqrstuvwxyz'; // keys that open the open trades' icons, in order                      // option lots listed in the side menu
 const FLOATER_SECONDS = 1.2;                    // P&L pops and messages over the chart fade in this time
 const FLOATERS_SHOWN = 3;                       // at most this many at once, stacked
 
@@ -572,10 +578,11 @@ function closeStock(run) { return setShares(run, 0); }
 function optionPositionId(side, kind) { return side + kind[0].toUpperCase() + kind.slice(1); }   // 'long', 'call' → 'longCall'
 function optionsAllowed(run, side, kind) { return run.unlocked[optionPositionId(side, kind)] && !run.today.investigation && run.today.tick < TICKS_PER_DAY; }
 function strikeOffsets(kind) { return kind === 'call' ? CALL_STRIKE_OFFSETS : PUT_STRIKE_OFFSETS; }
-// What one new option at this strike costs to buy (ask) or brings in when written (bid). New options
-// expire OPTION_EXPIRY_DAYS trading days from today.
-function optionTerms(run, kind, strike) {
-  const quote = quoteOption(run.today.forecast[OPTION_EXPIRY_DAYS], kind, strike);
+// What one option at this strike and expiry costs to buy (ask) or brings in when written (bid). New options
+// expire OPTION_EXPIRY_DAYS trading days from today; adding to an open lot uses that lot's expiry.
+function newExpiryDay(run) { return run.day + OPTION_EXPIRY_DAYS; }
+function optionTerms(run, kind, strike, expiryDay = newExpiryDay(run)) {
+  const quote = quoteOption(run.today.forecast[clamp(expiryDay - run.day, 0, FORECAST_DAYS_AHEAD)], kind, strike);
   return { ...quote, bidPrice: quote.fairValue * (1 - OPTION_TRANSACTION_COST) };
 }
 // How many options can be written: like shorting that many shares.
@@ -588,38 +595,44 @@ function addLot(run, newLot) {
   run.today.tradeCount++;
 }
 // Buy options with this fraction of free cash. Returns the quantity, or a reason.
-function buyOption(run, kind, strike, fraction) {
+function buyOption(run, kind, strike, fraction, expiryDay = newExpiryDay(run)) {
   if (!optionsAllowed(run, 'long', kind)) return 'Options locked';
-  const terms = optionTerms(run, kind, strike);
+  const terms = optionTerms(run, kind, strike, expiryDay);
   if (terms.askPrice <= currentPrice(run.today) * 1e-6) return 'No chance at that strike';
   const spend = fraction * freeCash(run);
   if (spend < 0.01) return 'No free cash';
   const quantity = spend / terms.askPrice;
   run.cash -= spend;
-  addLot(run, { kind, side: 'long', strike, quantity, paid: spend, expiryDay: run.day + OPTION_EXPIRY_DAYS });
+  addLot(run, { kind, side: 'long', strike, quantity, paid: spend, expiryDay });
   return quantity;
 }
 // Write (sell) options for this fraction of the room: the premium comes in now, the payout is owed at the close.
-function writeOption(run, kind, strike, fraction) {
+function writeOption(run, kind, strike, fraction, expiryDay = newExpiryDay(run)) {
   if (!optionsAllowed(run, 'short', kind)) return 'Options locked';
-  const terms = optionTerms(run, kind, strike);
+  const terms = optionTerms(run, kind, strike, expiryDay);
   if (terms.bidPrice <= currentPrice(run.today) * 1e-6) return 'Worth nothing at that strike';
   const quantity = fraction * writeRoom(run);
   if (quantity * terms.bidPrice < 0.01) return 'No margin left';
   run.cash += quantity * terms.bidPrice;
-  addLot(run, { kind, side: 'short', strike, quantity, paid: quantity * terms.bidPrice, expiryDay: run.day + OPTION_EXPIRY_DAYS });
+  addLot(run, { kind, side: 'short', strike, quantity, paid: quantity * terms.bidPrice, expiryDay });
   return quantity;
 }
-// Sell a bought lot at fair value −cost, or buy back a written one at fair value +cost.
-function closeLot(run, lotIndex) {
+// Sell (part of) a bought lot at fair value −cost, or buy back (part of) a written one at fair value +cost.
+function lotCloseCash(run, lot, fraction) {
+  const value = lotMarketValue(run, lot) * fraction;
+  return lot.side === 'long' ? value * (1 - OPTION_TRANSACTION_COST) : -value * (1 + OPTION_TRANSACTION_COST);
+}
+function closeLot(run, lotIndex, fraction = 1) {
   const lot = run.today.optionLots[lotIndex];
   if (!lot) return 0;
-  const value = lotMarketValue(run, lot);
-  const cashChange = lot.side === 'long' ? value * (1 - OPTION_TRANSACTION_COST) : -value * (1 + OPTION_TRANSACTION_COST);
+  const cashChange = lotCloseCash(run, lot, fraction);
   run.cash += cashChange;
-  run.today.optionLots.splice(lotIndex, 1);
+  if (fraction >= 0.9999) run.today.optionLots.splice(lotIndex, 1);
+  else { lot.quantity *= 1 - fraction; lot.paid *= 1 - fraction; }
   return cashChange;
 }
+// Sell (part of) a long stock position, or buy back (part of) a short one.
+function reduceStock(run, fraction) { return setShares(run, fraction >= 0.9999 ? 0 : run.today.shares * (1 - fraction)); }
 function closeEverything(run) {
   closeStock(run);
   while (run.today.optionLots.length) closeLot(run, 0);
@@ -1307,34 +1320,53 @@ function showDeck() {
     '<div class="deckGrid">' + CARD_ORDER.slice(0, 16).map(cardHtml).join('') + events.map(cardHtml).join('') + '</div></div>');
 }
 
-// ── The trade menu. One question per step: the position (long / short stock, long / short call, long / short put,
-// or close), then for options the strike, then how much on a slider. Steps: 'action' → ('strike') → 'amount', or 'close'.
-// trade.action is 'long' / 'short' for stock and 'longOption' / 'shortOption' (with trade.kind) for options.
+// ── The trade menu. One question per step. The first step lists the trades: long / short stock, long / short call,
+// long / short put. Open trades sit as small icons on their own row (a long put on LONG PUT); a key letter or click
+// opens one, which shows itself and offers ADD (more of the same: direction, K, expiry) or REDUCE (close part).
+// Picking the row itself starts a new trade: a new option asks for K, then the amount.
+// Steps: 'action' → ('strike') → 'amount' for a new trade; 'action' → 'position' → 'amount' for an open one.
+// trade.action is 'long' / 'short' for stock and 'longOption' / 'shortOption' (with kind, strike, expiryDay) for
+// options; trade.mode is 'new', 'add' or 'reduce'; trade.position is { type: 'stock' } or { type: 'lot', index }.
 function openTrade() {
   if (!tradingOpen()) return;
-  view.trade = { step: 'action', action: null, kind: null, strike: null, percent: SLIDER_DEFAULT_PERCENT, selection: 0 };
+  view.trade = { step: 'action', mode: 'new', action: null, kind: null, strike: null, expiryDay: null, position: null, percent: SLIDER_DEFAULT_PERCENT, selection: 0 };
   showTrade();
 }
-// The rows of the current step: { main, detail, locked, tip, pick() }.
+// Short labels for open trades: "+5.00 NOVA", "−12.3 P95 · 6d".
+function stockLabel(run) { return formatSignedCount(run.today.shares) + ' ' + run.today.ticker; }
+function lotLabel(run, lot) { return formatSignedCount(lotSign(lot) * lot.quantity) + ' ' + (lot.kind === 'call' ? 'C' : 'P') + formatPlain(lot.strike) + ' · ' + daysToExpiry(run, lot) + 'd'; }
+function lotPosition(lot) { return OPTION_POSITIONS[optionPositionId(lot.side, lot.kind)]; }
+function selectedLot() { const position = view.trade.position; return position && position.type === 'lot' ? view.run.today.optionLots[position.index] : null; }
+
+// The rows of the current step: { main, detail, locked, tip, open, pick() }.
 function tradeRows() {
   const run = view.run, trade = view.trade, today = run.today, price = currentPrice(today);
   if (trade.step === 'action') {
+    // the open trades of each row: { icon, label, profit, open() }
+    const openOf = (rowId) => {
+      const trades = [];
+      if (today.shares !== 0 && rowId === (today.shares > 0 ? 'longStock' : 'shortStock'))
+        trades.push({ icon: STOCK_ICON, label: stockLabel(run), profit: today.shares * (price - today.averageEntry), open: () => goTo('position', { position: { type: 'stock' } }) });
+      today.optionLots.forEach((lot, index) => {
+        if (optionPositionId(lot.side, lot.kind) === rowId)
+          trades.push({ icon: lotPosition(lot).icon, label: lotLabel(run, lot), profit: lotValue(run, lot) - lotBuyIn(lot), open: () => goTo('position', { position: { type: 'lot', index } }) });
+      });
+      return trades;
+    };
     const optionRow = (side, kind) => {
       const position = OPTION_POSITIONS[optionPositionId(side, kind)];
       return {
-        main: position.name.toUpperCase(), detail: position.card,
+        main: position.name.toUpperCase(), detail: position.card, openTrades: openOf(optionPositionId(side, kind)),
         locked: !run.unlocked[optionPositionId(side, kind)] || today.investigation,
         tip: today.investigation ? 'No options during an investigation' : position.name + ' is unlocked in the shop',
-        pick: () => goTo('strike', { action: side + 'Option', kind }),
+        pick: () => goTo('strike', { action: side + 'Option', kind, mode: 'new', expiryDay: newExpiryDay(run) }),
       };
     };
-    const rows = [
-      { main: 'LONG STOCK', detail: 'gains when it rises', pick: () => goTo('amount', { action: 'long' }) },
-      { main: 'SHORT STOCK', detail: 'gains when it falls', pick: () => goTo('amount', { action: 'short' }) },
+    return [
+      { main: 'LONG STOCK', detail: 'gains when it rises', openTrades: openOf('longStock'), pick: () => goTo('amount', { action: 'long', mode: 'new' }) },
+      { main: 'SHORT STOCK', detail: 'gains when it falls', openTrades: openOf('shortStock'), pick: () => goTo('amount', { action: 'short', mode: 'new' }) },
       optionRow('long', 'call'), optionRow('short', 'call'), optionRow('long', 'put'), optionRow('short', 'put'),
     ];
-    if (hasPositions(run)) rows.push({ main: 'CLOSE', detail: 'stock or options', pick: () => goTo('close', {}) });
-    return rows;
   }
   if (trade.step === 'strike') return strikeOffsets(trade.kind).map(offset => {
     const strike = price * (1 + offset), terms = optionTerms(run, trade.kind, strike);
@@ -1344,26 +1376,58 @@ function tradeRows() {
     const premium = buying ? terms.askPrice : terms.bidPrice;
     return { main: 'K ' + formatPlain(strike), detail: '<span class="gold" style="font-size:15px">' + formatPrice(premium) + '</span>', locked: worthless, tip: 'Worth nothing at this strike', pick: () => goTo('amount', { strike }) };
   });
-  if (trade.step === 'close') {
-    const rows = [];
-    if (today.shares !== 0) {
-      const profit = today.shares * (price - today.averageEntry);
-      rows.push({ main: 'STOCK ' + formatSignedCount(today.shares), detail: '<span class="' + colourClass(profit) + '">' + formatSignedMoney(profit) + '</span>', pick: () => finishTrade(closeStock(view.run), 'CLOSED') });
-    }
-    today.optionLots.forEach((lot, index) => {
-      const profit = lotValue(run, lot) - lotBuyIn(lot);
-      rows.push({ main: formatSignedCount(lotSign(lot) * lot.quantity) + ' ' + (lot.kind === 'call' ? 'C' : 'P') + formatPlain(lot.strike) + ' · ' + daysToExpiry(run, lot) + 'd', detail: '<span class="' + colourClass(profit) + '">' + formatSignedMoney(profit) + '</span>', pick: () => finishTrade(closeLot(view.run, index), 'CLOSED') });
-    });
-    rows.push({ main: 'ALL', detail: '', pick: () => finishTrade(closeEverything(view.run), 'ALL CLOSED') });
-    return rows;
+  if (trade.step === 'position') {
+    const lot = selectedLot();
+    const long = lot ? lot.side === 'long' : today.shares > 0;
+    const addTo = lot
+      ? { action: lot.side + 'Option', kind: lot.kind, strike: lot.strike, expiryDay: lot.expiryDay, mode: 'add' }
+      : { action: today.shares > 0 ? 'long' : 'short', mode: 'add' };
+    return [
+      { main: 'ADD', detail: 'more of the same', locked: !!lot && !optionsAllowed(run, lot.side, lot.kind), tip: 'No options during an investigation', pick: () => goTo('amount', addTo) },
+      { main: 'REDUCE', detail: long ? 'sell part or all' : 'buy back part or all', pick: () => goTo('amount', { mode: 'reduce' }) },
+    ];
   }
   return [];
 }
-function goTo(step, changes) { Object.assign(view.trade, changes, { step, selection: 0 }); showTrade(); }
+function goTo(step, changes) {
+  Object.assign(view.trade, changes, { step, selection: 0 });
+  if (step === 'amount') view.trade.percent = view.trade.mode === 'reduce' ? 100 : SLIDER_DEFAULT_PERCENT;
+  showTrade();
+}
+// The open trade shown at the top of the 'position' step: x × price = buy-in, its value now and the P&L.
+function positionDetails() {
+  const run = view.run, today = run.today, price = currentPrice(today), lot = selectedLot();
+  const block = (title, first, buyIn, valueNow) => '<div class="positionBox"><div class="line"><span class="gold">' + title + '</span></div>' +
+    '<div class="line"><span>' + first + '</span><span>= ' + formatMoney(buyIn) + '</span></div>' +
+    '<div class="line ' + colourClass(valueNow - buyIn) + '"><span>now ' + formatMoney(valueNow) + '</span><span>' + formatSignedMoney(valueNow - buyIn) + '</span></div></div>';
+  if (!lot) return block('Stock ' + today.ticker, formatSignedCount(today.shares) + ' × ' + formatPrice(today.averageEntry), today.shares * today.averageEntry, today.shares * price);
+  const perOption = lot.paid / lot.quantity;
+  return block(lotPosition(lot).name + ' · K ' + formatPlain(lot.strike) + ' · ' + daysToExpiry(run, lot) + ' days left',
+    formatSignedCount(lotSign(lot) * lot.quantity) + ' × ' + formatPrice(perOption), lotBuyIn(lot), lotValue(run, lot));
+}
 
 // The amount step: what the slider's percentage buys right now.
 function tradePreview() {
-  const run = view.run, trade = view.trade, price = currentPrice(run.today), fraction = trade.percent / 100;
+  const run = view.run, trade = view.trade, today = run.today, price = currentPrice(today), fraction = trade.percent / 100;
+  if (trade.mode === 'reduce') {
+    const lot = selectedLot();
+    if (!lot) {
+      const shares = today.shares * fraction;
+      return {
+        amount: formatSignedCount(-shares) + ' × ' + formatPrice(price) + ' = ' + formatMoney(-shares * price),
+        note: 'P&L on these ' + formatSignedMoney(shares * (price - today.averageEntry)),
+        confirm: today.shares > 0 ? 'SELL' : 'BUY BACK', empty: Math.abs(shares) * price < 0.01,
+        run: () => reduceStock(run, fraction),
+      };
+    }
+    const quantity = lot.quantity * fraction, cash = lotCloseCash(run, lot, fraction);
+    return {
+      amount: formatSignedCount(-lotSign(lot) * quantity) + ' × ' + formatPrice(Math.abs(cash) / Math.max(quantity, 1e-12)) + ' = ' + formatMoney(cash),
+      note: 'P&L on these ' + formatSignedMoney(cash + lotBuyIn(lot) * -fraction),
+      confirm: lot.side === 'long' ? 'SELL' : 'BUY BACK', empty: quantity * price < 1e-6,
+      run: () => closeLot(run, trade.position.index, fraction),
+    };
+  }
   if (trade.action === 'long' || trade.action === 'short') {
     const direction = trade.action === 'long' ? 1 : -1, room = stockRoom(run, direction);
     const shares = direction * fraction * room;
@@ -1374,28 +1438,31 @@ function tradePreview() {
       run: () => tradeStock(run, direction, fraction),
     };
   }
-  const terms = optionTerms(run, trade.kind, trade.strike), name = trade.kind.toUpperCase();
+  const terms = optionTerms(run, trade.kind, trade.strike, trade.expiryDay), name = trade.kind.toUpperCase();
+  const series = 'K ' + formatPlain(trade.strike) + ' · ' + (trade.expiryDay - run.day) + ' days';
   if (trade.action === 'longOption') {
     const spend = fraction * freeCash(run), quantity = spend / terms.askPrice;
     return {
       amount: formatSignedCount(quantity) + ' × ' + formatPrice(terms.askPrice) + ' = ' + formatMoney(spend),
-      note: 'K ' + formatPlain(trade.strike) + ' · you pay ' + formatPrice(terms.askPrice) + ' per option',
-      confirm: 'LONG ' + name, empty: spend < 0.01, run: () => buyOption(run, trade.kind, trade.strike, fraction),
+      note: series + ' · you pay ' + formatPrice(terms.askPrice) + ' per option',
+      confirm: 'LONG ' + name, empty: spend < 0.01, run: () => buyOption(run, trade.kind, trade.strike, fraction, trade.expiryDay),
     };
   }
   const quantity = fraction * writeRoom(run);
   return {
     amount: formatSignedCount(-quantity) + ' × ' + formatPrice(terms.bidPrice) + ' = ' + formatMoney(-quantity * terms.bidPrice),
-    note: 'K ' + formatPlain(trade.strike) + ' · you receive ' + formatPrice(terms.bidPrice) + ' per option',
-    confirm: 'SHORT ' + name, empty: quantity * terms.bidPrice < 0.01, run: () => writeOption(run, trade.kind, trade.strike, fraction),
+    note: series + ' · you receive ' + formatPrice(terms.bidPrice) + ' per option',
+    confirm: 'SHORT ' + name, empty: quantity * terms.bidPrice < 0.01, run: () => writeOption(run, trade.kind, trade.strike, fraction, trade.expiryDay),
   };
 }
 
 function showTrade() {
   const run = view.run, trade = view.trade, price = currentPrice(run.today);
   const position = trade.kind ? OPTION_POSITIONS[optionPositionId(trade.action === 'longOption' ? 'long' : 'short', trade.kind)] : null;
-  const titles = { action: 'Trade', strike: position ? position.name + ': choose K' : '', close: 'Close', amount: 'How much?' };
+  const titles = { action: 'Trade', strike: position ? position.name + ': choose K' : '', position: 'Open trade',
+    amount: trade.mode === 'reduce' ? 'How much to close?' : trade.mode === 'add' ? 'How much to add?' : 'How much?' };
   let html = '<div class="card tradeCard"><h1>' + titles[trade.step] + '<small>' + run.today.ticker + ' ' + formatPrice(price) + '</small></h1>';
+  if (trade.step === 'position' || (trade.step === 'amount' && trade.mode !== 'new')) html += positionDetails();
   if (trade.step === 'strike') html += '<div class="amountNote" style="text-align:left;display:flex;justify-content:space-between"><span>' + position.formula + '</span><span>' + (trade.action === 'longOption' ? 'premium you pay' : 'premium you get') + '</span></div>' +
     '<div class="amountNote" style="text-align:left">S = price in ' + OPTION_EXPIRY_DAYS + ' trading days</div>';
   if (trade.step === 'amount') {
@@ -1405,12 +1472,17 @@ function showTrade() {
       '<div class="amount">' + preview.amount + '</div><div class="amountNote">' + preview.note + '</div>' +
       '<button class="button primary confirm ' + (preview.empty ? 'locked' : '') + '" data-action="confirmTrade">' + preview.confirm + '<kbd>ENTER</kbd></button>';
   } else {
+    let openIndex = 0;
     tradeRows().forEach((row, index) => {
-      html += '<div class="choiceRow ' + (index === trade.selection ? 'selected ' : '') + (row.locked ? 'locked' : '') + '" data-action="tradeRow" data-argument="' + index + '"' + (row.locked ? ' data-tip="' + row.tip + '"' : '') + '>' +
-        '<span class="number">' + (index + 1) + '</span><span class="main">' + row.main + '</span><span class="detail">' + row.detail + '</span></div>';
+      const icons = (row.openTrades || []).map(open => {
+        const letter = OPEN_TRADE_KEYS[openIndex];
+        return '<span class="openChip ' + colourClass(open.profit) + '" data-action="openTradeIcon" data-argument="' + openIndex++ + '" data-tip="' + open.label + ' · ' + formatSignedMoney(open.profit) + '">' + open.icon + '<kbd>' + letter + '</kbd></span>';
+      }).join('');
+      html += '<div class="choiceRow ' + (index === trade.selection ? 'selected ' : '') + (row.locked && !icons ? 'locked' : '') + '" data-action="tradeRow" data-argument="' + index + '"' + (row.locked ? ' data-tip="' + row.tip + '"' : '') + '>' +
+        '<span class="number">' + (index + 1) + '</span><span class="main">' + row.main + '</span>' + icons + '<span class="detail">' + row.detail + '</span></div>';
     });
   }
-  html += '<div class="keys">' + (trade.step === 'amount' ? '<span class="key">← →</span> amount' : '<span class="key">1–' + Math.max(1, tradeRows().length) + '</span> choose') + ' <span class="key">Esc</span> back</div></div>';
+  html += '<div class="keys">' + (trade.step === 'amount' ? '<span class="key">← →</span> amount' : '<span class="key">1–' + Math.max(1, tradeRows().length) + '</span> new' + (trade.step === 'action' && openTradeIcons().length ? ' <span class="key">a' + (openTradeIcons().length > 1 ? '–' + OPEN_TRADE_KEYS[openTradeIcons().length - 1] : '') + '</span> open trade' : '')) + ' <span class="key">Esc</span> back</div></div>';
   showOverlay('trade', html, true);
   const slider = element('tradeSlider');
   if (slider) slider.addEventListener('input', () => { view.trade.percent = Number(slider.value); refreshAmount(); });
@@ -1423,6 +1495,12 @@ function refreshAmount() {
   card.querySelector('.amountNote').textContent = preview.note;
   card.querySelector('.confirm').classList.toggle('locked', preview.empty);
 }
+// All open trades in the order their icons are drawn (row by row), so key letters and clicks agree.
+function openTradeIcons() { return tradeRows().flatMap(row => row.openTrades || []); }
+function openTradeIcon(index) {
+  const open = openTradeIcons()[index];
+  if (open) open.open(); else sounds.denied();
+}
 function pickTradeRow(index) {
   const row = tradeRows()[index];
   if (!row || row.locked) { sounds.denied(); return; }
@@ -1430,9 +1508,11 @@ function pickTradeRow(index) {
 }
 function tradeBack() {
   const trade = view.trade;
-  const previous = { action: null, close: 'action', strike: 'action', amount: trade.strike !== null ? 'strike' : 'action' }[trade.step];
+  const previous = { action: null, strike: 'action', position: 'action',
+    amount: trade.mode !== 'new' ? 'position' : trade.strike !== null ? 'strike' : 'action' }[trade.step];
   if (!previous) { hideOverlay(); renderAll(); return; }
-  if (previous === 'action') trade.strike = null;
+  if (previous === 'action') Object.assign(trade, { strike: null, position: null, mode: 'new' });
+  if (previous === 'strike') trade.strike = null;
   goTo(previous, {});
 }
 function confirmTrade() {
@@ -1563,6 +1643,7 @@ const ACTIONS = {
   openDeck() { if (!view.overlay) showDeck(); },
   openTrade() { openTrade(); },
   tradeRow(index) { pickTradeRow(index); },
+  openTradeIcon(index) { openTradeIcon(index); },
   confirmTrade() { confirmTrade(); },
   closeEverything() { if (tradingOpen() && hasPositions(view.run)) finishTrade(closeEverything(view.run), 'ALL CLOSED'); },
   tip(tipId) { if (useTip(view.run, tipId)) { sounds.tip(); saveRun(); } else sounds.denied(); },
@@ -1578,7 +1659,7 @@ const ACTIONS = {
   pickCard(index) { pickCard(index); },
   pickerTicker(tickerId) { view.pickerTicker = tickerId; view.pickerSelection = 0; showPicker(); },
 };
-const NUMBER_ARGUMENT_ACTIONS = ['tradeRow', 'shopItem', 'pickCard'];
+const NUMBER_ARGUMENT_ACTIONS = ['tradeRow', 'openTradeIcon', 'shopItem', 'pickCard'];
 
 // Mouse: every clickable element names its action in data-action (and an optional data-argument).
 function handleClick(event) {
@@ -1605,6 +1686,7 @@ function handleKey(event) {
     } else {
       const rows = tradeRows();
       if (/^[1-9]$/.test(key)) pickTradeRow(Number(key) - 1);
+      else if (trade.step === 'action' && OPEN_TRADE_KEYS.includes(key.toLowerCase())) openTradeIcon(OPEN_TRADE_KEYS.indexOf(key.toLowerCase()));
       else if (key === 'ArrowDown' || key === 'ArrowUp') { trade.selection = (trade.selection + (key === 'ArrowDown' ? 1 : rows.length - 1)) % rows.length; showTrade(); }
       else if (key === 'Enter') pickTradeRow(trade.selection);
     }
