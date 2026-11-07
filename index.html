@@ -87,7 +87,8 @@ button{font:inherit;color:inherit}
 .tradeCard h1 small{font:600 13px var(--mono);color:var(--dim)}
 .choiceRow{display:flex;align-items:center;gap:12px;height:46px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);margin-top:7px;cursor:pointer;font-family:var(--mono);font-variant-numeric:tabular-nums}
 .choiceRow .number{color:var(--faint);width:12px}
-.choiceRow .main{font-weight:800;font-size:15px}
+.choiceRow .main{font-weight:800;font-size:15px;white-space:nowrap}
+.choiceRow .detail{white-space:nowrap}
 .choiceRow .detail{margin-left:auto;color:var(--dim);font-size:12px}
 .choiceRow.selected{border-color:var(--accent);background:#2a2514}
 .choiceRow.locked{opacity:.35;cursor:default}
@@ -292,13 +293,13 @@ const MINIMUM_DECK_SIZE = 150;                  // a deck is never thinned below
 const EVENT_CARD_PRICES = { earnings: 250, fed: 200, halt: 150, momentum: 300, squeeze: 400 };
 const EVENT_PRICE_GROWTH = 1.3;                 // each copy bought costs this much more
 // The four option positions, each bought separately in the shop (shorting stock needs no unlock).
-// S = the stock price at expiry, K = the strike you choose, premium = what the option costs (long) or brings in (short).
-// card = the short form on the shop card; formula = the full sentence under it and in the trade menu.
+// S = the stock price at expiry, K = the strike you choose, premium = the option's price (paid long, received short).
+// card = the short form on the shop card; formula = the full line in the shop and the trade menu.
 const OPTION_POSITIONS = {
-  longCall:  { side: 'long',  kind: 'call', name: 'Long call',  icon: '📈', price: 300, card: 'S − K', formula: 'P&L = max(S − K, 0) − premium' },
-  shortCall: { side: 'short', kind: 'call', name: 'Short call', icon: '🧾', price: 400, card: 'prem − (S−K)', formula: 'P&L = premium − max(S − K, 0)' },
-  longPut:   { side: 'long',  kind: 'put',  name: 'Long put',   icon: '🛡', price: 300, card: 'K − S', formula: 'P&L = max(K − S, 0) − premium' },
-  shortPut:  { side: 'short', kind: 'put',  name: 'Short put',  icon: '🪙', price: 400, card: 'prem − (K−S)', formula: 'P&L = premium − max(K − S, 0)' },
+  longCall:  { side: 'long',  kind: 'call', name: 'Long call',  icon: '📈', price: 300, card: 'get S − K', formula: 'pay the premium, get S − K if S > K' },
+  shortCall: { side: 'short', kind: 'call', name: 'Short call', icon: '🧾', price: 400, card: 'pay S − K', formula: 'get the premium, pay S − K if S > K' },
+  longPut:   { side: 'long',  kind: 'put',  name: 'Long put',   icon: '🛡', price: 300, card: 'get K − S', formula: 'pay the premium, get K − S if S < K' },
+  shortPut:  { side: 'short', kind: 'put',  name: 'Short put',  icon: '🪙', price: 400, card: 'pay K − S', formula: 'get the premium, pay K − S if S < K' },
 };
 const TICKER_PRICES = { UTIL: 800, BIOX: 1500 };
 
@@ -495,20 +496,12 @@ function simulateForecast(market, remainingShoe, deck, ticksLeftToday, daysAhead
   return closesByDay;
 }
 
-// Fair value of an option per share, its chance to finish in the money, and its average multiple when it does.
+// Fair value of an option per share (the average payoff over the simulated closes) and its buying price.
 function quoteOption(closes, kind, strike) {
-  let payoffTotal = 0, winners = 0;
-  for (const close of closes) {
-    const payoff = kind === 'call' ? close - strike : strike - close;
-    if (payoff > 0) { payoffTotal += payoff; winners++; }
-  }
+  let payoffTotal = 0;
+  for (const close of closes) payoffTotal += Math.max(0, kind === 'call' ? close - strike : strike - close);
   const fairValue = payoffTotal / closes.length;
-  const askPrice = fairValue * (1 + OPTION_TRANSACTION_COST);
-  return {
-    fairValue, askPrice,
-    chance: winners / closes.length,
-    winMultiple: winners > 0 && askPrice > 0 ? (payoffTotal / winners) / askPrice : 0,
-  };
+  return { fairValue, askPrice: fairValue * (1 + OPTION_TRANSACTION_COST) };
 }
 
 // ═══════════════════════════════════════ § 5 ACCOUNT ═══════════════════════════════════════
@@ -579,7 +572,7 @@ function closeStock(run) { return setShares(run, 0); }
 function optionPositionId(side, kind) { return side + kind[0].toUpperCase() + kind.slice(1); }   // 'long', 'call' → 'longCall'
 function optionsAllowed(run, side, kind) { return run.unlocked[optionPositionId(side, kind)] && !run.today.investigation && run.today.tick < TICKS_PER_DAY; }
 function strikeOffsets(kind) { return kind === 'call' ? CALL_STRIKE_OFFSETS : PUT_STRIKE_OFFSETS; }
-// What one new option at this strike costs to buy (ask) or brings in when written (bid), with its odds. New options
+// What one new option at this strike costs to buy (ask) or brings in when written (bid). New options
 // expire OPTION_EXPIRY_DAYS trading days from today.
 function optionTerms(run, kind, strike) {
   const quote = quoteOption(run.today.forecast[OPTION_EXPIRY_DAYS], kind, strike);
@@ -867,7 +860,7 @@ function shopCatalogue(run) {
   }
   for (const [positionId, position] of Object.entries(OPTION_POSITIONS))
     items.push({ id: 'unlock:' + positionId, row: 'trading', icon: position.icon, name: position.name, chips: position.card,
-      sentence: position.formula + '. S = price at expiry (' + OPTION_EXPIRY_DAYS + ' trading days), K = the strike you choose.',
+      sentence: position.name + ': ' + position.formula + '. S = the price in ' + OPTION_EXPIRY_DAYS + ' trading days, K = the strike you choose.',
       price: position.price * inflation, owned: run.unlocked[positionId] });
   const nextTier = run.leverageTier + 1;
   if (nextTier < LEVERAGE_TIERS.length)
@@ -1329,7 +1322,7 @@ function tradeRows() {
     const optionRow = (side, kind) => {
       const position = OPTION_POSITIONS[optionPositionId(side, kind)];
       return {
-        main: position.name.toUpperCase(), detail: position.formula,
+        main: position.name.toUpperCase(), detail: position.card,
         locked: !run.unlocked[optionPositionId(side, kind)] || today.investigation,
         tip: today.investigation ? 'No options during an investigation' : position.name + ' is unlocked in the shop',
         pick: () => goTo('strike', { action: side + 'Option', kind }),
@@ -1347,10 +1340,9 @@ function tradeRows() {
     const strike = price * (1 + offset), terms = optionTerms(run, trade.kind, strike);
     const buying = trade.action === 'longOption';
     const worthless = (buying ? terms.askPrice : terms.bidPrice) <= price * 1e-6;
-    const detail = buying
-      ? '🎲 ' + formatChance(terms.chance) + ' · ×' + terms.winMultiple.toFixed(1) + ' · ' + formatPrice(terms.askPrice)
-      : 'keep ' + formatChance(1 - terms.chance) + ' · get ' + formatPrice(terms.bidPrice);
-    return { main: 'K = ' + formatPlain(strike) + ' <span class="dim">' + (offset === 0 ? '±0%' : formatPercent(offset, 0)) + '</span>', detail, locked: worthless, tip: 'Never pays at this strike', pick: () => goTo('amount', { strike }) };
+    // only K and the price of one option: what you pay (long) or receive (short)
+    const premium = buying ? terms.askPrice : terms.bidPrice;
+    return { main: 'K ' + formatPlain(strike), detail: '<span class="gold" style="font-size:15px">' + formatPrice(premium) + '</span>', locked: worthless, tip: 'Worth nothing at this strike', pick: () => goTo('amount', { strike }) };
   });
   if (trade.step === 'close') {
     const rows = [];
@@ -1368,7 +1360,6 @@ function tradeRows() {
   return [];
 }
 function goTo(step, changes) { Object.assign(view.trade, changes, { step, selection: 0 }); showTrade(); }
-function formatChance(chance) { return (chance * 100).toFixed(chance < 0.1 || chance > 0.9 ? 1 : 0) + '%'; }
 
 // The amount step: what the slider's percentage buys right now.
 function tradePreview() {
@@ -1388,14 +1379,14 @@ function tradePreview() {
     const spend = fraction * freeCash(run), quantity = spend / terms.askPrice;
     return {
       amount: formatSignedCount(quantity) + ' × ' + formatPrice(terms.askPrice) + ' = ' + formatMoney(spend),
-      note: '🎲 ' + formatChance(terms.chance) + ' · pays ×' + terms.winMultiple.toFixed(1) + ' when it wins',
+      note: 'K ' + formatPlain(trade.strike) + ' · you pay ' + formatPrice(terms.askPrice) + ' per option',
       confirm: 'LONG ' + name, empty: spend < 0.01, run: () => buyOption(run, trade.kind, trade.strike, fraction),
     };
   }
   const quantity = fraction * writeRoom(run);
   return {
     amount: formatSignedCount(-quantity) + ' × ' + formatPrice(terms.bidPrice) + ' = ' + formatMoney(-quantity * terms.bidPrice),
-    note: 'you keep it all with ' + formatChance(1 - terms.chance) + ' · losses have no ceiling',
+    note: 'K ' + formatPlain(trade.strike) + ' · you receive ' + formatPrice(terms.bidPrice) + ' per option',
     confirm: 'SHORT ' + name, empty: quantity * terms.bidPrice < 0.01, run: () => writeOption(run, trade.kind, trade.strike, fraction),
   };
 }
@@ -1405,7 +1396,8 @@ function showTrade() {
   const position = trade.kind ? OPTION_POSITIONS[optionPositionId(trade.action === 'longOption' ? 'long' : 'short', trade.kind)] : null;
   const titles = { action: 'Trade', strike: position ? position.name + ': choose K' : '', close: 'Close', amount: 'How much?' };
   let html = '<div class="card tradeCard"><h1>' + titles[trade.step] + '<small>' + run.today.ticker + ' ' + formatPrice(price) + '</small></h1>';
-  if (trade.step === 'strike') html += '<div class="amountNote" style="text-align:left">' + position.formula + ' · S in ' + OPTION_EXPIRY_DAYS + ' days</div>';
+  if (trade.step === 'strike') html += '<div class="amountNote" style="text-align:left;display:flex;justify-content:space-between"><span>' + position.formula + '</span><span>' + (trade.action === 'longOption' ? 'premium you pay' : 'premium you get') + '</span></div>' +
+    '<div class="amountNote" style="text-align:left">S = price in ' + OPTION_EXPIRY_DAYS + ' trading days</div>';
   if (trade.step === 'amount') {
     const preview = tradePreview();
     html += '<input class="slider" type="range" min="0" max="100" step="' + SLIDER_STEP_PERCENT + '" value="' + trade.percent + '" id="tradeSlider">' +

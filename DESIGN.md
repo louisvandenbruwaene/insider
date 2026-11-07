@@ -19,7 +19,6 @@ Every number named here lives in `index.html` § 1 SETTINGS.
 The market maker knows the cards left in the shoe and what the whole deck holds, but not the order. Every `FORECAST_EVERY_TICKS` ticks it plays out the rest of today plus `FORECAST_DAYS_AHEAD` (7) more days `FORECAST_PATHS` times (`simulateForecast`). That gives:
 - the chart's three numbers: the bottom 10%, the average and the top 10% of the close 7 days ahead. Nothing is shown for today's close: the insider tips are the only edge on today.
 - option prices: an option expiring in k days is valued from the forecast of that day's close. Fair value = the average payoff, bought at +`OPTION_TRANSACTION_COST` and sold at −`OPTION_TRANSACTION_COST`.
-- the 🎲 chance and the "×" win multiple in the strike list.
 
 Without information or a rigged deck, nothing has an edge. `node tools/sim.cjs fairness` checks the fair value against real payoffs, and `node tools/sim.cjs equivalence` checks that the fast simulator matches the real days exactly. An independent check over 1500 runs: a 7-day at-the-money call is priced at 21.6% of the strike and paid 19.0% ± 1.5%.
 
@@ -31,8 +30,8 @@ Without information or a rigged deck, nothing has an edge. `node tools/sim.cjs f
 
 ## Trading (any time: before the open or during the day. The TRADE menu asks one question at a time, and the day pauses while it is open)
 - **LONG STOCK / SHORT STOCK:** the slider sets the share of the room. For a long, the room is buying power = equity × leverage (`LEVERAGE_TIERS`, bought in order). For a short, it's the largest allowed short.
-- Each option position shows its P&L formula (S = price at expiry, K = strike): long call `max(S − K, 0) − premium`, short call `premium − max(S − K, 0)`, long put `max(K − S, 0) − premium`, short put `premium − max(K − S, 0)`.
-- **LONG CALL / LONG PUT:** choose K from `CALL_STRIKE_OFFSETS` / `PUT_STRIKE_OFFSETS` (each row shows its 🎲 chance, win multiple and price), then the share of free cash to spend.
+- Each option position is described by what it pays (S = price at expiry, K = strike): long call `pay the premium, get S − K if S > K`, short call `get the premium, pay S − K if S > K`, long put `pay the premium, get K − S if S < K`, short put `get the premium, pay K − S if S < K`.
+- **LONG CALL / LONG PUT:** choose K from `CALL_STRIKE_OFFSETS` / `PUT_STRIKE_OFFSETS` (each row shows only K and the premium), then the share of free cash to spend.
 - **SHORT CALL / SHORT PUT** (writing): choose K the same way. You receive the premium now and owe the payout at the close. Written options count as exposure like a short of that many shares, and the slider sets the share of that room.
 - **CLOSE:** the stock, one lot, or everything.
 - The slider starts at `SLIDER_DEFAULT_PERCENT` and moves in `SLIDER_STEP_PERCENT` steps.
