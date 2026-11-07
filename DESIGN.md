@@ -5,7 +5,7 @@ Every number named here lives in `index.html` § 1 SETTINGS.
 ## The price is a deck, dealt over many days
 - A stock is a deck of cards. NOVA (the starting stock) has 844 cards: `up/down/UP/DOWN` ×100, `bull/bear` ×10, `BULL/BEAR` ×1, and the same counts for the vol cards (`CARD_TYPES`, `TICKERS`).
 - Price cards move the price by move × σ. Vol cards multiply σ (`volUP` ×1.05). σ starts each day at 1 and stays between `SIGMA_MINIMUM` and `SIGMA_MAXIMUM`.
-- A day is `TICKS_PER_DAY` (90) ticks, one per `SECONDS_PER_TICK`. The cards are dealt from a **draw pile**: the shuffled deck, which lasts several days (NOVA: about 9). Only when it runs out is the whole deck reshuffled. A BULL drawn this week is gone until the next shuffle, so the cards left in the draw pile (the 🂠 DECK window) are long-term information.
+- A day is `TICKS_PER_DAY` (90) ticks, one per `SECONDS_PER_TICK` (0.25 s: about 22 seconds a day at 1×). The cards are dealt from a **draw pile**: the shuffled deck, which lasts several days (NOVA: about 9). Only when it runs out is the whole deck reshuffled. A BULL drawn this week is gone until the next shuffle, so the cards left in the draw pile (the 🂠 DECK window) are long-term information.
 - Positions are held overnight. Each day opens at yesterday's close × (1 + `INFLATION_PER_DAY`).
 - Each stock joins the run with `HISTORY_DAYS` of history already dealt, so day 1 opens at `BASE_OPEN_PRICE` with a week behind it. Every owned stock trades every day, even the ones you're not trading.
 - The deck is symmetric, so the average move per card is zero. Moves multiply, though, and +5% then −5% is −0.25%. The more σ there is, the more the price drifts down (volatility drag), against the 1% overnight inflation.
@@ -35,9 +35,17 @@ Without information or a rigged deck, nothing has an edge. `node tools/sim.cjs f
 - **LONG CALL / LONG PUT:** choose K from `CALL_STRIKE_OFFSETS` / `PUT_STRIKE_OFFSETS` (each row shows only K and the premium), then the share of free cash to spend.
 - **SHORT CALL / SHORT PUT** (writing): choose K the same way. You receive the premium now and owe the payout at the close. Written options count as exposure like a short of that many shares, and the slider sets the share of that room.
 - **Open trades** sit as small icons on their own row (📦 stock on LONG/SHORT STOCK, each option lot on its position's row), outlined green or red by P&L. Clicking one (or its key letter a, b, c …) shows the trade (`x × price = buy-in`, value now, P&L) and offers **ADD** (more of the same: same direction, K and expiry, priced for that expiry) or **CLOSE** (slider: the share of the trade to close). After any trade the menu returns to its first step and the game stays paused until Esc. CLOSE ALL in the action bar closes everything.
-- The slider starts at `SLIDER_DEFAULT_PERCENT` and moves in `SLIDER_STEP_PERCENT` steps.
+- The slider starts at `SLIDER_DEFAULT_PERCENT` (100%) and moves in `SLIDER_STEP_PERCENT` steps.
 - Margin call: when equity (with written options at their value) < exposure × `MAINTENANCE_SHARE` ÷ leverage, the stock and the short options are closed. A gap (BEAR × σ) can push equity below zero.
 - Options expire at the close `OPTION_EXPIRY_DAYS` (7) trading days after they're traded. The side menu shows the days left. The stock is held until you close it. The only costs are transaction costs (`STOCK_TRANSACTION_COST`, `OPTION_TRANSACTION_COST`).
+
+## The desk (automation)
+Strategies bought in the shop (`DESK_STRATEGIES`) trade for you every day. The desk holds `DESK_SLOTS` (3); choosing a strategy on the desk again in the shop takes it off. They act in this order:
+- **At the open** (`runDeskAtOpen`): 🧑‍💼 Tip assistant (uses every ready tip while heat stays below the limit), 🏃 Rumour runner (uses the Rumour, all buying power on its direction, closes the stock at the close), 🪙 Premium collector (needs Short put: short puts at K = S − 20%), 🎟 Lottery desk (needs Long call: long calls at K = S + 50% with 10% of free cash).
+- **On every card** (`runDeskOnTick`): 🐂 Bull rider (each bull/BULL drawn: long with `CARD_RIDER_SHARE` of what is available; a bear/BEAR closes the long), 🐻 Bear hunter (the mirror). How often they fire depends on the deck: add bulls and the Bull rider works more.
+- **Guards**: 🛑 Stop-loss (closes a position at `STOP_LOSS_RETURN`, −20%), 💰 Take profit (at `TAKE_PROFIT_RETURN`, +30%).
+Strategies share one account, so their order matters: a Rumour runner that uses all buying power leaves nothing for the Lottery desk.
+Each action shows a gold popup on the chart and lights its slot in the side menu.
 
 ## Insider tips and heat
 - Tips are used before the open and read the fixed schedule (`INSIDER_TIPS`): Rumour (▲/▼, the starting tip), Analyst (close inside a 6% band), Peek (first 10 cards on the tape), Vol tip (σ path on the chart), The Call (exact close).

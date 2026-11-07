@@ -25,6 +25,10 @@ button{font:inherit;color:inherit}
 .rule{border-top:1px solid var(--line);margin-top:14px}
 .heatBar{height:6px;border-radius:3px;background:#2a2016;overflow:hidden;margin-top:6px}
 .heatBar i{display:block;height:100%;background:linear-gradient(90deg,#ffb347,#ff5a3d)}
+.deskSlots{display:flex;gap:8px;margin-top:6px}
+.deskSlot{width:52px;height:46px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);display:grid;place-items:center;font-size:22px}
+.deskSlot.empty{color:var(--faint);border-style:dashed;font-size:16px}
+.deskSlot.fired{border-color:var(--accent);box-shadow:0 0 16px rgba(255,201,77,.45);transform:scale(1.08)}
 .sideButtons{margin-top:auto;display:flex;gap:8px;padding-top:14px}
 .sideButtons .button{flex:1}
 .flashUp{animation:flashUp .45s} .flashDown{animation:flashDown .45s}
@@ -179,9 +183,9 @@ const MINIMUM_CASH_TO_TRADE = 10;               // × inflation: below this afte
 
 // 1.2 The trading day
 const TICKS_PER_DAY = 90;                       // one card (or one event) per tick
-const SECONDS_PER_TICK = 1;                     // at 1× speed
+const SECONDS_PER_TICK = 0.25;                  // at 1× speed: a day lasts about 22 seconds
 const GAME_SPEEDS = [1, 2, 4];
-const HALT_SECONDS = 10;                        // a Halt card freezes the price this long (you can still trade)
+const HALT_SECONDS = 3;                         // a Halt card freezes the price this long (you can still trade)
 
 // 1.3 Cards. Price cards move the price by move × σ. Vol cards multiply σ by factor. σ starts each day at 1.
 const CARD_TYPES = {
@@ -240,7 +244,7 @@ const SMALLEST_TRADE = 0.01;                    // trades worth less than one ce
 const WORTHLESS_OPTION = 1e-6;                  // an option worth less than this share of the stock price can't be traded
 
 // 1.6 The trade menu
-const SLIDER_DEFAULT_PERCENT = 50;              // the amount slider starts here …
+const SLIDER_DEFAULT_PERCENT = 100;             // the amount slider starts here …
 const SLIDER_STEP_PERCENT = 5;                  // … and moves in these steps (← → keys too)
 const CALL_STRIKE_OFFSETS = [-0.1, 0, 0.05, 0.1, 0.2, 0.35, 0.5, 1];      // strikes offered, vs the current price
 const PUT_STRIKE_OFFSETS = [0.1, 0, -0.05, -0.1, -0.2, -0.35, -0.5, -0.75];
@@ -251,7 +255,7 @@ const MAINTENANCE_SHARE = 0.5;                  // margin call when equity < exp
 // 1.7 The market maker prices options fairly from the cards left in the deck
 const FORECAST_PATHS = 600;                     // simulated futures per forecast
 const FORECAST_DAYS_AHEAD = 7;                  // the forecast runs to the close 7 trading days after today
-const FORECAST_EVERY_TICKS = 3;                 // re-run it this often during the day (and before every trade)
+const FORECAST_EVERY_TICKS = 4;                 // re-run it this often during the day
 const FORECAST_LOW_QUANTILE = 0.1;              // the chart shows the bottom 10%, the average and the top 10% close
 const FORECAST_HIGH_QUANTILE = 0.9;
 const OPTION_EXPIRY_DAYS = 7;                   // options expire at the close 7 trading days after they are traded
@@ -304,7 +308,34 @@ const OPTION_POSITIONS = {
 };
 const TICKER_PRICES = { UTIL: 800, BIOX: 1500 };
 
-// 1.12 Look
+// 1.12 The desk: strategies bought in the shop that trade for you, every day, automatically. Some act at the open,
+// some when a card is drawn (so the deck decides how often they fire), some guard your positions.
+const DESK_SLOTS = 3;                           // strategies on the desk at once
+const DESK_STRATEGIES = {
+  tipAssistant:     { icon: '🧑‍💼', name: 'Tip assistant', price: 600, needs: null,
+                      sentence: 'At the open: uses every ready tip, as long as heat stays below the limit.' },
+  rumourRunner:     { icon: '🏃', name: 'Rumour runner', price: 800, needs: null,
+                      sentence: 'At the open: uses the Rumour and puts all your buying power on its direction. Closes the stock at the close.' },
+  bullRider:        { icon: '🐂', name: 'Bull rider', price: 500, needs: null,
+                      sentence: 'Each bull or BULL card drawn: long stock with half of what is available. A bear or BEAR closes the long.' },
+  bearHunter:       { icon: '🐻', name: 'Bear hunter', price: 500, needs: null,
+                      sentence: 'Each bear or BEAR card drawn: short stock with half of what is available. A bull or BULL closes the short.' },
+  premiumCollector: { icon: '🪙', name: 'Premium collector', price: 900, needs: 'shortPut',
+                      sentence: 'At the open: short puts at K = S − 20% with half of what is available.' },
+  lotteryDesk:      { icon: '🎟', name: 'Lottery desk', price: 700, needs: 'longCall',
+                      sentence: 'At the open: long calls at K = S + 50% with 10% of free cash.' },
+  stopLoss:         { icon: '🛑', name: 'Stop-loss', price: 400, needs: null,
+                      sentence: 'Closes any position that has lost 20% of its buy-in.' },
+  takeProfit:       { icon: '💰', name: 'Take profit', price: 400, needs: null,
+                      sentence: 'Closes any position that has gained 30% of its buy-in.' },
+};
+const BULL_CARDS = ['bull', 'BULL'], BEAR_CARDS = ['bear', 'BEAR'];
+const CARD_RIDER_SHARE = 0.5;                   // Bull rider / Bear hunter use this share of what is available
+const PREMIUM_COLLECTOR_STRIKE = -0.2, PREMIUM_COLLECTOR_SHARE = 0.5;
+const LOTTERY_STRIKE = 0.5, LOTTERY_SHARE = 0.1;
+const STOP_LOSS_RETURN = -0.2, TAKE_PROFIT_RETURN = 0.3;
+
+// 1.13 Look
 const CHART_COLOURS = { up: '#3ddc84', down: '#ff5a5f', average: '#edf1f5', openPrice: '#3a4350', label: '#8592a3', grid: '#1e242d', history: '#6b7686',
   entry: '#ffc94d', stop: '#ff8a3d', insight: '#ffc94d', volatility: '#6cb6ff' };
 const CHART_ANALYST_BAND = 'rgba(255,201,77,.22)'; // the Analyst tip's band at the close
@@ -316,6 +347,7 @@ const STOCK_ICON = '📦';                         // marks the open stock posit
 const OPEN_TRADE_KEYS = 'abcdefghijklmnopqrstuvwxyz'; // keys that open the open trades' icons, in order
 const EQUITY_FLASH_CHANGE = 0.002;              // the equity number flashes when it moves more than 0.2% …
 const POPUP_CHANGE = 0.01;                      // … and a +$ / −$ popup appears over the chart above 1%
+const DESK_GLOW_MILLISECONDS = 700;             // a desk slot lights up this long when its strategy acts
 const POPUP_SECONDS = 1.2;                    // P&L pops and messages over the chart fade in this time
 const POPUPS_SHOWN = 3;                       // at most this many at once, stacked
 
@@ -719,6 +751,75 @@ function updateHeat(run, dayReturn) {
   return 'opened';
 }
 
+// ── 6.1 The desk: strategies that trade for you. Each returns what it did as short lines for the popups.
+function hasStrategy(run, strategyId) { return run.desk.includes(strategyId); }
+function deskLine(strategyId, text) { return DESK_STRATEGIES[strategyId].icon + ' ' + text; }
+// The return of a position so far: (value now − buy-in) / buy-in, for long and short alike.
+function positionReturn(buyIn, valueNow) { return buyIn === 0 ? 0 : (valueNow - buyIn) / Math.abs(buyIn); }
+
+// At the open, in this order: tips, the rumour trade, short puts, lottery calls.
+function runDeskAtOpen(run) {
+  const lines = [], price = currentPrice(run.today);
+  if (hasStrategy(run, 'tipAssistant'))
+    for (const tipId of TIP_ORDER)
+      if (tipStatus(run, tipId) === 'ready' && run.heat + INSIDER_TIPS[tipId].heat < HEAT_LIMIT && useTip(run, tipId))
+        lines.push(deskLine('tipAssistant', INSIDER_TIPS[tipId].name));
+  if (hasStrategy(run, 'rumourRunner')) {
+    if (tipStatus(run, 'rumour') === 'ready' && run.heat + INSIDER_TIPS.rumour.heat < HEAT_LIMIT) useTip(run, 'rumour');
+    const rumour = run.today.insights.rumour;
+    const shares = rumour ? tradeStock(run, rumour.direction === 'up' ? 1 : -1, 1) : 'no rumour';
+    if (typeof shares === 'number') {
+      run.today.rumourRunnerTraded = true;
+      lines.push(deskLine('rumourRunner', `${shares > 0 ? 'LONG' : 'SHORT'} ${formatCount(Math.abs(shares))} shares`));
+    }
+  }
+  if (hasStrategy(run, 'premiumCollector') && optionsAllowed(run, 'short', 'put')) {
+    const sold = writeOption(run, 'put', price * (1 + PREMIUM_COLLECTOR_STRIKE), PREMIUM_COLLECTOR_SHARE);
+    if (typeof sold === 'number') lines.push(deskLine('premiumCollector', `SHORT ${formatCount(sold)} puts`));
+  }
+  if (hasStrategy(run, 'lotteryDesk') && optionsAllowed(run, 'long', 'call')) {
+    const bought = buyOption(run, 'call', price * (1 + LOTTERY_STRIKE), LOTTERY_SHARE);
+    if (typeof bought === 'number') lines.push(deskLine('lotteryDesk', `LONG ${formatCount(bought)} calls`));
+  }
+  return lines;
+}
+
+// Every tick: the card riders react to the cards just drawn, then stop-loss and take-profit check every position.
+function runDeskOnTick(run, cards) {
+  const lines = [], today = run.today;
+  const drew = cardIds => cards.some(cardId => cardIds.includes(cardId));
+  const rider = (strategyId, triggerCards, closeCards, direction) => {
+    if (!hasStrategy(run, strategyId)) return;
+    if (drew(closeCards) && Math.sign(today.shares) === direction) { closeStock(run); lines.push(deskLine(strategyId, 'CLOSED')); }
+    if (!drew(triggerCards)) return;
+    const shares = tradeStock(run, direction, CARD_RIDER_SHARE);
+    if (typeof shares === 'number') lines.push(deskLine(strategyId, `${direction > 0 ? 'LONG' : 'SHORT'} ${formatCount(Math.abs(shares))}`));
+  };
+  rider('bullRider', BULL_CARDS, BEAR_CARDS, 1);
+  rider('bearHunter', BEAR_CARDS, BULL_CARDS, -1);
+  const guard = (strategyId, reached) => {
+    if (!hasStrategy(run, strategyId)) return;
+    const price = currentPrice(today);
+    if (today.shares !== 0 && reached(positionReturn(today.shares * today.averageEntryPrice, today.shares * price))) {
+      closeStock(run); lines.push(deskLine(strategyId, 'stock CLOSED'));
+    }
+    for (let index = today.options.length - 1; index >= 0; index--) {
+      const option = today.options[index];
+      if (reached(positionReturn(optionBuyIn(option), optionValueNow(run, option)))) { closeOption(run, index); lines.push(deskLine(strategyId, 'option CLOSED')); }
+    }
+  };
+  guard('stopLoss', change => change <= STOP_LOSS_RETURN);
+  guard('takeProfit', change => change >= TAKE_PROFIT_RETURN);
+  return lines;
+}
+
+// The market opens: the day's trading starts and the desk does its opening work.
+function openTheMarket(run) {
+  run.phase = 'trading';
+  run.today.tickerLocked = true;
+  return runDeskAtOpen(run);
+}
+
 // ═══════════════════════════════════════ § 7 RUN ═══════════════════════════════════════
 // Each stock has a market that lives across days: { drawPile (cards not drawn yet), history (the last HISTORY_DAYS days
 // as { day, prices }), lastClose }. Every owned stock trades every day; you trade one of them.
@@ -739,7 +840,7 @@ function newRun(seed = Math.floor(Math.random() * 2 ** 31)) {
     cash: STARTING_CASH, peakEquity: STARTING_CASH, heat: 0, investigationDaysLeft: 0,
     unlocked, leverageTier: 0, tips, tickersOwned: [STARTING_TICKER], ticker: STARTING_TICKER,
     decks, markets: {}, removalsDone: 0, additionsDone: 0, eventCopiesBought,
-    meetingsPassed: 0, lastResult: null, gameOverReason: null, today: null,
+    desk: [], meetingsPassed: 0, lastResult: null, gameOverReason: null, today: null,
   };
   createMarket(run, STARTING_TICKER);
   prepareDay(run);
@@ -829,7 +930,8 @@ function advanceTick(run) {
   if (cards.includes('halt')) today.haltSecondsLeft = HALT_SECONDS;
   if (today.tick % FORECAST_EVERY_TICKS === 0 || today.tick >= TICKS_PER_DAY) refreshForecast(run);
   const message = checkMargin(run);
-  return { cards, message, closed: today.tick >= TICKS_PER_DAY };
+  const deskLines = today.tick < TICKS_PER_DAY ? runDeskOnTick(run, cards) : [];
+  return { cards, message, deskLines, closed: today.tick >= TICKS_PER_DAY };
 }
 
 // Meeting n is held at the close of day n × MEETING_EVERY_DAYS. Its target is STARTING_CASH × inflation × the
@@ -854,6 +956,7 @@ function holdMeeting(run, equity) {
 // run ends if there is no money left or the meeting failed.
 function closeDay(run) {
   const today = run.today;
+  if (today.rumourRunnerTraded) closeStock(run);                         // the Rumour runner only holds for the day
   const expired = expireOptions(run);
   commitMarketDay(run, today.ticker, today.schedule);
   for (const tickerId of run.tickersOwned)
@@ -888,7 +991,7 @@ function startNextDay(run) {
 function deckBatchSize(doneSoFar) { return Math.max(DECK_BATCH_MINIMUM, DECK_BATCH_FIRST - doneSoFar); }
 function shopCatalogue(run) {
   const inflation = inflationIndex(run.day);
-  return [...deckItems(run, inflation), ...tradingItems(run, inflation), ...insiderItems(run, inflation), ...stockItems(run, inflation)];
+  return [...deckItems(run, inflation), ...tradingItems(run, inflation), ...deskItems(run, inflation), ...insiderItems(run, inflation), ...stockItems(run, inflation)];
 }
 function deckItems(run, inflation) {
   const removeBatch = deckBatchSize(run.removalsDone), addBatch = deckBatchSize(run.additionsDone);
@@ -929,6 +1032,17 @@ function insiderItems(run, inflation) {
       price: tip.price * inflation, owned: run.tips[tipId].owned };
   });
 }
+// Desk strategies. One on the desk can be chosen again to take it off (that frees its slot).
+function deskItems(run, inflation) {
+  return Object.entries(DESK_STRATEGIES).map(([strategyId, strategy]) => {
+    const needs = strategy.needs && !run.unlocked[strategy.needs] ? ` Needs ${OPTION_POSITIONS[strategy.needs].name}.` : '';
+    const onDesk = hasStrategy(run, strategyId);
+    return { id: 'desk:' + strategyId, row: 'desk', icon: strategy.icon, name: strategy.name, shortText: onDesk ? 'on the desk' : 'strategy',
+      sentence: strategy.sentence + needs + (onDesk ? ' Choose it again to take it off the desk.' : ` The desk holds ${DESK_SLOTS}.`),
+      price: strategy.price * inflation, owned: onDesk };
+  });
+}
+function deskIsFull(run) { return run.desk.length >= DESK_SLOTS; }
 function stockItems(run, inflation) {
   return Object.keys(TICKER_PRICES).map(tickerId => {
     const ticker = TICKERS[tickerId];
@@ -945,6 +1059,11 @@ function buyShopItem(run, shopItem) {
   else if (type === 'leverage') run.leverageTier++;
   else if (type === 'tip') run.tips[which].owned = true;
   else if (type === 'ticker') { run.tickersOwned.push(which); createMarket(run, which); }
+  else if (type === 'desk') {
+    const needs = DESK_STRATEGIES[which].needs;
+    if (deskIsFull(run) || (needs && !run.unlocked[needs])) return false;
+    run.desk.push(which);
+  }
   else return false;
   run.cash -= shopItem.price;
   return true;
@@ -1002,6 +1121,7 @@ function serialiseRun(run) {
 function loadRun(text) {
   const run = JSON.parse(text);
   if (!run || run.version !== SAVE_VERSION) return null;
+  run.desk = run.desk || [];                                              // runs from before the desk
   if (run.today) refreshForecast(run);
   return run;
 }
@@ -1028,7 +1148,7 @@ function playTone(frequency, seconds, { type = 'triangle', volume = 0.05, slideT
 const sounds = {
   tick(move) { playTone(move >= 0 ? 660 : 440, 0.05, { volume: 0.012, type: 'sine' }); },
   bigCard(rising) { playTone(rising ? 520 : 300, 0.35, { volume: 0.06, slideTo: rising ? 1040 : 120, type: 'sawtooth' }); },
-  tradeMenu() { playTone(880, 0.09, { volume: 0.05, type: 'square' }); },
+  trade() { playTone(880, 0.09, { volume: 0.05, type: 'square' }); },
   bad() { playTone(220, 0.4, { volume: 0.07, slideTo: 90, type: 'sawtooth' }); },
   tip() { playTone(1200, 0.12, { volume: 0.03, type: 'sine', slideTo: 1600 }); },
   cash(gained) { (gained ? [523, 659, 784, 1047] : [392, 330, 262]).forEach((frequency, index) => playTone(frequency, 0.14, { volume: 0.05, delay: index * 0.08 })); },
@@ -1041,7 +1161,8 @@ const sounds = {
 const view = {
   run: null, speedIndex: 0, paused: false, overlay: null,
   popups: [], lastEquity: null, freshTick: -1,            // chart popups, equity flash, the newest card chip
-  tradeMenu: null,                                              // the open trade menu (see § 11.3)
+  tradeMenu: null,                                          // the open trade menu (see § 11.3)
+  deskFiredAt: {},                                          // when each desk strategy last acted (its slot lights up)
   shopItems: [], shopSelection: 0,                          // the shop's cards and the selected one
   deckPickerItem: null, deckPickerTicker: null, deckPickerCardsShown: [], deckPickerSelection: 0,   // the deck picker
 };
@@ -1213,6 +1334,15 @@ function drawPopups({ context, today, left, right, top, xOfTodayTick, yOfPrice, 
     drawText(context, popup.text, textX, textY, popup.colour, { size: popup.size, align: 'center', alpha: 1 - age });
   });
 }
+// What the desk did: a gold popup per line, and its strategy's slot in the side menu lights up.
+function showDeskLines(lines) {
+  for (const line of lines) {
+    addPopup(line, CHART_COLOURS.insight, 17);
+    const strategyId = Object.keys(DESK_STRATEGIES).find(id => line.startsWith(DESK_STRATEGIES[id].icon));
+    view.deskFiredAt[strategyId] = performance.now();
+  }
+  if (lines.length) sounds.trade();
+}
 function addPopup(text, colour, size = 18) { view.popups.push({ text, colour, size, born: performance.now() / 1000 }); }
 function shakeChart(strength) {
   const bounds = element('chartBox');
@@ -1228,6 +1358,18 @@ function formatPlain(price) {
   return formatMoney(price).replace('$', '');
 }
 function formatFull(value) { return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+// The desk's slots: each strategy's icon (lit for a moment when it acts), empty slots dotted.
+function deskSlotsHtml(run) {
+  const slots = [];
+  for (let slot = 0; slot < DESK_SLOTS; slot++) {
+    const strategyId = run.desk[slot];
+    if (!strategyId) { slots.push('<span class="deskSlot empty" data-tip="An empty slot: strategies are bought in the shop">·</span>'); continue; }
+    const strategy = DESK_STRATEGIES[strategyId];
+    const fired = performance.now() - (view.deskFiredAt[strategyId] || -1e9) < DESK_GLOW_MILLISECONDS ? 'fired' : '';
+    slots.push(`<span class="deskSlot ${fired}" data-tip="${strategy.name}: ${strategy.sentence}">${strategy.icon}</span>`);
+  }
+  return slots.join('');
+}
 function formatSignedCount(value) { return (value >= 0 ? '+' : '−') + formatCount(Math.abs(value)); }
 
 // ═══════════════════════════════════════ § 10 PANELS ═══════════════════════════════════════
@@ -1277,6 +1419,8 @@ function renderSide() {
     <div class="heatBar"><i style="width:${clamp(run.heat / HEAT_LIMIT, 0, 1) * 100}%"></i></div>
     <div class="label" data-tip="Equity at the close of that day must reach this"><span>meeting · day ${meetingNumber * MEETING_EVERY_DAYS}</span></div>
     <div class="line"><span class="${equity >= target ? 'up' : 'gold'}">${formatMoney(target)}</span></div>
+    <div class="label"><span>desk</span><span>${run.desk.length} / ${DESK_SLOTS}</span></div>
+    <div class="deskSlots">${deskSlotsHtml(run)}</div>
     <div class="sideButtons">
       <button class="button" data-action="openDeck" data-tip="The deck (D)">🂠 DECK</button>
       <button class="button" data-action="menu" data-tip="Menu (Esc)">☰</button>
@@ -1708,7 +1852,7 @@ function confirmTrade() {
 // After a trade: sound, popup, save. In the menu, back to its first step with what was done.
 function finishTrade(outcome, label) {
   const failed = typeof outcome === 'string';
-  if (failed) sounds.denied(); else sounds.tradeMenu();
+  if (failed) sounds.denied(); else sounds.trade();
   addPopup(failed ? outcome : label, failed ? CHART_COLOURS.label : CHART_COLOURS.insight, failed ? 14 : 16);
   saveRun();
   renderAll();
@@ -1716,7 +1860,7 @@ function finishTrade(outcome, label) {
 }
 
 // ── 11.4 The shop: icon cards in rows, the full sentence only for the selected card, arrows move by position.
-const SHOP_ROWS = ['deck', 'trading', 'insider', 'stocks'];
+const SHOP_ROWS = ['deck', 'trading', 'desk', 'insider', 'stocks'];
 function showShop() {
   const run = view.run, shopItems = shopCatalogue(run);
   view.shopItems = shopItems;
@@ -1746,6 +1890,10 @@ function chooseShopItem(index) {
   const run = view.run, shopItem = view.shopItems[index];
   view.shopSelection = index;
   if (!shopItem) return;
+  if (shopItem.id.startsWith('desk:') && shopItem.owned) {                 // take a strategy off the desk
+    run.desk = run.desk.filter(strategyId => 'desk:' + strategyId !== shopItem.id);
+    saveRun(); showShop(); return;
+  }
   if (shopItem.owned || run.cash < shopItem.price) { sounds.denied(); showShop(); return; }
   if (shopItem.deckEdit) { view.deckPickerItem = shopItem; view.deckPickerTicker = run.ticker; view.deckPickerSelection = 0; showPicker(); return; }
   if (buyShopItem(run, shopItem)) { sounds.buy(); saveRun(); }
@@ -1858,7 +2006,12 @@ const ACTIONS = {
   closeEverything() { if (tradingOpen() && hasPositions(view.run) && !view.tradeMenu) finishTrade(closeEverything(view.run), 'ALL CLOSED'); },
   tip(tipId) { if (useTip(view.run, tipId)) { sounds.tip(); saveRun(); } else sounds.denied(); },
   ticker(tickerId) { if (switchTicker(view.run, tickerId)) saveRun(); else sounds.denied(); },
-  openMarket() { if (view.run.phase === 'preopen') { view.run.phase = 'trading'; view.run.today.tickerLocked = true; view.paused = false; saveRun(); } },
+  openMarket() {
+    if (view.run.phase !== 'preopen') return;
+    showDeskLines(openTheMarket(view.run));
+    view.paused = false;
+    saveRun();
+  },
   skipToClose() { while (view.run.phase === 'trading') runOneTick(true); },
   afterResult() {
     if (view.run.gameOverReason) { showGameOver(); return; }
@@ -1979,6 +2132,7 @@ function runOneTick(quiet) {
       addPopup(formatSignedMoney(change), change > 0 ? CHART_COLOURS.up : CHART_COLOURS.down, impact === 2 ? 26 : 18);
   }
   if (outcome.message) { sounds.bad(); addPopup(outcome.message, CHART_COLOURS.stop, 22); }
+  if (!quiet) showDeskLines(outcome.deskLines);
   if (outcome.closed) {
     const result = closeDay(run);
     saveRun();
