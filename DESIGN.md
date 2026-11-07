@@ -12,8 +12,32 @@ Every number named here lives in `index.html` § 1 SETTINGS.
 - Today is fixed at the open (`scheduleDay`), seeded by run, day and stock, so a reload gives the same cards.
 - Deck edits in the shop change the draw pile at once: removed copies come out of it, added copies are shuffled in.
 
-## Event cards (bought in the shop, one copy at a time)
-`earnings` (the next `EARNINGS_EXTRA_CARDS` cards land in the same second), `fed` (σ ×`FED_SIGMA_MULTIPLIER` for `FED_TICKS`), `halt` (price frozen `HALT_SECONDS`, trading still allowed), `momentum` (repeats the last price move), `squeeze` (+`SQUEEZE_MOVE` × σ).
+## News cards (market events, planted in the shop)
+News cards change the cards around them; combining them is the deckbuilding. All numbers are in § 1.3.
+| Card | Effect | Logic |
+|---|---|---|
+| 📈 Earnings beat / 📉 Earnings miss (major) | price ±30% × σ, σ ×1.5 | a surprise moves the price and shakes it |
+| 🤝 Takeover bid (major) | +25% × σ, then σ ×0.5 | the bid pins the price |
+| 🙋 Retail frenzy (major) | 10 ticks of two cards each | a crowd floods in |
+| 🥶 Thin market | the next 5 price moves ×2 | few traders, big jumps |
+| 🩳 Short squeeze | the next 5 price moves go up | shorts forced to buy |
+| 🔥 Fire sale | the next 5 price moves go down | longs forced to sell |
+| 🤖 Trend followers | the last price move again | algorithms chase the trend |
+| 💼 Profit taking | halfway back to the open | traders cash in |
+| 📰 Breaking news | the next 3 cards in one second | |
+| 🏛 Fed speech | σ ×2 for 15 ticks | |
+| 🏦 Central bank calm | σ back to 1, the Fed stops | |
+| 💵 Dividend | 2% of the price per share: longs receive, shorts pay | |
+| 🕵️ Leaked memo | shows the next 3 cards | |
+| ⏸ Trading halt | price frozen 3 seconds | |
+Combinations: a thin market before a BULL, a short squeeze in a bear-heavy deck, breaking news during a Fed speech, trend followers after an earnings beat, profit taking to cut a fall short.
+
+## Rigging the deck: by chance
+- After every close your **network** offers `CARD_OFFER_SIZE` (3) random cards: plant one for free (or none).
+- **Plant a story** (bought, `CARD_PACK_PRICE`): another 3 random cards, plant one.
+- **Bury a story** (bought, `REMOVE_PRICE`): 3 cards drawn at random from the deck, weighted by their copies (a single BEAR is almost never offered); bury `DECK_BATCH_FIRST` (10), then 9, 8 … copies of one.
+- Offers are weighted by rarity (`CARD_RARITIES`: minor 6, notable 3, major 1) and plant minor ×10, notable ×8, major ×4 copies.
+- Offers are seeded and saved: reloading never re-rolls them. Every deck change adds `HEAT_PER_DECK_EDIT` heat.
 
 ## Fair market maker
 The market maker knows the cards left in the draw pile and what the whole deck holds, but not the order. Every `FORECAST_EVERY_TICKS` ticks it plays out the rest of today plus `FORECAST_DAYS_AHEAD` (7) more days `FORECAST_PATHS` times (`simulateForecast`, using the same `tickMarket` as the real day). That gives:
@@ -22,7 +46,7 @@ The market maker knows the cards left in the draw pile and what the whole deck h
 
 Without information or a rigged deck, nothing has an edge. `node tools/sim.cjs fairness` checks the fair value against real payoffs. An independent check over 1500 runs: a 7-day at-the-money call is priced at 21.6% of the strike and paid 19.0% ± 1.5%.
 
-## Screen
+## Screen (mouse only)
 - **Side menu:** the only place with numbers. It shows the day and clock, cash, the stock line `x × average price = buy-in` (negative when short) with its value now, each option lot the same way, equity, heat and the next meeting. "Now" lines are green for a profit and red for a loss, whether long or short.
 - **Chart:** the previous week (thin grey), today (live), then three dashed lines to the close 7 days ahead with only their numbers (top 10%, average, bottom 10%). It also shows the last card drawn, the cards a Peek revealed, and faint lines for your entry and strikes.
 - **Action bar:** before the open it holds the tips, the ticker switch, TRADE and OPEN. During the day it holds TRADE, CLOSE ALL, speed, ⏭ CLOSE and pause. The next sensible button glows.
@@ -32,20 +56,12 @@ Without information or a rigged deck, nothing has an edge. `node tools/sim.cjs f
 - **LONG STOCK / SHORT STOCK:** the slider sets the share of the room. For a long, the room is buying power = equity × leverage (`LEVERAGE_TIERS`, bought in order). For a short, it's the largest allowed short.
 - Each position shows its exact P&L per option (S = the price when exercised, K = strike): long call `P&L = max(S − K, 0) − premium`, short call `P&L = premium − max(S − K, 0)`, long put `P&L = max(K − S, 0) − premium`, short put `P&L = premium − max(K − S, 0)`. Stock: `P&L = S − entry price` (long), `entry price − S` (short).
 - Options can be exercised at any time up to expiry, so an option is worth the higher of exercising now (`max(S − K, 0)` or `max(K − S, 0)`) and holding to expiry (the forecast's average payoff). A long put is never worth less than K − S.
-- **LONG CALL / LONG PUT:** choose K from `CALL_STRIKE_OFFSETS` / `PUT_STRIKE_OFFSETS` (each row shows only K and the premium), then the share of free cash to spend.
-- **SHORT CALL / SHORT PUT** (writing): choose K the same way. You receive the premium now and owe the payout at the close. Written options count as exposure like a short of that many shares, and the slider sets the share of that room.
+- **LONG CALL / LONG PUT:** choose K from `CALL_STRIKE_OFFSETS` / `PUT_STRIKE_OFFSETS` (each row shows only K and the premium), then the share of buying power to spend.
+- **SHORT CALL / SHORT PUT** (writing): choose K the same way. You receive the premium now and owe the payoff when exercised.
 - **Open trades** sit as small icons on their own row (📦 stock on LONG/SHORT STOCK, each option lot on its position's row), outlined green or red by P&L. Clicking one (or its key letter a, b, c …) shows the trade (`x × price = buy-in`, value now, P&L) and offers **ADD** (more of the same: same direction, K and expiry, priced for that expiry) or **CLOSE** (slider: the share of the trade to close). After any trade the menu returns to its first step and the game stays paused until Esc. CLOSE ALL in the action bar closes everything.
 - The slider starts at `SLIDER_DEFAULT_PERCENT` (100%) and moves in `SLIDER_STEP_PERCENT` steps.
-- Margin call: when equity (with written options at their value) < exposure × `MAINTENANCE_SHARE` ÷ leverage, the stock and the short options are closed. A gap (BEAR × σ) can push equity below zero.
+- **Margin (one rule for everything):** exposure = the stock's value + what long options are worth + short options counted as shares. Buying power = equity × leverage − exposure, and every trade (stock or option, long or short) uses it, so options are bought with leverage too. **Margin call** when equity < exposure × `MAINTENANCE_SHARE` ÷ leverage: everything is closed. The side menu shows "margin call below $X" (red within ×`MARGIN_WARNING`), and every trade shows the margin call level after it. A gap (BEAR × σ) can push equity below zero.
 - Options expire at the close `OPTION_EXPIRY_DAYS` (7) trading days after they're traded. The side menu shows the days left. The stock is held until you close it. The only costs are transaction costs (`STOCK_TRANSACTION_COST`, `OPTION_TRANSACTION_COST`).
-
-## The desk (automation)
-Strategies bought in the shop (`DESK_STRATEGIES`) trade for you every day. The desk holds `DESK_SLOTS` (3); choosing a strategy on the desk again in the shop takes it off. They act in this order:
-- **At the open** (`runDeskAtOpen`): 🧑‍💼 Tip assistant (uses every ready tip while heat stays below the limit), 🏃 Rumour runner (uses the Rumour, all buying power on its direction, closes the stock at the close), 🪙 Premium collector (needs Short put: short puts at K = S − 20%), 🎟 Lottery desk (needs Long call: long calls at K = S + 50% with 10% of free cash).
-- **On every card** (`runDeskOnTick`): 🐂 Bull rider (each bull/BULL drawn: long with `CARD_RIDER_SHARE` of what is available; a bear/BEAR closes the long), 🐻 Bear hunter (the mirror). How often they fire depends on the deck: add bulls and the Bull rider works more.
-- **Guards**: 🛑 Stop-loss (closes a position at `STOP_LOSS_RETURN`, −20%), 💰 Take profit (at `TAKE_PROFIT_RETURN`, +30%).
-Strategies share one account, so their order matters: a Rumour runner that uses all buying power leaves nothing for the Lottery desk.
-Each action shows a gold popup on the chart and lights its slot in the side menu.
 
 ## Insider tips and heat
 - Tips are used before the open and read the fixed schedule (`INSIDER_TIPS`): Rumour (▲/▼, the starting tip), Analyst (close inside a 6% band), Peek (first 10 cards on the tape), Vol tip (σ path on the chart), The Call (exact close).

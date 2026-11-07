@@ -9,7 +9,7 @@ function loadGame(htmlFile) {
   const code = html.split('<script id="game">')[1].split('</script>')[0];
   return new Function(code + `;return { newRun, advanceTick, closeDay, startNextDay, tradeStock, buyOption, writeOption,
     closeOption, closeStockPart, closeEverything, useTip, totalEquity, currentPrice, shopCatalogue, buyShopItem,
-    applyDeckEdit, switchTicker, strikeOffsets, openTheMarket, deckSize, serialiseRun, loadRun, CARD_ORDER, TIP_ORDER };`)();
+    pickOfferedCard, switchTicker, strikeOffsets, openTheMarket, deckSize, serialiseRun, loadRun, CARD_ORDER, TIP_ORDER };`)();
 }
 const game = loadGame(process.argv[2]);
 const RUNS = Number(process.argv[3]) || 40;
@@ -58,14 +58,13 @@ function randomTrade(run, random) {
   return action;
 }
 
-// A few random purchases in the shop, deck edits included.
+// The day's free tip (sometimes), then a few random purchases; a story planted or buried picks a random offered card.
 function randomShopping(run, random) {
+  if (run.cardReward && random() < 0.7) game.pickOfferedCard(run, pickFrom(run.cardReward, random), true);
   for (let purchase = 0; purchase < 4; purchase++) {
     const shopItem = pickFrom(game.shopCatalogue(run), random);
-    if (!shopItem.deckEdit) { game.buyShopItem(run, shopItem); continue; }
-    const tickerId = pickFrom(run.tickersOwned, random);
-    const cardId = shopItem.deckEdit.startsWith('event:') ? shopItem.deckEdit.slice('event:'.length) : pickFrom(game.CARD_ORDER.slice(0, 16), random);
-    game.applyDeckEdit(run, shopItem, tickerId, cardId);
+    if (!game.buyShopItem(run, shopItem) || !run.cardOffer) continue;
+    game.pickOfferedCard(run, random() < 0.8 ? pickFrom(run.cardOffer.cards, random) : null);
   }
   for (const tickerId in run.decks) if (game.deckSize(run.decks[tickerId]) < 150) report(run, 'shop', 'deck below the minimum ' + tickerId);
 }
