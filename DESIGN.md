@@ -27,9 +27,9 @@ Without information or a rigged deck, nothing has an edge. `node tools/sim.cjs f
 - **🂠 DECK:** opens the full-screen deck (left today / in the deck).
 
 ## Trading (the TRADE menu asks one question at a time, and the day pauses while it is open)
-- **LONG / SHORT:** the slider sets the share of the room. For a long, the room is buying power = equity × leverage (`LEVERAGE_TIERS`, bought in order). For a short, it's the largest allowed short. Before shorting is unlocked, SHORT is SELL (your own shares only).
-- **BUY OPTION:** call or put, then a strike from `CALL_STRIKE_OFFSETS` / `PUT_STRIKE_OFFSETS` (each row shows its 🎲 chance, win multiple and price), then the share of free cash to spend.
-- **SELL OPTION** (writing): same steps. You receive the premium now and owe the payout at the close. Written options count as exposure like a short of that many shares, and the slider sets the share of that room.
+- **LONG STOCK / SHORT STOCK:** the slider sets the share of the room. For a long, the room is buying power = equity × leverage (`LEVERAGE_TIERS`, bought in order). For a short, it's the largest allowed short. Before shorting is unlocked, SHORT STOCK is SELL STOCK (your own shares only).
+- **LONG CALL / LONG PUT:** a strike from `CALL_STRIKE_OFFSETS` / `PUT_STRIKE_OFFSETS` (each row shows its 🎲 chance, win multiple and price), then the share of free cash to spend.
+- **SHORT CALL / SHORT PUT** (writing): same steps. You receive the premium now and owe the payout at the close. Written options count as exposure like a short of that many shares, and the slider sets the share of that room.
 - **CLOSE:** the stock, one lot, or everything.
 - The slider starts at `SLIDER_DEFAULT_PERCENT` and moves in `SLIDER_STEP_PERCENT` steps.
 - Margin call: when equity (with written options at their value) < exposure × `MAINTENANCE_SHARE` ÷ leverage, the stock is closed and written options are bought back. A gap (BEAR × σ) can push equity below zero.
