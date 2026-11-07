@@ -104,7 +104,7 @@ const STRATEGIES = {
   cash: { beforeOpen() {}, shop() {} },
   coin: {
     beforeOpen(run) { game.tradeStock(run, Math.random() < 0.5 ? 1 : -1, 1); },
-    shop(run) { buyFirstAffordable(run, ['unlock:short']); },
+    shop() {},
   },
   rumour: {
     beforeOpen(run) {
@@ -112,7 +112,7 @@ const STRATEGIES = {
       const rumour = run.today.insights.rumour;
       if (rumour) game.tradeStock(run, rumour.direction === 'up' ? 1 : -1, 1);
     },
-    shop(run) { buyFirstAffordable(run, ['unlock:short', 'leverage']) || rigDeck(run); },
+    shop(run) { buyFirstAffordable(run, ['leverage']) || rigDeck(run); },
   },
 };
 

@@ -30,7 +30,7 @@ Without information or a rigged deck, nothing has an edge. `node tools/sim.cjs f
 - **🂠 DECK:** opens the full-screen deck (left in the shoe / in the deck).
 
 ## Trading (any time: before the open or during the day. The TRADE menu asks one question at a time, and the day pauses while it is open)
-- **LONG STOCK / SHORT STOCK:** the slider sets the share of the room. For a long, the room is buying power = equity × leverage (`LEVERAGE_TIERS`, bought in order). For a short, it's the largest allowed short. Before shorting is unlocked, SHORT STOCK is SELL STOCK (your own shares only).
+- **LONG STOCK / SHORT STOCK:** the slider sets the share of the room. For a long, the room is buying power = equity × leverage (`LEVERAGE_TIERS`, bought in order). For a short, it's the largest allowed short.
 - **LONG CALL / LONG PUT:** a strike from `CALL_STRIKE_OFFSETS` / `PUT_STRIKE_OFFSETS` (each row shows its 🎲 chance, win multiple and price), then the share of free cash to spend.
 - **SHORT CALL / SHORT PUT** (writing): same steps. You receive the premium now and owe the payout at the close. Written options count as exposure like a short of that many shares, and the slider sets the share of that room.
 - **CLOSE:** the stock, one lot, or everything.
@@ -53,12 +53,12 @@ Without information or a rigged deck, nothing has an edge. `node tools/sim.cjs f
 ## Shop
 - Deck: Remove takes `DECK_BATCH_FIRST` (10) copies of one card the first time, then 9, 8, … down to `DECK_BATCH_MINIMUM`. Add works the same way, with its own count. Each costs `DECK_EDIT_PRICE_GROWTH` more than the last. A deck never goes below `MINIMUM_DECK_SIZE`.
 - Event cards: `EVENT_CARD_PRICES`, ×`EVENT_PRICE_GROWTH` per copy.
-- Trading: shorting, calls, puts (`UNLOCK_PRICES`), the next leverage tier (`LEVERAGE_PRICES`).
+- Trading: calls and puts (`UNLOCK_PRICES`), the next leverage tier (`LEVERAGE_PRICES`). Shorting stock is always possible.
 - Insider: the four other tips (`INSIDER_TIPS[].price`).
 - Stocks: UTIL (calm) and BIOX (wild) (`TICKER_PRICES`). Pick one before the open.
 
 ## Balance notes (tools/sim.cjs bots, 8 runs each, up to day 60, multi-day market)
 - Holding cash: dies at the first meeting, every run.
 - Coin-flipping 100% long or short for a day: median 10 days.
-- Rumour trader (one-day trades on the rumour, short + leverage + removing bears): median 21 days, best 39 days and $2.6B.
+- Rumour trader (one-day trades on the rumour, leverage + removing bears): median 21 days, best 39 days and $2.6B.
 - These bots only day-trade. Holding through the week on the forecast and using weekly options is untested by bots.

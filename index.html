@@ -291,7 +291,7 @@ const DECK_EDIT_PRICE_GROWTH = 1.6;             // each remove (or add) costs th
 const MINIMUM_DECK_SIZE = 150;                  // a deck is never thinned below this
 const EVENT_CARD_PRICES = { earnings: 250, fed: 200, halt: 150, momentum: 300, squeeze: 400 };
 const EVENT_PRICE_GROWTH = 1.3;                 // each copy bought costs this much more
-const UNLOCK_PRICES = { short: 150, call: 300, put: 300 };
+const UNLOCK_PRICES = { call: 300, put: 300 };    // shorting stock needs no unlock
 const TICKER_PRICES = { UTIL: 800, BIOX: 1500 };
 
 // 1.12 Look
@@ -557,7 +557,6 @@ function stockRoom(run, direction) {
   const today = run.today, price = currentPrice(today);
   const largestPosition = Math.max(0, buyingPower(run) - writtenNotional(run)) / price;
   if (direction > 0) return Math.max(0, largestPosition - today.shares);
-  if (!run.unlocked.short) return Math.max(0, today.shares);
   return Math.max(0, largestPosition + today.shares);
 }
 // Buy or sell this fraction of the room. Returns the share change, or a reason it did not happen.
@@ -692,7 +691,7 @@ function newRun(seed = Math.floor(Math.random() * 2 ** 31)) {
   for (const tipId of TIP_ORDER) tips[tipId] = { owned: STARTING_TIPS.includes(tipId), cooldownLeft: 0 };
   const run = {
     version: 2, seed, day: 1, cash: STARTING_CASH, heat: 0, investigationDaysLeft: 0,
-    unlocked: { short: false, call: false, put: false },
+    unlocked: { call: false, put: false },
     leverageTier: 0, tickersOwned: [STARTING_TICKER], ticker: STARTING_TICKER, decks, tips, markets: {},
     removalsDone: 0, additionsDone: 0, eventCopiesBought: Object.fromEntries(EVENT_CARDS.map(cardId => [cardId, 0])),
     meetingsPassed: 0, phase: 'preopen', lastResult: null, gameOverReason: null, peakEquity: STARTING_CASH,
@@ -857,9 +856,6 @@ function shopCatalogue(run) {
       sentence: card.sentence + ' (Added to one deck.)',
       price: EVENT_CARD_PRICES[cardId] * Math.pow(EVENT_PRICE_GROWTH, run.eventCopiesBought[cardId]) * inflation, picker: 'event:' + cardId });
   }
-  items.push({ id: 'unlock:short', row: 'trading', icon: '📉', name: 'Shorting', chips: 'sell ▼',
-    sentence: 'Sell shares you do not own: you profit when the price falls, and losses have no ceiling.',
-    price: UNLOCK_PRICES.short * inflation, owned: run.unlocked.short });
   items.push({ id: 'unlock:call', row: 'trading', icon: '📈', name: 'Calls', chips: 'pick a strike',
     sentence: 'Long a call: it pays close − strike (small stake, big multiple). Short a call: keep the premium, owe the payout.',
     price: UNLOCK_PRICES.call * inflation, owned: run.unlocked.call });
@@ -1327,9 +1323,7 @@ function tradeRows() {
     });
     const rows = [
       { main: 'LONG STOCK', detail: 'gains when it rises', pick: () => goTo('amount', { action: 'long' }) },
-      run.unlocked.short || today.shares <= 0
-        ? { main: 'SHORT STOCK', detail: 'gains when it falls', locked: !run.unlocked.short, tip: 'Shorting is unlocked in the shop', pick: () => goTo('amount', { action: 'short' }) }
-        : { main: 'SELL STOCK', detail: 'sell your shares', pick: () => goTo('amount', { action: 'short' }) },
+      { main: 'SHORT STOCK', detail: 'gains when it falls', pick: () => goTo('amount', { action: 'short' }) },
       optionRow('long', 'call', 'pays close − strike'),
       optionRow('short', 'call', 'premium now, owes close − strike'),
       optionRow('long', 'put', 'pays strike − close'),
@@ -1371,11 +1365,10 @@ function tradePreview() {
   if (trade.action === 'long' || trade.action === 'short') {
     const direction = trade.action === 'long' ? 1 : -1, room = stockRoom(run, direction);
     const shares = direction * fraction * room;
-    const selling = direction < 0 && !run.unlocked.short;
     return {
       amount: formatSignedCount(shares) + ' × ' + formatPrice(price) + ' = ' + formatMoney(shares * price),
-      note: (selling ? 'of your shares' : direction > 0 ? 'of buying power ' + formatMoney(room * price) : 'of the largest short ' + formatMoney(room * price)) + (maximumLeverage(run) > 1 ? ' · ' + maximumLeverage(run) + '×' : ''),
-      confirm: direction > 0 ? 'LONG STOCK' : selling ? 'SELL STOCK' : 'SHORT STOCK', empty: room * price < 0.01,
+      note: (direction > 0 ? 'of buying power ' + formatMoney(room * price) : 'of the largest short ' + formatMoney(room * price)) + (maximumLeverage(run) > 1 ? ' · ' + maximumLeverage(run) + '×' : ''),
+      confirm: direction > 0 ? 'LONG STOCK' : 'SHORT STOCK', empty: room * price < 0.01,
       run: () => tradeStock(run, direction, fraction),
     };
   }
