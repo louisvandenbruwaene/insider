@@ -44,7 +44,7 @@ Every `MEETING_EVERY_DAYS` days the investors meet, and that day has a boss rule
 
 ## Fair market maker
 The market maker knows the cards left in the draw pile and what the whole deck holds, but not the order. Every `FORECAST_EVERY_TICKS` ticks it plays out the rest of today plus `FORECAST_DAYS_AHEAD` (7) more days `FORECAST_PATHS` times (`simulateForecast`, using the same `tickMarket` as the real day). That gives:
-- the chart's three numbers (only once the 🔮 Forecast is bought, `FORECAST_PRICE`): the bottom 10%, the average and the top 10% of the close 7 days ahead. Nothing is shown for today's close: the insider tips are the only edge on today.
+- the chart's three numbers (only once the 🔮 Forecast is bought, `FORECAST_PRICE`): the bottom 10%, the average and the top 10% of the close 7 days ahead. Nothing is shown for today's close: plays (Rumour, Insider call, Peek, Pick 1 of 2) are the edge on today.
 - option prices: the higher of exercising now and the average payoff at the expiry day's close; bought at +`OPTION_TRANSACTION_COST` and sold at −`OPTION_TRANSACTION_COST`.
 
 Without information or a rigged deck, nothing has an edge. `node tools/sim.cjs fairness` checks the fair value against real payoffs. An independent check over 1500 runs: a 7-day at-the-money call is priced at 21.6% of the strike and paid 19.0% ± 1.5%.
@@ -52,7 +52,7 @@ Without information or a rigged deck, nothing has an edge. `node tools/sim.cjs f
 ## Screen (mouse only)
 - **Side menu:** the only place with numbers. It shows the day and clock, cash, the stock line `x × average price = buy-in` (negative when short) with its value now, each option lot the same way, equity, heat and the next meeting. "Now" lines are green for a profit and red for a loss, whether long or short.
 - **Chart:** the previous week (thin grey), today (live), and once the Forecast is bought three dashed lines to the close 7 days ahead with only their numbers. The corner shows the last card, a waiting multiplier, and peeked cards. It also shows the last card drawn, the cards a Peek revealed, and faint lines for your entry and strikes.
-- **Action bar:** before the open it holds the tips, the ticker switch, TRADE and OPEN. During the day it holds TRADE, CLOSE ALL, speed, ⏭ CLOSE and pause. The next sensible button glows.
+- **Hand:** the plays dealt today, with focus left; click one to play it. **Action bar:** before the open it holds the market switch, TRADE and OPEN. During the day it holds TRADE, CLOSE ALL, speed, ⏭ CLOSE and pause. The next sensible button glows.
 - **🂠 DECK:** opens the full-screen deck (left in the draw pile / in the deck).
 
 ## Trading (any time: before the open or during the day. The TRADE menu asks one question at a time, and the day pauses while it is open)
@@ -79,8 +79,8 @@ Heat comes from plays (their 🔥), from deck changes (`HEAT_PER_DECK_EDIT`) and
 - Deck: Remove takes `DECK_BATCH_FIRST` (10) copies of one card the first time, then 9, 8, … down to `DECK_BATCH_MINIMUM`. Add works the same way, with its own count. Each costs `DECK_EDIT_PRICE_GROWTH` more than the last. A deck never goes below `MINIMUM_DECK_SIZE`.
 - Event cards: `EVENT_CARD_PRICES`, ×`EVENT_PRICE_GROWTH` per copy.
 - Trading: long call, short call, long put and short put, each bought separately (`OPTION_POSITIONS`, with each one's P&L formula), and the next leverage tier (`LEVERAGE_PRICES`). Shorting stock is always possible.
-- Insider: the four other tips (`INSIDER_TIPS[].price`).
-- Stocks: UTIL (calm) and BIOX (wild) (`TICKER_PRICES`). Pick one before the open.
+- Plays: Learn a play (pick 1 of 3), Forget a play (pick any), and the Forecast.
+- Markets: Mart, Gold, Oil, World (`TICKERS[].price`). Pick one before the open, while you hold nothing.
 
 ## Balance notes (tools/sim.cjs bots, 8 runs each, up to day 60, multi-day market)
 - Holding cash: dies at the first meeting, every run.
