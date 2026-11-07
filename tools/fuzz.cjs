@@ -2,8 +2,8 @@
 // Random player: random trades (all kinds, add/close partial), tips, shop buys, deck edits, over many days.
 // Checks invariants after every action and tick.
 const fs=require('fs');const h=fs.readFileSync(process.argv[2],'utf8');const c=h.split('<script id="game">')[1].split('</script>')[0];
-const g=new Function(c+`;return {newRun,advanceTick,closeDay,startNextDay,tradeStock,buyOption,writeOption,closeLot,reduceStock,closeEverything,
- useTip,tipStatus,totalEquity,marginEquity,exposure,currentPrice,shopCatalogue,buyShopItem,applyDeckEdit,deckEditAllowed,switchTicker,optionTerms,
+const g=new Function(c+`;return {newRun,advanceTick,closeDay,startNextDay,tradeStock,buyOption,writeOption,closeLot,closeStockPart,closeEverything,
+ useTip,tipStatus,totalEquity,marginEquity,exposure,currentPrice,shopCatalogue,buyShopItem,applyDeckEdit,deckEditAllowed,switchTicker,optionPrices,
  strikeOffsets,deckSize,serialiseRun,loadRun,CARD_ORDER,TIP_ORDER,TICKS_PER_DAY,hasPositions,maximumLeverage,newExpiryDay};`)();
 const seedRandom=(s)=>()=>{s=(s*1103515245+12345)%2147483648;return s/2147483648;};
 let problems=0; const fail=(m,run)=>{ if(problems++<15) console.log('PROBLEM day',run.day,'tick',run.today&&run.today.tick,m); };
@@ -31,7 +31,7 @@ for(let seed=1; seed<=(Number(process.argv[3])||40); seed++){
         else if(a===1){ const kind=R()<0.5?'call':'put'; const offs=g.strikeOffsets(kind); g.buyOption(run,kind,g.currentPrice(run.today)*(1+offs[Math.floor(R()*offs.length)]),f); }
         else if(a===2){ const kind=R()<0.5?'call':'put'; const offs=g.strikeOffsets(kind); g.writeOption(run,kind,g.currentPrice(run.today)*(1+offs[Math.floor(R()*offs.length)]),f*0.3); }
         else if(a===3 && run.today.optionLots.length) g.closeLot(run, Math.floor(R()*run.today.optionLots.length), R()<0.5?1:f);
-        else if(a===4) g.reduceStock(run, R()<0.5?1:f);
+        else if(a===4) g.closeStockPart(run, R()<0.5?1:f);
         else if(a===5 && run.today.optionLots.length){ const l=run.today.optionLots[0]; (l.side==='long'?g.buyOption:g.writeOption)(run,l.kind,l.strike,f*0.3,l.expiryDay); }
         else if(a===6 && R()<0.2) g.closeEverything(run);
         check(run,'after action '+a);

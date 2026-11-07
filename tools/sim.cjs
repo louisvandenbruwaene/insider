@@ -10,7 +10,7 @@ function loadGame() {
   const code = html.split('<script id="game">')[1].split('</script>')[0];
   return new Function(code + `
     ;return { newRun, prepareDay, advanceTick, closeDay, startNextDay, tradeStock, closeStock, buyOption, writeOption, useTip,
-      quoteOption, simulateForecast, nextOpenPrice, tickMarket, closeEverything, makeRandom, deckToPile, buildDeck, shopCatalogue, buyShopItem, applyDeckEdit,
+      averagePayoff, simulateForecast, nextOpenPrice, tickMarket, closeEverything, makeRandom, deckToPile, shopCatalogue, buyShopItem, applyDeckEdit,
       totalEquity, currentPrice, tipStatus, meetingTarget,
       TICKS_PER_DAY, OPTION_EXPIRY_DAYS, MEETING_EVERY_DAYS, MEETING_MULTIPLES };`)();
 }
@@ -23,7 +23,7 @@ function fairness(days = 300) {
   const opens = [];
   for (let day = 0; day < days + game.OPTION_EXPIRY_DAYS; day++) {
     const open = game.currentPrice(run.today);
-    if (day < days) opens.push({ open, fair: game.quoteOption(run.today.forecast[game.OPTION_EXPIRY_DAYS], 'call', open).fairValue });
+    if (day < days) opens.push({ open, fair: game.averagePayoff(run.today.forecast[game.OPTION_EXPIRY_DAYS], 'call', open) });
     run.phase = 'trading';
     while (run.phase === 'trading') { const outcome = game.advanceTick(run); if (outcome.closed) game.closeDay(run); }
     const settled = day - game.OPTION_EXPIRY_DAYS;
