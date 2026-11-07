@@ -32,8 +32,8 @@ button{font:inherit;color:inherit}
 @keyframes flashDown{0%{color:var(--down);transform:scale(1.06)}}
 
 /* the main column: chart, then the buttons to press */
-#mainColumn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;min-width:0}
-#chartBox{position:relative;width:100%;max-width:980px;height:clamp(260px,54vh,520px);background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+#mainColumn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-width:0}
+#chartBox{position:relative;width:100%;max-width:980px;height:clamp(240px,46vh,480px);background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
 #chart{width:100%;height:100%;display:block}
 #lastCards{position:absolute;top:12px;left:12px;display:flex;gap:6px;align-items:center;pointer-events:none}
 #pauseNote{position:absolute;inset:0;display:none;place-items:center;font:800 32px var(--mono);letter-spacing:.3em;color:var(--accent);background:rgba(0,0,0,.45);pointer-events:none}
@@ -41,6 +41,18 @@ button{font:inherit;color:inherit}
 @keyframes shake{20%{transform:translate(-4px,2px)}40%{transform:translate(4px,-2px)}60%{transform:translate(-3px,1px)}80%{transform:translate(2px,-1px)}}
 @keyframes shakeBig{10%{transform:translate(-12px,5px)}25%{transform:translate(11px,-6px)}40%{transform:translate(-9px,4px)}55%{transform:translate(7px,-3px)}75%{transform:translate(-4px,2px)}}
 #actions{display:flex;gap:10px;align-items:center;justify-content:center;height:70px;width:100%;max-width:980px}
+/* the hand of plays */
+#hand{display:flex;gap:10px;align-items:stretch;justify-content:center;height:128px;width:100%;max-width:980px}
+.focus{display:flex;flex-direction:column;justify-content:center;align-items:center;width:70px;font:700 10px var(--sans);letter-spacing:.12em;color:var(--dim);text-transform:uppercase;gap:6px}
+.focus .pips{font-size:18px;letter-spacing:2px;color:var(--accent)}
+.play{width:150px;border-radius:12px;background:var(--panel2);border:2px solid var(--line);padding:10px 10px 8px;display:flex;flex-direction:column;gap:4px;cursor:pointer;box-shadow:0 4px 0 #050608;transition:transform .08s}
+.play:hover{transform:translateY(-6px);border-color:var(--accent)}
+.play .playTop{display:flex;justify-content:space-between;font:800 11px var(--mono)}
+.play .cost{color:var(--accent)} .play .playHeat{color:var(--heat)}
+.play .playName{font:800 14px var(--sans)}
+.play .playText{font:600 11px var(--sans);color:var(--dim);line-height:1.3}
+.play.locked{opacity:.4;cursor:default;transform:none}
+.emptyHand{align-self:center;color:var(--faint);font:600 12px var(--mono)}
 #actions .gap{width:18px}
 
 .button{font:800 13px var(--sans);letter-spacing:.06em;border-radius:10px;border:1px solid var(--line);border-bottom-width:3px;background:var(--panel2);padding:12px 18px;cursor:pointer;white-space:nowrap}
@@ -49,11 +61,6 @@ button{font:inherit;color:inherit}
 .button.locked{opacity:.35;cursor:default;filter:none}
 .button.suggest{animation:glow 1.4s ease-in-out infinite}
 @keyframes glow{50%{box-shadow:0 0 0 3px rgba(255,201,77,.3),0 0 24px rgba(255,201,77,.35)}}
-.tipButton{width:54px;height:54px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);display:grid;place-items:center;align-content:center;cursor:pointer;position:relative;font:700 10px var(--mono);color:var(--heat)}
-.tipButton .icon{font-size:20px;line-height:1.1}
-.tipButton.used{border-color:var(--accent);background:#2e2812}
-.tipButton.locked,.tipButton.cooling,.tipButton.unavailable{opacity:.3;cursor:default}
-.tipButton .cd{position:absolute;top:2px;right:4px;color:var(--dim)}
 .toggle{padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;font:700 12px var(--sans)}
 .toggle.on{background:#2b3a52;border-color:var(--vol);color:#d3e8ff}
 .toggle.locked{opacity:.35;cursor:default}
@@ -144,6 +151,7 @@ button{font:inherit;color:inherit}
   <aside id="side"></aside>
   <main id="mainColumn">
     <div id="chartBox"><canvas id="chart"></canvas><div id="lastCards"></div><div id="pauseNote">PAUSED</div></div>
+    <div id="hand"></div>
     <div id="actions"></div>
   </main>
 </div>
@@ -175,7 +183,7 @@ button{font:inherit;color:inherit}
 
 // ═══════════════════════════════════════ § 1 SETTINGS ═══════════════════════════════════════
 const SAVE_KEY = 'insider.save.v1';             // the running game (written every tick, so quitting mid-day resumes there)
-const SAVE_VERSION = 6;                         // saves from other versions are not resumed
+const SAVE_VERSION = 7;                         // saves from other versions are not resumed
 const RECORDS_KEY = 'insider.records.v1';       // best equity and longest run, kept across runs
 const PREFERENCES_KEY = 'insider.preferences.v1'; // sound and speed
 
@@ -228,25 +236,45 @@ const CARD_TYPES = {
   noBuying:     { category: 'rule', rarity: 'uncommon', face: 'no buying',   sentence: 'Market maker troubles: until the close you cannot buy (no long trades, no closing shorts).' },
   noSelling:    { category: 'rule', rarity: 'uncommon', face: 'no selling',  sentence: 'Market maker troubles: until the close you cannot sell (no short trades, no closing longs).' },
   drawThree:    { category: 'rule', rarity: 'uncommon', face: 'draw 3',      sentence: 'Three more cards hit at once.' },
+  // cards that only some market types have (assetClasses); the others can be in any deck
+  dividend:  { category: 'rule', rarity: 'uncommon', assetClasses: ['stock'], face: 'dividend', sentence: 'Pays 1% of the price per share you hold long; a short position pays it.' },
+  tripleNext:{ category: 'modifier', rarity: 'rare', assetClasses: ['stock'], face: '×3', sentence: 'The next move counts triple (results day). Stacks.' },
+  jumpUp:    { category: 'move', move: +0.20, rarity: 'uncommon', assetClasses: ['commodity'] },
+  jumpDown:  { category: 'move', move: -0.20, rarity: 'uncommon', assetClasses: ['commodity'] },
+  storage:   { category: 'rule', rarity: 'uncommon', assetClasses: ['commodity'], face: '−0.3% all day', sentence: 'Storage costs: every move after it, until the close, gets −0.3%. Stacks.' },
+  growth:    { category: 'rule', rarity: 'uncommon', assetClasses: ['etf'], face: '+0.3% all day', sentence: 'Every move after it, until the close, gets +0.3%. Stacks.' },
+  halfBack:  { category: 'modifier', rarity: 'uncommon', assetClasses: ['etf', 'commodity'], face: '½ back', sentence: 'The price moves halfway back to the open.' },
 };
 const CARD_ORDER = Object.keys(CARD_TYPES);
 const PRICE_MOVE_FLOOR = -0.9;                  // no single move takes more than 90% off the price
 const VOLATILITY_MINIMUM = 0.25, VOLATILITY_MAXIMUM = 4;
 const ALL_DAY_BONUS = 0.01;                     // what +1% all day / −1% all day add to every move
+const SMALL_ALL_DAY_BONUS = 0.003;              // what storage (−) and growth (+) add to every move
+const DIVIDEND_SHARE = 0.01;                    // per share, as a share of the price
 const DRAW_THREE_EXTRA_CARDS = 3;
 const BIG_CARD_MOVE = 0.10;                     // moves this big (and vol factors this far from 1) shake the chart
 
-// 1.4 Tickers: each stock is its own deck (how many copies of each card). NOVA is the starting stock; the others
-// are bought in the shop. Event cards start at 0 and are added in the shop.
+// 1.4 Markets. Each is its own deck; its type (stock, commodity, ETF) decides which special cards it can be offered
+// and how wild it starts every day (openVolatility = σ at the open). NOVA is the first; the others are bought.
 const TICKERS = {
-  NOVA: { name: 'Nova Corp', icon: '◆', sentence: 'The starting stock: every card has its mirror.', deck: {
+  NOVA: { name: 'Nova', icon: '💻', assetClass: 'stock', openVolatility: 1, price: 0,
+    sentence: 'A tech stock: every card has its mirror; dividends and results days can be added.', deck: {
     up: 100, down: 100, UP: 100, DOWN: 100, bull: 10, bear: 10, BULL: 1, BEAR: 1,
     volup: 100, voldown: 100, volUP: 100, volDOWN: 100, volbull: 10, volbear: 10, volBULL: 1, volBEAR: 1 } },
-  UTIL: { name: 'Util Power', icon: '⚡', sentence: 'A calm utility: small moves that halve and reverse.', deck: {
-    up: 200, down: 200, UP: 30, DOWN: 30, bull: 2, bear: 2, volup: 200, voldown: 200, volUP: 30, volDOWN: 30, halve: 40, reverse: 30 } },
-  BIOX: { name: 'Biox Labs', icon: '🧬', sentence: 'A biotech on trial news: big moves that double and repeat.', deck: {
-    up: 40, down: 40, UP: 60, DOWN: 60, bull: 30, bear: 30, BULL: 5, BEAR: 5,
-    volup: 40, voldown: 40, volUP: 60, volDOWN: 60, volbull: 30, volbear: 30, volBULL: 5, volBEAR: 5, double: 25, repeat: 25 } },
+  MART: { name: 'Mart', icon: '🛒', assetClass: 'stock', openVolatility: 0.8, price: 900,
+    sentence: 'A store chain: steady, pays dividends.', deck: {
+    up: 150, down: 140, UP: 60, DOWN: 60, bull: 8, bear: 8, volup: 80, voldown: 90, volUP: 30, volDOWN: 30, dividend: 12 } },
+  GOLD: { name: 'Gold', icon: '🥇', assetClass: 'commodity', openVolatility: 1.4, price: 1500,
+    sentence: 'A commodity: wild, no dividends, and it snaps back.', deck: {
+    up: 80, down: 80, UP: 80, DOWN: 80, bull: 15, bear: 15, BULL: 1, BEAR: 1, volup: 60, voldown: 60, volUP: 60, volDOWN: 60,
+    volbull: 10, volbear: 10, reverse: 25, halfBack: 10 } },
+  OIL:  { name: 'Oil', icon: '🛢', assetClass: 'commodity', openVolatility: 1.8, price: 2500,
+    sentence: 'A commodity: the wildest market, with ±20% jumps and storage costs.', deck: {
+    up: 60, down: 60, UP: 80, DOWN: 80, bull: 25, bear: 25, BULL: 2, BEAR: 2, volup: 50, voldown: 50, volUP: 60, volDOWN: 60,
+    volbull: 15, volbear: 15, jumpUp: 6, jumpDown: 6, storage: 5, double: 10 } },
+  WRLD: { name: 'World', icon: '🌍', assetClass: 'etf', openVolatility: 0.5, price: 700,
+    sentence: 'A world ETF: calm, slow growth, pulls back to the open.', deck: {
+    up: 220, down: 200, UP: 20, DOWN: 20, bull: 2, bear: 2, volup: 60, voldown: 60, growth: 10, halfBack: 15, halve: 20 } },
 };
 const STARTING_TICKER = 'NOVA';
 
@@ -275,17 +303,33 @@ const FORECAST_PRICE = 400;                     // the chart's forecast (top 10%
 const OPTION_EXPIRY_DAYS = 7;                   // options expire at the close 7 trading days after they are traded
 const HISTORY_DAYS = 7;                         // the chart shows the previous week
 
-// 1.8 Insider tips: used before the open, each adds heat and then rests for some days
-const INSIDER_TIPS = {
-  rumour:     { icon: '👂', name: 'Rumour',     heat: 10, cooldownDays: 1, price: 0,     short: '▲ / ▼',   sentence: 'Tells you if the stock closes above or below the open.' },
-  analyst:    { icon: '📝', name: 'Analyst',    heat: 20, cooldownDays: 2, price: 700,   short: '±3%',     sentence: 'The close lies inside a band 6% wide.' },
-  peek:       { icon: '👁', name: 'Peek',       heat: 25, cooldownDays: 2, price: 1200,  short: '10 cards', sentence: 'Shows the first 10 cards of the day, in order.' },
-  exactClose: { icon: '🎯', name: 'The Call',   heat: 60, cooldownDays: 5, price: 20000, short: 'close',    sentence: 'The exact closing price.' },
+// 1.8 The playbook: your own deck of plays. Every morning HAND_SIZE plays are drawn from it; each costs focus
+// (FOCUS_PER_DAY per day) and some add heat (the SEC notices). Plays act on the market deck or on your position.
+// New plays are learned in the shop (pick 1 of 3), old ones forgotten there.
+const PLAYS = {
+  peek:         { cost: 1, heat: 5,  rarity: 'common',   face: 'Peek 3',        sentence: 'See the next 3 market cards.' },
+  rumour:       { cost: 1, heat: 10, rarity: 'common',   face: 'Rumour',        sentence: 'Learn whether today closes above or below the price now.' },
+  insiderCall:  { cost: 2, heat: 40, rarity: 'rare',     face: 'Insider call',  sentence: 'Learn the exact closing price (as the cards lie now).' },
+  pickOfTwo:    { cost: 1, heat: 5,  rarity: 'common',   face: 'Pick 1 of 2',   sentence: 'See the next 2 market cards and choose which comes next; the other goes to the bottom.' },
+  skip:         { cost: 1, heat: 0,  rarity: 'common',   face: 'Skip',          sentence: 'The next market card goes to the bottom of the pile, unplayed.' },
+  flip:         { cost: 2, heat: 10, rarity: 'uncommon', face: 'Flip',          sentence: 'The next move goes the other way.' },
+  freeze:       { cost: 1, heat: 0,  rarity: 'uncommon', face: 'Freeze',        sentence: 'No market cards for the next 5 ticks: the price holds.' },
+  pushUp:       { cost: 1, heat: 8,  rarity: 'common',   face: 'Push up',       sentence: 'Your buying moves the price +2% now.' },
+  pushDown:     { cost: 1, heat: 8,  rarity: 'common',   face: 'Push down',     sentence: 'Your selling moves the price −2% now.' },
+  stack:        { cost: 1, heat: 0,  rarity: 'common',   face: 'Stack ×2',      sentence: 'The next move counts double.' },
+  dampen:       { cost: 1, heat: 0,  rarity: 'common',   face: 'Dampen ½',      sentence: 'The next move counts half.' },
+  doubleDown:   { cost: 1, heat: 0,  rarity: 'uncommon', face: 'Double down',   sentence: 'Your stock position doubles at the price now (if buying power allows).' },
+  turnAround:   { cost: 0, heat: 0,  rarity: 'uncommon', face: 'Turn around',   sentence: 'Close the stock position and open the same size the other way.' },
+  hedge:        { cost: 1, heat: 0,  rarity: 'common',   face: 'Hedge',         sentence: 'The next move against your stock position costs you half.' },
+  trailingStop: { cost: 1, heat: 0,  rarity: 'uncommon', face: 'Trailing stop', sentence: 'For the rest of the day: the stock position closes when the price turns 5% against it from its best.' },
+  pyramid:      { cost: 2, heat: 0,  rarity: 'rare',     face: 'Pyramid',       sentence: 'For the rest of the day: every move in your favour adds 10% to your stock position.' },
 };
-const TIP_ORDER = ['rumour', 'analyst', 'peek', 'exactClose'];
-const STARTING_TIPS = ['rumour'];
-const ANALYST_BAND = 0.03;                      // the band reaches this far either side of its centre
-const PEEK_CARDS = 10;
+const STARTING_PLAYBOOK = ['peek', 'rumour', 'pickOfTwo', 'skip', 'pushUp', 'pushDown', 'stack', 'hedge'];
+const HAND_SIZE = 5;
+const FOCUS_PER_DAY = 3;
+const PEEK_CARDS = 3, PUSH_MOVE = 0.02, FREEZE_TICKS = 5;
+const TRAILING_STOP_SHARE = 0.05, PYRAMID_SHARE = 0.1;
+const LEARN_PRICE = 200, LEARN_PRICE_GROWTH = 1.3, FORGET_PRICE = 150, FORGET_PRICE_GROWTH = 1.5;
 
 // 1.9 Heat and the SEC
 const HEAT_LIMIT = 100;                         // reaching it at the close starts an investigation
@@ -294,13 +338,24 @@ const ABNORMAL_RETURN = 0.25;                   // a day above +25% draws attent
 const HEAT_PER_ABNORMAL_RETURN = 40;            // … this much heat per +100% above it …
 const HEAT_ABNORMAL_CAP = 50;                   // … at most this much in one day
 const HEAT_PER_DECK_EDIT = 4;                   // rigging the deck is noticed too
-const INVESTIGATION_DAYS = 3;                   // no tips, no options, leverage 1×
+const INVESTIGATION_DAYS = 3;                   // no plays that add heat, no options, leverage 1×
 const HEAT_AFTER_INVESTIGATION = 50;
 
 // 1.10 Investor meetings: at the close of every 10th day equity must reach STARTING_CASH × inflation × the multiple
 const MEETING_EVERY_DAYS = 10;
 const MEETING_MULTIPLES = [1.2, 2, 5, 20, 100, 800, 1e4, 2e5, 1e7, 1e9];
 const MEETING_GROWTH_AFTER_LAST = 30;           // the endless meetings after the last one grow ×30 each
+// The meeting day is a boss day: one of these rules holds all day, and you see which one well in advance.
+const BOSS_RULES = {
+  noSelling:      { face: 'no selling all day',  sentence: 'The investors want buyers: no selling all day.' },
+  noBuying:       { face: 'no buying all day',   sentence: 'The market maker is out: no buying all day.' },
+  minusAllDay:    { face: '−1% all day',         sentence: 'A nervous market: every move gets −1% all day.' },
+  doubleAllDay:   { face: '×2 all day',          sentence: 'A wild market: every card move counts double all day.' },
+  noOptions:      { face: 'no options',          sentence: 'The options desk is closed all day.' },
+  oneFocus:       { face: '1 focus',             sentence: 'The investors keep you busy: only 1 focus all day.' },
+  circuitBreaker: { face: 'moves capped at 5%',  sentence: 'Circuit breakers: no move is bigger than 5% all day.' },
+};
+const CIRCUIT_BREAKER_CAP = 0.05;
 
 // 1.11 The shop (all prices × inflation)
 const DECK_BATCH_FIRST = 10;                    // the first remove takes 10 cards, the next 9, … down to 1
@@ -326,12 +381,10 @@ const OPTION_POSITIONS = {
   longPut:   { direction: 'long',  type: 'put',  name: 'Long put',   icon: '🛡', price: 300, formula: 'P&L = max(K − S, 0) − premium' },
   shortPut:  { direction: 'short', type: 'put',  name: 'Short put',  icon: '🪙', price: 400, formula: 'P&L = premium − max(K − S, 0)' },
 };
-const TICKER_PRICES = { UTIL: 800, BIOX: 1500 };
 
 // 1.12 Look
 const CHART_COLOURS = { up: '#3ddc84', down: '#ff5a5f', average: '#edf1f5', openPrice: '#3a4350', label: '#8592a3', grid: '#1e242d', history: '#6b7686',
   entry: '#ffc94d', stop: '#ff8a3d', insight: '#ffc94d' };
-const CHART_ANALYST_BAND = 'rgba(255,201,77,.22)'; // the Analyst tip's band at the close
 const CHART_HISTORY_SHARE = 0.34;               // share of the chart's width for the previous week …
 const CHART_TODAY_SHARE = 0.42;                 // … for today (the rest is the forecast fan)
 const CHART_HISTORY_STEP = 3;                   // draw every 3rd tick of past days
@@ -339,6 +392,7 @@ const SIDE_OPTIONS_SHOWN = 3;                   // option positions listed in th
 const STOCK_ICON = '📦';                         // marks the open stock position in the trade menu (options use their own icon)
 const EQUITY_FLASH_CHANGE = 0.002;              // the equity number flashes when it moves more than 0.2% …
 const POPUP_CHANGE = 0.01;                      // … and a +$ / −$ popup appears over the chart above 1%
+const SHOP_CASH_HINT = 100;                     // below this much cash (with positions open) the shop says why
 const MARGIN_WARNING = 1.5;                     // the margin call line turns red when equity is within ×1.5 of it
 const POPUP_SECONDS = 1.2;                    // P&L pops and messages over the chart fade in this time
 const POPUPS_SHOWN = 3;                       // at most this many at once, stacked
@@ -346,6 +400,7 @@ const POPUPS_SHOWN = 3;                       // at most this many at once, stac
 // ═══════════════════════════════════════ § 2 HELPERS ═══════════════════════════════════════
 // Money and big numbers: plain below 10 000, then K/M/B/T, then scientific notation.
 function formatMoney(value) {
+  if (Math.abs(value) < 0.005) value = 0;                  // no "−$0.00"
   const sign = value < 0 ? '−' : '';
   const size = Math.abs(value);
   if (size < 100) return sign + '$' + size.toFixed(2);
@@ -430,18 +485,25 @@ function countCards(cardList) {
 }
 
 // ═══════════════════════════════════════ § 4 MARKET ═══════════════════════════════════════
-// The market state: the price, σ, the last move as it really happened (for repeat and reverse), the multiplier
-// waiting for the next move, and the day's rules (bonus and multiplier on every move, no buying, no selling). One
-// tick draws one card through drawCard() (draw 3 draws more). The same rules run the real day and the market maker's
-// simulations, so the forecast is exactly as fair as the game. Every rule ends at the close (freshMarketState).
-function freshMarketState(openPrice) {
-  return { price: openPrice, volatility: 1, lastMove: 0, nextMoveMultiplier: 1,
-    allDayBonus: 0, allDayMultiplier: 1, noBuying: false, noSelling: false };
+// The market state: the price, σ, the open price, the last move as it really happened (for repeat and reverse),
+// the multiplier waiting for the next move, the day's rules (bonus and multiplier on every move, no buying, no
+// selling, a cap on moves) and how many ticks are frozen. One tick draws one card through drawCard() (draw 3 draws
+// more; a frozen tick draws none). The same rules run the real day and the market maker's simulations, so the
+// forecast is exactly as fair as the game. Every rule ends at the close (freshMarketState).
+function freshMarketState(openPrice, openVolatility = 1, bossRule = null) {
+  const market = { price: openPrice, dayOpenPrice: openPrice, volatility: openVolatility, lastMove: 0, nextMoveMultiplier: 1,
+    allDayBonus: 0, allDayMultiplier: 1, noBuying: false, noSelling: false, moveCap: Infinity, frozenTicksLeft: 0 };
+  if (bossRule === 'noSelling') market.noSelling = true;
+  if (bossRule === 'noBuying') market.noBuying = true;
+  if (bossRule === 'minusAllDay') market.allDayBonus = -ALL_DAY_BONUS;
+  if (bossRule === 'doubleAllDay') market.allDayMultiplier = 2;
+  if (bossRule === 'circuitBreaker') market.moveCap = CIRCUIT_BREAKER_CAP;
+  return market;
 }
-// A move: card moves are × σ × the day's multiplier; then the waiting multiplier, then the day's bonus.
+// A move: card moves are × σ × the day's multiplier; then the waiting multiplier, then the day's bonus, then the cap.
 function applyMove(market, move, isCardMove) {
   const scaledMove = isCardMove ? move * market.volatility * market.allDayMultiplier : move;
-  const actualMove = Math.max(PRICE_MOVE_FLOOR, scaledMove * market.nextMoveMultiplier + market.allDayBonus);
+  const actualMove = clamp(scaledMove * market.nextMoveMultiplier + market.allDayBonus, Math.max(PRICE_MOVE_FLOOR, -market.moveCap), market.moveCap);
   market.price *= 1 + actualMove;
   market.lastMove = actualMove;
   market.nextMoveMultiplier = 1;
@@ -453,32 +515,44 @@ function applyCard(market, cardId, drawCard, cardsApplied) {
   else if (card.category === 'vol') market.volatility = clamp(market.volatility * card.factor, VOLATILITY_MINIMUM, VOLATILITY_MAXIMUM);
   else if (cardId === 'repeat') applyMove(market, market.lastMove, false);
   else if (cardId === 'reverse') applyMove(market, -market.lastMove, false);
+  else if (cardId === 'halfBack') applyMove(market, (market.dayOpenPrice / market.price - 1) / 2, false);   // halfway back to the open
   else if (cardId === 'double') market.nextMoveMultiplier *= 2;
   else if (cardId === 'halve') market.nextMoveMultiplier /= 2;
+  else if (cardId === 'tripleNext') market.nextMoveMultiplier *= 3;
   else if (cardId === 'plusAllDay') market.allDayBonus += ALL_DAY_BONUS;
   else if (cardId === 'minusAllDay') market.allDayBonus -= ALL_DAY_BONUS;
+  else if (cardId === 'growth') market.allDayBonus += SMALL_ALL_DAY_BONUS;
+  else if (cardId === 'storage') market.allDayBonus -= SMALL_ALL_DAY_BONUS;
   else if (cardId === 'doubleAllDay') market.allDayMultiplier *= 2;
   else if (cardId === 'halveAllDay') market.allDayMultiplier /= 2;
   else if (cardId === 'noBuying') market.noBuying = true;
   else if (cardId === 'noSelling') market.noSelling = true;
   else if (cardId === 'drawThree')
     for (let extra = 0; extra < DRAW_THREE_EXTRA_CARDS; extra++) applyCard(market, drawCard(), drawCard, cardsApplied);
+  // 'dividend' pays the account (§ 7, advanceTick)
 }
-// One tick: one card (more after a draw 3). Returns the cards drawn.
+// One tick: one card (more after a draw 3, none while frozen). Returns the cards drawn.
 function tickMarket(market, drawCard) {
   const cardsApplied = [];
+  if (market.frozenTicksLeft > 0) { market.frozenTicksLeft--; return cardsApplied; }
   applyCard(market, drawCard(), drawCard, cardsApplied);
   return cardsApplied;
 }
 
 // The deck is dealt from a draw pile: the shuffled cards not drawn yet. It lasts several days (NOVA: 844 cards at
 // 90 a day); when it runs out a fresh shuffle of the whole deck replaces it, in the middle of a day if need be.
-// The whole day is fixed at the open: insider tips read this schedule, the live day replays it one tick per second.
-// schedule.drawPiles holds the draw pile the day starts with (and a fresh one if it ran out);
-// positions[tick] = [which draw pile, how many cards of it are drawn].
-function scheduleDay(drawPile, deck, openPrice, random) {
+// The day is fixed in advance as a schedule (states[tick], cards[tick], …): insider plays read it, the live day replays
+// it one tick per quarter second. A play that changes the market rebuilds the rest of the day (continueSchedule).
+// schedule.drawPiles holds the piles used from the last rebuild on; pilePositions[tick] = [which pile, how many of its
+// cards are drawn]; drawnBefore[tick] = cards drawn today up to that tick.
+function scheduleDay(drawPile, deck, market, random) {
+  const start = { states: [], cards: [[]], drawPiles: [], pilePositions: [], drawnBefore: [0] };
+  return continueSchedule(start, 0, market, drawPile, deck, random);
+}
+// Keep the schedule up to fromTick, put this market state at fromTick, and deal the rest of the day from this pile.
+function continueSchedule(schedule, fromTick, market, drawPile, deck, random) {
   const drawPiles = [drawPile.slice()];
-  let drawPileIndex = 0, cardsTakenFromPile = 0, cardsDrawnToday = 0;
+  let drawPileIndex = 0, cardsTakenFromPile = 0, cardsDrawnToday = schedule.drawnBefore[fromTick];
   const drawCard = () => {
     if (cardsTakenFromPile >= drawPiles[drawPileIndex].length) {          // the pile is empty: shuffle the whole deck
       drawPiles.push(shuffleInPlace(deckToCardList(deck), random));
@@ -488,15 +562,18 @@ function scheduleDay(drawPile, deck, openPrice, random) {
     cardsDrawnToday++;
     return drawPiles[drawPileIndex][cardsTakenFromPile++];
   };
-  const market = freshMarketState(openPrice);
-  const schedule = { states: [{ ...market }], cards: [[]], drawPiles, pilePositions: [[0, 0]], drawnBefore: [0] };
-  for (let tick = 1; tick <= TICKS_PER_DAY; tick++) {
-    schedule.cards.push(tickMarket(market, drawCard));
-    schedule.states.push({ ...market });
-    schedule.pilePositions.push([drawPileIndex, cardsTakenFromPile]);
-    schedule.drawnBefore.push(cardsDrawnToday);
+  const result = {
+    states: schedule.states.slice(0, fromTick).concat([{ ...market }]), cards: schedule.cards.slice(0, fromTick + 1),
+    drawPiles, pilePositions: schedule.pilePositions.slice(0, fromTick).concat([[0, 0]]), drawnBefore: schedule.drawnBefore.slice(0, fromTick + 1),
+  };
+  const state = { ...market };
+  for (let tick = fromTick + 1; tick <= TICKS_PER_DAY; tick++) {
+    result.cards.push(tickMarket(state, drawCard));
+    result.states.push({ ...state });
+    result.pilePositions.push([drawPileIndex, cardsTakenFromPile]);
+    result.drawnBefore.push(cardsDrawnToday);
   }
-  return schedule;
+  return result;
 }
 // The cards still in the draw pile after this tick (what the market maker counts on).
 function drawPileAfter(schedule, tick) {
@@ -509,7 +586,7 @@ function nextOpenPrice(closePrice) { return closePrice * (1 + INFLATION_PER_DAY)
 // The market maker knows which cards are left in the draw pile and what the whole deck holds, but not the order. It
 // plays out the rest of today and the next daysAhead days many times, with the same tickMarket as the real day.
 // Returns closesByDay[k][path]: the close k days from today (k = 0 is today's close).
-function simulateForecast(market, remainingDrawPile, deck, ticksLeftToday, daysAhead, paths, random) {
+function simulateForecast(market, remainingDrawPile, deck, ticksLeftToday, daysAhead, paths, random, openVolatility = 1) {
   const wholeDeck = deckToCardList(deck);
   const closesByDay = Array.from({ length: daysAhead + 1 }, () => []);
   for (let path = 0; path < paths; path++) {
@@ -524,7 +601,7 @@ function simulateForecast(market, remainingDrawPile, deck, ticksLeftToday, daysA
       return card;
     };
     for (let day = 0; day <= daysAhead; day++) {
-      if (day > 0) Object.assign(marketState, freshMarketState(nextOpenPrice(marketState.price)));
+      if (day > 0) Object.assign(marketState, freshMarketState(nextOpenPrice(marketState.price), openVolatility));
       const ticks = day === 0 ? ticksLeftToday : TICKS_PER_DAY;
       for (let tick = 0; tick < ticks; tick++) tickMarket(marketState, drawCard);
       closesByDay[day].push(marketState.price);
@@ -657,7 +734,8 @@ function closeStockPart(run, fraction) {
 // ── 5.4 Option trades
 function optionPositionId(direction, type) { return direction + type[0].toUpperCase() + type.slice(1); }   // 'long', 'call' → 'longCall'
 function optionsAllowed(run, direction, type) {
-  return run.unlocked[optionPositionId(direction, type)] && !run.today.investigation && run.today.tick < TICKS_PER_DAY;
+  return run.unlocked[optionPositionId(direction, type)] && !run.today.investigation && run.today.bossRule !== 'noOptions'
+    && run.today.tick < TICKS_PER_DAY;
 }
 function strikeOffsets(type) { return type === 'call' ? CALL_STRIKE_OFFSETS : PUT_STRIKE_OFFSETS; }
 function newExpiryDay(run) { return run.day + OPTION_EXPIRY_DAYS; }
@@ -733,38 +811,123 @@ function expireOptions(run) {
   return expiring.length;
 }
 
-// ═══════════════════════════════════════ § 6 INSIDER & HEAT ═══════════════════════════════════════
-// Every tip reads today's schedule, which is fixed at the open. Tips tell you about today only; the forecast
-// (§ 4) is about the week ahead.
-function revealTip(run, tipId) {
-  const schedule = run.today.schedule;
-  const openPrice = schedule.states[0].price, closePrice = schedule.states[TICKS_PER_DAY].price;
-  if (tipId === 'rumour') return { direction: closePrice >= openPrice ? 'up' : 'down' };
-  if (tipId === 'analyst') {
-    const random = makeRandom(mixSeed(run.seed, run.day, 77));
-    const centre = closePrice * (1 + (random() * 2 - 1) * ANALYST_BAND);       // the band sits somewhere around the close
-    return { low: centre * (1 - ANALYST_BAND), high: centre * (1 + ANALYST_BAND) };
+// ═══════════════════════════════════════ § 6 THE PLAYBOOK & HEAT ═══════════════════════════════════════
+// ── 6.1 The hand: every morning HAND_SIZE plays are dealt from the playbook (seeded, so a reload deals the same),
+// with FOCUS_PER_DAY focus to spend (1 on a '1 focus' boss day).
+function dealHand(run) {
+  const random = makeRandom(mixSeed(run.seed, run.day, 41));
+  const shuffled = shuffleInPlace(run.playbook.slice(), random);
+  run.today.hand = shuffled.slice(0, HAND_SIZE);
+  run.today.focus = run.today.bossRule === 'oneFocus' ? 1 : FOCUS_PER_DAY;
+  run.today.effects = { hedge: false, trailingStop: false, bestPrice: null, pyramid: false };
+}
+// Why this card in the hand cannot be played now, or null.
+function playBlockedReason(run, handIndex) {
+  const today = run.today, play = PLAYS[today.hand[handIndex]];
+  if (!play) return 'No such play';
+  if (today.tick >= TICKS_PER_DAY) return 'The market is closed';
+  if (play.cost > today.focus) return 'Not enough focus';
+  if (play.heat > 0 && today.investigation) return 'Not during an investigation';
+  if (['doubleDown', 'turnAround', 'hedge', 'trailingStop', 'pyramid'].includes(today.hand[handIndex]) && today.shares === 0) return 'You hold no stock';
+  return null;
+}
+// The next two market cards, for Pick 1 of 2 to choose from.
+function nextTwoCards(run) { return remainingDrawPile(run.today).slice(0, 2); }
+
+// Play a card from the hand. Returns a short line for the screen, or { error }. Pick 1 of 2 needs choice (0 or 1).
+function playCard(run, handIndex, choice = null) {
+  const blocked = playBlockedReason(run, handIndex);
+  if (blocked) return { error: blocked };
+  const today = run.today, playId = today.hand[handIndex], play = PLAYS[playId];
+  if (playId === 'pickOfTwo' && choice === null) return { error: 'Choose a card' };
+  const line = PLAY_EFFECTS[playId](run, choice);
+  if (line && line.error) return line;
+  today.hand.splice(handIndex, 1);
+  today.focus -= play.cost;
+  run.heat += play.heat;
+  today.tickerLocked = true;
+  return line;
+}
+
+// ── 6.2 What each play does. Plays on the market rebuild the rest of the day from the changed state (6.3).
+const PLAY_EFFECTS = {
+  peek(run) { const today = run.today; today.revealedUpTo = Math.max(today.revealedUpTo, today.schedule.drawnBefore[today.tick] + PEEK_CARDS); return 'PEEK 3'; },
+  rumour(run) {
+    const today = run.today, closePrice = today.schedule.states[TICKS_PER_DAY].price;
+    today.insights.rumour = { direction: closePrice >= currentPrice(today) ? 'up' : 'down', fromPrice: currentPrice(today) };
+    return 'RUMOUR: closes ' + (today.insights.rumour.direction === 'up' ? 'higher ▲' : 'lower ▼');
+  },
+  insiderCall(run) { const today = run.today; today.insights.exactClose = { closePrice: today.schedule.states[TICKS_PER_DAY].price }; return 'INSIDER CALL'; },
+  pickOfTwo(run, choice) {
+    changeMarket(run, (market, drawPile) => {
+      const [first, second] = drawPile.splice(0, 2);
+      drawPile.unshift(choice === 0 ? first : second);
+      drawPile.push(choice === 0 ? second : first);
+    });
+    return 'PICKED';
+  },
+  skip(run) { changeMarket(run, (market, drawPile) => drawPile.push(drawPile.shift())); return 'SKIPPED'; },
+  flip(run) { changeMarket(run, market => { market.nextMoveMultiplier *= -1; }); return 'FLIP'; },
+  freeze(run) { changeMarket(run, market => { market.frozenTicksLeft += FREEZE_TICKS; }); return 'FREEZE'; },
+  pushUp(run) { changeMarket(run, market => { market.price *= 1 + PUSH_MOVE; }); return 'PUSH +2%'; },
+  pushDown(run) { changeMarket(run, market => { market.price *= 1 - PUSH_MOVE; }); return 'PUSH −2%'; },
+  stack(run) { changeMarket(run, market => { market.nextMoveMultiplier *= 2; }); return 'STACK ×2'; },
+  dampen(run) { changeMarket(run, market => { market.nextMoveMultiplier /= 2; }); return 'DAMPEN ½'; },
+  doubleDown(run) {
+    const today = run.today, direction = Math.sign(today.shares);
+    const added = Math.min(Math.abs(today.shares), sharesAvailable(run, direction));
+    const blocked = blockedReason(run, direction);
+    if (blocked || added <= 0) return { error: blocked || 'No buying power left' };
+    setShares(run, today.shares + direction * added);
+    return 'DOUBLE DOWN';
+  },
+  turnAround(run) {
+    const today = run.today, shares = today.shares;
+    const blocked = blockedReason(run, -Math.sign(shares));
+    if (blocked) return { error: blocked };
+    setShares(run, 0);
+    setShares(run, -Math.sign(shares) * Math.min(Math.abs(shares), sharesAvailable(run, -Math.sign(shares))));
+    return 'TURNED AROUND';
+  },
+  hedge(run) { run.today.effects.hedge = true; return 'HEDGED'; },
+  trailingStop(run) { run.today.effects.trailingStop = true; run.today.effects.bestPrice = currentPrice(run.today); return 'TRAILING STOP'; },
+  pyramid(run) { run.today.effects.pyramid = true; return 'PYRAMID'; },
+};
+
+// ── 6.3 Changing the market mid-day: change a copy of the state now and the cards left, then deal the rest of the
+// day again (the reshuffles get a new seed each time, so nothing can be replayed).
+function changeMarket(run, change) {
+  const today = run.today, market = { ...today.schedule.states[today.tick] }, drawPile = remainingDrawPile(today);
+  change(market, drawPile);
+  today.marketChanges = (today.marketChanges || 0) + 1;
+  const random = makeRandom(mixSeed(run.seed, run.day, tickerNumber(today.ticker), today.marketChanges, 7));
+  today.schedule = continueSchedule(today.schedule, today.tick, market, drawPile, run.decks[today.ticker], random);
+  refreshForecast(run);
+}
+
+// ── 6.4 Plays on your position, checked after every tick (priceBefore = the price a tick ago).
+function applyPositionEffects(run, priceBefore) {
+  const today = run.today, effects = today.effects, price = currentPrice(today), direction = Math.sign(today.shares);
+  if (direction === 0) return null;
+  const inFavour = direction * (price - priceBefore) > 0;
+  if (effects.hedge && !inFavour && price !== priceBefore) {          // the hedge pays back half of the first loss
+    run.cash += Math.abs(today.shares * (price - priceBefore)) / 2;
+    effects.hedge = false;
+    return 'HEDGE paid half';
   }
-  if (tipId === 'peek') { run.today.revealedUpTo = Math.max(run.today.revealedUpTo, PEEK_CARDS); return {}; }
-  return { closePrice };                                                         // 'exactClose'
+  if (effects.pyramid && inFavour) {
+    const added = Math.min(Math.abs(today.shares) * PYRAMID_SHARE, sharesAvailable(run, direction));
+    if (added > 0 && !blockedReason(run, direction)) setShares(run, today.shares + direction * added);
+  }
+  if (effects.trailingStop) {
+    effects.bestPrice = direction > 0 ? Math.max(effects.bestPrice, price) : Math.min(effects.bestPrice, price);
+    const turned = direction > 0 ? price <= effects.bestPrice * (1 - TRAILING_STOP_SHARE) : price >= effects.bestPrice * (1 + TRAILING_STOP_SHARE);
+    if (turned && !blockedReason(run, -direction)) { closeStock(run); effects.trailingStop = false; return 'TRAILING STOP hit'; }
+  }
+  return null;
 }
-// locked (not bought) · used (today) · cooling (resting) · unavailable (after the open, or investigated) · ready
-function tipStatus(run, tipId) {
-  const tip = run.tips[tipId];
-  if (!tip.owned) return 'locked';
-  if (run.today && run.today.insights[tipId]) return 'used';
-  if (tip.cooldownLeft > 0) return 'cooling';
-  if (!run.today || run.today.tick > 0 || run.today.investigation) return 'unavailable';
-  return 'ready';
-}
-function useTip(run, tipId) {
-  if (tipStatus(run, tipId) !== 'ready') return false;
-  run.today.insights[tipId] = revealTip(run, tipId);
-  run.tips[tipId].cooldownLeft = INSIDER_TIPS[tipId].cooldownDays + 1;   // +1: the count drops the same night
-  run.heat += INSIDER_TIPS[tipId].heat;
-  run.today.tickerLocked = true;
-  return true;
-}
+
+// ── 6.5 Heat: plays like Push and Rumour add it, so do deck changes and suspiciously good days.
 // Heat from a suspiciously good day.
 function abnormalProfitHeat(dayReturn) {
   if (dayReturn <= ABNORMAL_RETURN) return 0;
@@ -799,15 +962,14 @@ function newRun(seed = Math.floor(Math.random() * 2 ** 31)) {
     decks[tickerId] = { ...TICKERS[tickerId].deck };
     for (const cardId of CARD_ORDER) decks[tickerId][cardId] = decks[tickerId][cardId] || 0;
   }
-  const tips = {};
-  for (const tipId of TIP_ORDER) tips[tipId] = { owned: STARTING_TIPS.includes(tipId), cooldownLeft: 0 };
   const unlocked = {};
   for (const positionId in OPTION_POSITIONS) unlocked[positionId] = false;
   const run = {
     version: SAVE_VERSION, seed, day: 1, phase: 'preopen',
     cash: STARTING_CASH, peakEquity: STARTING_CASH, heat: 0, investigationDaysLeft: 0,
-    unlocked, leverageTier: 0, tips, tickersOwned: [STARTING_TICKER], ticker: STARTING_TICKER,
+    unlocked, leverageTier: 0, tickersOwned: [STARTING_TICKER], ticker: STARTING_TICKER,
     decks, markets: {}, removalsDone: 0, packsBought: 0, cardOffer: null,
+    playbook: STARTING_PLAYBOOK.slice(), playsLearned: 0, playsForgotten: 0,
     forecastBought: false, meetingsPassed: 0, lastResult: null, gameOverReason: null, today: null,
   };
   createMarket(run, STARTING_TICKER);
@@ -816,6 +978,12 @@ function newRun(seed = Math.floor(Math.random() * 2 ** 31)) {
 }
 
 function tickerNumber(tickerId) { return Object.keys(TICKERS).indexOf(tickerId); }
+// The boss rule of a meeting day (seeded per meeting, so it can be shown days ahead), or null on other days.
+function bossRuleOn(run, day) {
+  if (day % MEETING_EVERY_DAYS !== 0) return null;
+  const ruleIds = Object.keys(BOSS_RULES);
+  return ruleIds[mixSeed(run.seed, day / MEETING_EVERY_DAYS, 13) % ruleIds.length];
+}
 function dayRandom(run, tickerId) { return makeRandom(mixSeed(run.seed, run.day, tickerNumber(tickerId), 0)); }
 
 // A stock joins the run with a week of history already played (from its own draw pile), scaled so that its next open
@@ -826,7 +994,7 @@ function createMarket(run, tickerId) {
   const history = [];
   const lastHistoryDay = run.phase === 'preopen' ? run.day - 1 : run.day;
   for (let back = HISTORY_DAYS - 1; back >= 0; back--) {
-    const schedule = scheduleDay(drawPile, deck, price, random);
+    const schedule = scheduleDay(drawPile, deck, freshMarketState(price, TICKERS[tickerId].openVolatility), random);
     history.push({ day: lastHistoryDay - back, prices: schedule.states.map(marketState => marketState.price) });
     drawPile = drawPileAfter(schedule, TICKS_PER_DAY);
     price = nextOpenPrice(schedule.states[TICKS_PER_DAY].price);
@@ -838,7 +1006,8 @@ function createMarket(run, tickerId) {
 // A stock's day, dealt from its draw pile.
 function scheduleMarketDay(run, tickerId) {
   const market = run.markets[tickerId];
-  return scheduleDay(market.drawPile, run.decks[tickerId], nextOpenPrice(market.lastClose), dayRandom(run, tickerId));
+  const open = freshMarketState(nextOpenPrice(market.lastClose), TICKERS[tickerId].openVolatility, bossRuleOn(run, run.day));
+  return scheduleDay(market.drawPile, run.decks[tickerId], open, dayRandom(run, tickerId));
 }
 // After the close: the draw pile moves on and the day joins the history.
 function commitMarketDay(run, tickerId, schedule) {
@@ -856,9 +1025,11 @@ function prepareDay(run) {
     ticker: run.ticker, tick: 0, schedule: scheduleMarketDay(run, run.ticker),
     shares: carry ? yesterday.shares : 0, averageEntryPrice: carry ? yesterday.averageEntryPrice : 0, options: carry ? yesterday.options : [],
     tradeCount: 0, tickerLocked: false, insights: {}, revealedUpTo: 0, investigation: run.investigationDaysLeft > 0,
+    bossRule: bossRuleOn(run, run.day), marketChanges: 0,
     startEquity: 0, tickClock: 0, forecast: null, forecastSummary: null,
   };
   run.phase = 'preopen';
+  dealHand(run);
   refreshForecast(run);
   run.today.startEquity = totalEquity(run);
 }
@@ -868,7 +1039,7 @@ function refreshForecast(run) {
   const today = run.today;
   const random = makeRandom(mixSeed(run.seed, run.day, today.tick, 5));
   today.forecast = simulateForecast(today.schedule.states[today.tick], remainingDrawPile(today), run.decks[today.ticker],
-    TICKS_PER_DAY - today.tick, FORECAST_DAYS_AHEAD, FORECAST_PATHS, random);
+    TICKS_PER_DAY - today.tick, FORECAST_DAYS_AHEAD, FORECAST_PATHS, random, TICKERS[today.ticker].openVolatility);
   today.forecastSummary = summariseForecast(today.forecast[FORECAST_DAYS_AHEAD]);
 }
 // The three numbers the chart shows: bottom 10%, average and top 10% of the simulated closes.
@@ -892,12 +1063,20 @@ function switchTicker(run, tickerId) {
 
 // One tick of the live day. Returns what happened so the screen can react.
 function advanceTick(run) {
-  const today = run.today;
+  const today = run.today, priceBefore = currentPrice(today);
   today.tick++;
   const cards = today.schedule.cards[today.tick];
   if (today.tick % FORECAST_EVERY_TICKS === 0 || today.tick >= TICKS_PER_DAY) refreshForecast(run);
-  const message = checkMargin(run);
-  return { cards, message, closed: today.tick >= TICKS_PER_DAY };
+  const dividendCash = payDividends(run, cards);
+  const effectLine = applyPositionEffects(run, priceBefore);
+  const message = checkMargin(run) || effectLine;
+  return { cards, message, dividendCash, closed: today.tick >= TICKS_PER_DAY };
+}
+// A dividend card pays DIVIDEND_SHARE of the price per share held long; a short position pays it.
+function payDividends(run, cards) {
+  const cash = cards.filter(cardId => cardId === 'dividend').length * run.today.shares * currentPrice(run.today) * DIVIDEND_SHARE;
+  run.cash += cash;
+  return cash;
 }
 
 // Meeting n is held at the close of day n × MEETING_EVERY_DAYS. Its target is STARTING_CASH × inflation × the
@@ -947,7 +1126,6 @@ function closeDay(run) {
 function startNextDay(run) {
   run.day++;
   run.heat = Math.max(0, run.heat - HEAT_DECAY_PER_DAY);
-  for (const tipId of TIP_ORDER) run.tips[tipId].cooldownLeft = Math.max(0, run.tips[tipId].cooldownLeft - 1);
   prepareDay(run);
 }
 
@@ -956,7 +1134,7 @@ function startNextDay(run) {
 function deckBatchSize(doneSoFar) { return Math.max(DECK_BATCH_MINIMUM, DECK_BATCH_FIRST - doneSoFar); }
 function shopCatalogue(run) {
   const inflation = inflationIndex(run.day);
-  return [...deckItems(run, inflation), ...tradingItems(run, inflation), ...insiderItems(run, inflation), ...stockItems(run, inflation)];
+  return [...deckItems(run, inflation), ...playItems(run, inflation), ...tradingItems(run, inflation), ...stockItems(run, inflation)];
 }
 function deckItems(run, inflation) {
   const removeBatch = deckBatchSize(run.removalsDone);
@@ -982,23 +1160,25 @@ function tradingItems(run, inflation) {
   else shopItems.push({ id: 'leverage', row: 'trading', icon: '⚙', name: 'Leverage max', shortText: `${now}×`, sentence: 'The highest leverage there is.', price: 0, owned: true });
   return shopItems;
 }
-function insiderItems(run, inflation) {
-  const forecast = { id: 'forecast', row: 'insider', icon: '🔮', name: 'Forecast', shortText: '7 days ahead',
-    sentence: 'The chart shows the top 10%, the average and the bottom 10% close in 7 trading days, from the cards left.',
-    price: FORECAST_PRICE * inflation, owned: run.forecastBought };
-  return [forecast, ...TIP_ORDER.filter(tipId => !STARTING_TIPS.includes(tipId)).map(tipId => {
-    const tip = INSIDER_TIPS[tipId];
-    return { id: 'tip:' + tipId, row: 'insider', icon: tip.icon, name: tip.name, shortText: `${tip.short} · 🔥${tip.heat}`,
-      sentence: `${tip.sentence} Heat +${tip.heat}, rests ${tip.cooldownDays} day${tip.cooldownDays > 1 ? 's' : ''}.`,
-      price: tip.price * inflation, owned: run.tips[tipId].owned };
-  })];
+function playItems(run, inflation) {
+  return [
+    { id: 'learn', row: 'plays', icon: '📘', name: 'Learn a play', shortText: `pick 1 of ${CARD_OFFER_SIZE}`,
+      sentence: `${CARD_OFFER_SIZE} random plays: add one to your playbook (${run.playbook.length} now), or none.`,
+      price: LEARN_PRICE * Math.pow(LEARN_PRICE_GROWTH, run.playsLearned) * inflation },
+    { id: 'forget', row: 'plays', icon: '✂️', name: 'Forget a play', shortText: 'pick any',
+      sentence: `Take one play out of your playbook: your hand of ${HAND_SIZE} gets the others more often.`,
+      price: FORGET_PRICE * Math.pow(FORGET_PRICE_GROWTH, run.playsForgotten) * inflation },
+    { id: 'forecast', row: 'plays', icon: '🔮', name: 'Forecast', shortText: '7 days ahead',
+      sentence: 'The chart shows the top 10%, the average and the bottom 10% close in 7 trading days, from the cards left.',
+      price: FORECAST_PRICE * inflation, owned: run.forecastBought },
+  ];
 }
 function stockItems(run, inflation) {
-  return Object.keys(TICKER_PRICES).map(tickerId => {
+  return Object.keys(TICKERS).filter(tickerId => TICKERS[tickerId].price > 0).map(tickerId => {
     const ticker = TICKERS[tickerId];
-    return { id: 'ticker:' + tickerId, row: 'stocks', icon: ticker.icon, name: tickerId, shortText: deckSize(ticker.deck) + ' cards',
-      sentence: `${ticker.name}. ${ticker.sentence} Pick it before the open.`,
-      price: TICKER_PRICES[tickerId] * inflation, owned: run.tickersOwned.includes(tickerId) };
+    return { id: 'ticker:' + tickerId, row: 'markets', icon: ticker.icon, name: `${ticker.name}`, shortText: `${ticker.assetClass} · σ ${ticker.openVolatility}`,
+      sentence: `${ticker.name}: ${ticker.sentence} Pick it before the open, when you hold nothing.`,
+      price: ticker.price * inflation, owned: run.tickersOwned.includes(tickerId) };
   });
 }
 // Buy a plain item (not a deck edit). Returns true when bought.
@@ -1007,7 +1187,8 @@ function buyShopItem(run, shopItem) {
   const [type, which] = shopItem.id.split(':');
   if (type === 'unlock') run.unlocked[which] = true;
   else if (type === 'leverage') run.leverageTier++;
-  else if (type === 'tip') run.tips[which].owned = true;
+  else if (type === 'learn') { run.cardOffer = { kind: 'learn', cards: randomPlayOffer(run) }; run.playsLearned++; }
+  else if (type === 'forget') { if (run.playbook.length <= HAND_SIZE) return false; run.cardOffer = { kind: 'forget', cards: [...new Set(run.playbook)] }; run.playsForgotten++; }
   else if (type === 'ticker') { run.tickersOwned.push(which); createMarket(run, which); }
   else if (type === 'forecast') run.forecastBought = true;
   else if (type === 'pack') { run.cardOffer = { kind: 'pack', cards: randomCardOffer(run, 'pack') }; run.packsBought++; }
@@ -1039,10 +1220,13 @@ function weightedPicks(weights, count, random) {
   }
   return picks;
 }
-// Cards to add: any card, weighted by its rarity.
+// Cards to add: any card this market's type can hold, weighted by its rarity.
 function randomCardOffer(run, salt) {
-  const weights = {};
-  for (const cardId of CARD_ORDER) weights[cardId] = CARD_RARITIES[CARD_TYPES[cardId].rarity].weight;
+  const weights = {}, assetClass = TICKERS[run.ticker].assetClass;
+  for (const cardId of CARD_ORDER) {
+    const classes = CARD_TYPES[cardId].assetClasses;
+    if (!classes || classes.includes(assetClass)) weights[cardId] = CARD_RARITIES[CARD_TYPES[cardId].rarity].weight;
+  }
   return weightedPicks(weights, CARD_OFFER_SIZE, offerRandom(run, salt === 'pack' ? 1 : 2));
 }
 // Cards to remove: drawn from the traded stock's deck, weighted by how many copies it holds.
@@ -1050,6 +1234,12 @@ function removalOffer(run) {
   const deck = run.decks[run.ticker], weights = {};
   for (const cardId of CARD_ORDER) if (deck[cardId] > 0 && deckSize(deck) - removalCount(run, cardId) >= MINIMUM_DECK_SIZE) weights[cardId] = deck[cardId];
   return weightedPicks(weights, CARD_OFFER_SIZE, offerRandom(run, 3));
+}
+// Plays to learn, weighted by rarity.
+function randomPlayOffer(run) {
+  const weights = {};
+  for (const playId in PLAYS) weights[playId] = CARD_RARITIES[PLAYS[playId].rarity].weight;
+  return weightedPicks(weights, CARD_OFFER_SIZE, offerRandom(run, 5 + run.playsLearned));
 }
 function copiesAdded(cardId) { return CARD_RARITIES[CARD_TYPES[cardId].rarity].copies; }
 function removalCount(run, cardId) { return Math.min(run.decks[run.ticker][cardId], deckBatchSize(run.removalsDone)); }
@@ -1072,7 +1262,12 @@ function removeCardFromDeck(run, cardId) {
 function pickOfferedCard(run, cardId) {
   const offer = run.cardOffer;
   if (!offer || (cardId !== null && !offer.cards.includes(cardId))) return false;
-  if (cardId !== null) (offer.kind === 'remove' ? removeCardFromDeck : addCardToDeck)(run, cardId);
+  if (cardId !== null) {
+    if (offer.kind === 'remove') removeCardFromDeck(run, cardId);
+    else if (offer.kind === 'pack') addCardToDeck(run, cardId);
+    else if (offer.kind === 'learn') run.playbook.push(cardId);
+    else if (offer.kind === 'forget') run.playbook.splice(run.playbook.indexOf(cardId), 1);
+  }
   run.cardOffer = null;
   return true;
 }
@@ -1199,7 +1394,6 @@ function chartLevels(run) {
   if (today.forecastSummary && run.forecastBought) levels.push(today.forecastSummary.low, today.forecastSummary.high);
   if (today.shares !== 0) levels.push(today.averageEntryPrice);
   for (const option of today.options) levels.push(option.strikePrice);
-  if (today.insights.analyst) levels.push(today.insights.analyst.low, today.insights.analyst.high);
   if (today.insights.exactClose) levels.push(today.insights.exactClose.closePrice);
   return levels;
 }
@@ -1248,17 +1442,13 @@ function drawHistory({ context, history, xOfPastTick, xOfTodayTick, yOfPrice, op
   drawPath(context, points, CHART_COLOURS.history, 1.5);
 }
 
-// Rumour: an arrow at the close. Analyst: a band. The Call: a dot.
+// Rumour: an arrow at the close (from the price it was played at). Insider call: a dot at the close.
 function drawInsiderMarks({ context, today, todayEnd, xOfTodayTick, yOfPrice, bottom, openPrice }) {
   const insights = today.insights;
-  if (insights.analyst) {
-    context.fillStyle = CHART_ANALYST_BAND;
-    context.fillRect(todayEnd - 7, yOfPrice(insights.analyst.high), 14, yOfPrice(insights.analyst.low) - yOfPrice(insights.analyst.high));
-  }
   if (insights.exactClose) drawDot(context, todayEnd, yOfPrice(insights.exactClose.closePrice), 6, CHART_COLOURS.insight);
   if (insights.rumour) {
     const up = insights.rumour.direction === 'up';
-    drawText(context, up ? '▲' : '▼', todayEnd, yOfPrice(openPrice) + (up ? -18 : 18), up ? CHART_COLOURS.up : CHART_COLOURS.down, { size: 20, align: 'center' });
+    drawText(context, up ? '▲' : '▼', todayEnd, yOfPrice(insights.rumour.fromPrice) + (up ? -18 : 18), up ? CHART_COLOURS.up : CHART_COLOURS.down, { size: 20, align: 'center' });
   }
 }
 
@@ -1372,8 +1562,8 @@ function renderSide() {
     <div class="heatBar"><i style="width:${clamp(run.heat / HEAT_LIMIT, 0, 1) * 100}%"></i></div>
     <div class="label" data-tip="When equity falls below this, every position is closed"><span>margin call</span><span>${accountLeverage(run)}× leverage</span></div>
     <div class="line marginLine">${marginLineHtml(run, equity)}</div>
-    <div class="label" data-tip="Equity at the close of that day must reach this"><span>meeting · day ${meetingNumber * MEETING_EVERY_DAYS}</span></div>
-    <div class="line"><span class="${equity >= target ? 'up' : 'gold'}">${formatMoney(target)}</span></div>
+    <div class="label" data-tip="Equity at the close of that day must reach this, under that day's rule"><span>meeting · day ${meetingNumber * MEETING_EVERY_DAYS}</span></div>
+    <div class="line"><span class="${equity >= target ? 'up' : 'gold'}">${formatMoney(target)}</span><span class="heat" data-tip="${BOSS_RULES[bossRuleOn(run, meetingNumber * MEETING_EVERY_DAYS)].sentence}">${BOSS_RULES[bossRuleOn(run, meetingNumber * MEETING_EVERY_DAYS)].face}</span></div>
     <div class="sideButtons">
       <button class="button" data-action="openDeck" data-tip="The deck (D)">🂠 DECK</button>
       <button class="button" data-action="menu" data-tip="Menu (Esc)">☰</button>
@@ -1384,7 +1574,7 @@ function renderSide() {
   view.lastEquity = equity;
 }
 
-// The buttons under the chart. Before the open: tips, stock choice, TRADE, OPEN. During the day: TRADE, CLOSE ALL,
+// The buttons under the chart. Before the open: market choice, TRADE, OPEN. During the day: TRADE, CLOSE ALL,
 // speed, skip to the close, pause. The button to press next glows.
 function renderActions() {
   const run = view.run;
@@ -1392,19 +1582,11 @@ function renderActions() {
 }
 function preOpenButtons(run) {
   const today = run.today;
-  const tips = TIP_ORDER.map(tipId => {
-    const tip = INSIDER_TIPS[tipId], status = tipStatus(run, tipId), resting = run.tips[tipId].cooldownLeft;
-    let hover = `${tip.name}: ${tip.sentence} Heat +${tip.heat}.`;
-    if (status === 'locked') hover = `${tip.name}: in the shop`;
-    if (status === 'cooling') hover = `${tip.name}: resting ${resting}d`;
-    return `<div class="tipButton ${status}" data-action="tip" data-argument="${tipId}" data-tip="${hover}">
-      ${status === 'cooling' ? `<span class="cd">${resting}d</span>` : ''}<span class="icon">${status === 'locked' ? '🔒' : tip.icon}</span>🔥${tip.heat}</div>`;
-  }).join('');
   const switchLocked = today.tickerLocked || hasPositions(run) ? 'locked' : '';
   const stocks = run.tickersOwned.length < 2 ? '' : '<span class="gap"></span>' + run.tickersOwned.map(tickerId => `
     <button class="toggle ${tickerId === today.ticker ? 'on' : ''} ${switchLocked}" data-action="ticker" data-argument="${tickerId}"
       data-tip="${TICKERS[tickerId].name}: ${TICKERS[tickerId].sentence}">${TICKERS[tickerId].icon} ${tickerId}</button>`).join('');
-  return `${tips}${stocks}<span class="gap"></span>
+  return `${stocks}<span class="gap"></span>
     <button class="button" data-action="openTrade">TRADE</button>
     <button class="button primary suggest" data-action="openMarket">OPEN ▶</button>`;
 }
@@ -1435,14 +1617,35 @@ function renderLastCards() {
   if (state.noBuying) badges.push(['no buying', 'Until the close you cannot buy']);
   if (state.noSelling) badges.push(['no selling', 'Until the close you cannot sell']);
   if (state.volatility !== 1) badges.push(['σ ' + state.volatility.toFixed(2), 'Every card move is × σ']);
+  if (state.frozenTicksLeft > 0) badges.push(['frozen ' + state.frozenTicksLeft, 'No market cards for this many ticks']);
+  if (state.moveCap !== Infinity) badges.push(['moves capped at 5%', 'Circuit breakers (meeting day)']);
+  if (today.bossRule === 'noOptions') badges.push(['no options', 'The options desk is closed today']);
+  if (today.effects.hedge) badges.push(['hedged', 'The next move against your stock costs half']);
+  if (today.effects.trailingStop) badges.push(['trailing stop', 'Closes when the price turns 5% from its best']);
+  if (today.effects.pyramid) badges.push(['pyramid', 'Every move in your favour adds 10%']);
   const waiting = badges.map(([text, tip]) => `<span class="chip multiplier" data-tip="${tip}">${text}</span>`).join('');
   element('lastCards').innerHTML = last.map(cardId => chipHtml(cardId, view.freshTick === today.tick ? 'fresh' : '')).join('')
     + waiting + upcoming.map(cardId => chipHtml(cardId, 'future')).join('');
 }
 
+// The hand: focus left, then each play (cost, heat, name, what it does). Click to play it.
+function renderHand() {
+  const run = view.run, today = run.today;
+  const pips = '●'.repeat(today.focus) + '○'.repeat(Math.max(0, (today.bossRule === 'oneFocus' ? 1 : FOCUS_PER_DAY) - today.focus));
+  const cards = today.hand.map((playId, index) => {
+    const play = PLAYS[playId], blocked = playBlockedReason(run, index);
+    return `<div class="play ${blocked ? 'locked' : ''}" data-action="play" data-argument="${index}" ${blocked ? `data-tip="${blocked}"` : ''}>
+      <div class="playTop"><span class="cost">${'●'.repeat(play.cost) || '0'}</span>${play.heat ? `<span class="playHeat">🔥${play.heat}</span>` : ''}</div>
+      <div class="playName">${play.face}</div><div class="playText">${play.sentence}</div></div>`;
+  }).join('');
+  element('hand').innerHTML = `<div class="focus">focus<span class="pips">${pips}</span></div>`
+    + (cards || '<span class="emptyHand">no plays left today</span>');
+}
+
 function renderAll() {
   if (!view.run || !view.run.today) return;
   renderSide();
+  renderHand();
   renderActions();
   renderLastCards();
 }
@@ -1550,7 +1753,7 @@ function showGameOver() {
 // The deck window: every card of today's stock: how many are left in the draw pile / how many the deck holds.
 function showDeck() {
   const today = view.run.today, deck = view.run.decks[today.ticker], left = countCards(remainingDrawPile(today));
-  const cards = CARD_ORDER;
+  const cards = CARD_ORDER.filter(cardId => deck[cardId] > 0 || !CARD_TYPES[cardId].assetClasses);
   showOverlay('deck', `
     <div class="card fullScreen">
       <div class="shopHead">
@@ -1565,6 +1768,8 @@ function showDeck() {
           <span class="count">${left[cardId]}<small> / ${deck[cardId]}</small></span>
         </div>`).join('')}
       </div>
+      <div class="shopHead" style="margin-top:14px"><h1 style="font-size:18px">Your playbook · ${view.run.playbook.length}</h1></div>
+      <div class="offerRow" style="flex-wrap:wrap;justify-content:flex-start;margin-top:4px">${view.run.playbook.map(playId => `<span class="chip rule" data-tip="${PLAYS[playId].sentence}">${PLAYS[playId].face}</span>`).join('')}</div>
     </div>`);
 }
 
@@ -1823,7 +2028,7 @@ function finishTrade(outcome, label) {
 }
 
 // ── 11.4 The shop: icon cards in rows, the full sentence only for the selected card, arrows move by position.
-const SHOP_ROWS = ['deck', 'trading', 'insider', 'stocks'];
+const SHOP_ROWS = ['deck', 'plays', 'trading', 'markets'];
 function showShop() {
   const run = view.run, shopItems = shopCatalogue(run);
   view.shopItems = shopItems;
@@ -1846,7 +2051,7 @@ function showShop() {
         <button class="button primary" data-action="nextDay">DAY ${run.day + 1} ▶</button>
       </div>
       <div class="shopRows">${rows}</div>
-      <div id="selectedSentence"></div>
+      <div id="selectedSentence">${run.cash < SHOP_CASH_HINT * inflationIndex(run.day) && hasPositions(run) ? 'Your money is in your positions: close some tomorrow to have cash for the shop.' : ''}</div>
     </div>`);
 }
 function chooseShopItem(index) {
@@ -1870,15 +2075,51 @@ function offerCardHtml(run, cardId, removing) {
     <span class="cardEffect ${removing ? 'down' : 'up'}">${effect}</span>
   </div>`;
 }
+function playOfferHtml(run, playId, forgetting) {
+  const play = PLAYS[playId], rarity = CARD_RARITIES[play.rarity];
+  return `<div class="offerCard" style="border-color:${rarity.colour}" data-action="pickOffer" data-argument="${playId}">
+    <span class="rarity" style="color:${rarity.colour}">${play.rarity}</span>
+    <span class="chip rule">${play.face}</span>
+    <span class="cardText">${play.sentence}</span>
+    <span class="cardEffect"><span class="gold">${'●'.repeat(play.cost) || '0'} focus</span>${play.heat ? ` <span class="heat">🔥${play.heat}</span>` : ''}</span>
+    <span class="cardEffect ${forgetting ? 'down' : 'up'}">${forgetting ? 'forget' : 'learn'}</span>
+  </div>`;
+}
 function showCardOffer() {
   const run = view.run, offer = run.cardOffer, removing = offer.kind === 'remove';
+  const titles = { pack: `Add a card to ${run.ticker}`, remove: `Remove a card from ${run.ticker}`, learn: 'Learn a play', forget: 'Forget a play' };
+  const notes = { pack: `cards a ${TICKERS[run.ticker].assetClass} can hold · common · uncommon · rare`, remove: 'drawn from the deck: the more copies, the likelier', learn: 'common · uncommon · rare', forget: 'every play in your playbook' };
+  const cardsHtml = offer.kind === 'learn' || offer.kind === 'forget'
+    ? offer.cards.map(playId => playOfferHtml(run, playId, offer.kind === 'forget')).join('')
+    : offer.cards.map(cardId => offerCardHtml(run, cardId, removing)).join('');
   showOverlay('offer', `
     <div class="card">
-      <h1>${removing ? `Remove a card from ${run.ticker}` : `Add a card to ${run.ticker}`}</h1>
-      <div class="note">${removing ? 'drawn from the deck: the more copies, the likelier' : 'common · uncommon · rare'}</div>
-      <div class="offerRow">${offer.cards.map(cardId => offerCardHtml(run, cardId, removing)).join('')}</div>
+      <h1>${titles[offer.kind]}</h1>
+      <div class="note">${notes[offer.kind]}</div>
+      <div class="offerRow" style="flex-wrap:wrap">${cardsHtml}</div>
       <div class="menuButtons"><button class="button" data-action="pickOffer" data-argument="">SKIP</button></div>
     </div>`);
+}
+
+// ── 11.6 Pick 1 of 2: the next two market cards; the one clicked comes next.
+function showPickOfTwo(handIndex) {
+  const run = view.run, cards = nextTwoCards(run);
+  showOverlay('pick', `
+    <div class="card">
+      <h1>Pick 1 of 2</h1>
+      <div class="note">the one you pick comes next; the other goes to the bottom of the pile</div>
+      <div class="offerRow">${cards.map((cardId, choice) => `
+        <div class="offerCard" data-action="pickChoice" data-argument="${handIndex}:${choice}">
+          ${chipHtml(cardId)}<span class="cardName">${hasOwnName(cardId) ? cardLabel(cardId) : ''}</span><span class="cardText">${cardSentence(cardId)}</span>
+        </div>`).join('')}</div>
+      <div class="menuButtons"><button class="button" data-action="closeOverlay">CANCEL</button></div>
+    </div>`, true);
+}
+function showPlayResult(line) {
+  if (line && line.error) { sounds.denied(); addPopup(line.error, CHART_COLOURS.label, 14); }
+  else { sounds.tip(); addPopup(line, CHART_COLOURS.insight, 17); }
+  saveRun();
+  renderAll();
 }
 
 // ═══════════════════════════════════════ § 12 INPUT ═══════════════════════════════════════
@@ -1917,7 +2158,16 @@ const ACTIONS = {
   openTradeIcon(index) { openTradeIcon(index); },
   confirmTrade() { confirmTrade(); },
   closeEverything() { if (tradingOpen() && hasPositions(view.run) && !view.tradeMenu) finishTrade(closeEverything(view.run), 'ALL CLOSED'); },
-  tip(tipId) { if (useTip(view.run, tipId)) { sounds.tip(); saveRun(); } else sounds.denied(); },
+  play(handIndex) {
+    if (!tradingOpen()) return;
+    if (view.run.today.hand[handIndex] === 'pickOfTwo' && !playBlockedReason(view.run, handIndex)) { showPickOfTwo(handIndex); return; }
+    showPlayResult(playCard(view.run, handIndex));
+  },
+  pickChoice(argument) {
+    const [handIndex, choice] = argument.split(':').map(Number);
+    hideOverlay();
+    showPlayResult(playCard(view.run, handIndex, choice));
+  },
   ticker(tickerId) { if (switchTicker(view.run, tickerId)) saveRun(); else sounds.denied(); },
   openMarket() {
     if (view.run.phase !== 'preopen') return;
@@ -1937,7 +2187,7 @@ const ACTIONS = {
   shopItem(index) { chooseShopItem(index); },
   pickOffer(cardId) { pickOfferedCard(view.run, cardId || null); if (cardId) sounds.buy(); saveRun(); showShop(); },
 };
-const NUMBER_ARGUMENT_ACTIONS = ['tradeRow', 'openTradeIcon', 'shopItem'];
+const NUMBER_ARGUMENT_ACTIONS = ['tradeRow', 'openTradeIcon', 'shopItem', 'play'];
 
 function handleClick(event) {
   const target = event.target.closest('[data-action]');
@@ -1978,6 +2228,7 @@ function runOneTick(quiet) {
       addPopup(formatSignedMoney(change), change > 0 ? CHART_COLOURS.up : CHART_COLOURS.down, impact === 2 ? 26 : 18);
   }
   if (outcome.message) { sounds.bad(); addPopup(outcome.message, CHART_COLOURS.stop, 22); }
+  if (!quiet && outcome.dividendCash) addPopup('dividend ' + formatSignedMoney(outcome.dividendCash), CHART_COLOURS.insight, 17);
   if (outcome.closed) {
     const result = closeDay(run);
     saveRun();

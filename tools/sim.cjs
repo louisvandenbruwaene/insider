@@ -9,9 +9,9 @@ function loadGame() {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const code = html.split('<script id="game">')[1].split('</script>')[0];
   return new Function(code + `
-    ;return { newRun, prepareDay, advanceTick, closeDay, startNextDay, tradeStock, closeStock, buyOption, writeOption, useTip,
+    ;return { newRun, prepareDay, advanceTick, closeDay, startNextDay, tradeStock, closeStock, buyOption, writeOption, playCard,
       averagePayoff, simulateForecast, nextOpenPrice, tickMarket, closeEverything, makeRandom, deckToCardList, shopCatalogue, buyShopItem, applyDeckEdit,
-      totalEquity, currentPrice, tipStatus, meetingTarget,
+      totalEquity, currentPrice, meetingTarget,
       TICKS_PER_DAY, OPTION_EXPIRY_DAYS, MEETING_EVERY_DAYS, MEETING_MULTIPLES };`)();
 }
 const game = loadGame();
@@ -71,7 +71,8 @@ const STRATEGIES = {
   },
   rumour: {
     beforeOpen(run) {
-      if (game.tipStatus(run, 'rumour') === 'ready' && run.heat < 85) game.useTip(run, 'rumour');
+      const rumourInHand = run.today.hand.indexOf('rumour');
+      if (rumourInHand >= 0 && run.heat < 85) game.playCard(run, rumourInHand);
       const rumour = run.today.insights.rumour;
       if (rumour) game.tradeStock(run, rumour.direction === 'up' ? 1 : -1, 1);
     },

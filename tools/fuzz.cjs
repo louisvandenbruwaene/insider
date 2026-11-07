@@ -1,5 +1,5 @@
 // Usage: node tools/fuzz.cjs index.html [runs]
-// A random player: random trades of every kind (long, short, add, partial close), tips, stock switches, shop buys
+// A random player: random plays from the hand, random trades of every kind (long, short, add, partial close), tips, stock switches, shop buys
 // (desk strategies included) and deck edits, over many days. After every action and tick it checks that money, positions and decks stay valid, and
 // that saving and loading keeps the same equity. Prints every problem it finds (at most 15).
 const fs = require('fs');
@@ -8,8 +8,8 @@ function loadGame(htmlFile) {
   const html = fs.readFileSync(htmlFile, 'utf8');
   const code = html.split('<script id="game">')[1].split('</script>')[0];
   return new Function(code + `;return { newRun, advanceTick, closeDay, startNextDay, tradeStock, buyOption, writeOption,
-    closeOption, closeStockPart, closeEverything, useTip, totalEquity, currentPrice, shopCatalogue, buyShopItem,
-    pickOfferedCard, switchTicker, strikeOffsets, openTheMarket, deckSize, serialiseRun, loadRun, CARD_ORDER, TIP_ORDER };`)();
+    closeOption, closeStockPart, closeEverything, playCard, totalEquity, currentPrice, shopCatalogue, buyShopItem,
+    pickOfferedCard, switchTicker, strikeOffsets, openTheMarket, deckSize, serialiseRun, loadRun, CARD_ORDER };`)();
 }
 const game = loadGame(process.argv[2]);
 const RUNS = Number(process.argv[3]) || 40;
@@ -73,11 +73,12 @@ for (let seed = 1; seed <= RUNS; seed++) {
   const random = seededRandom(seed * 7919), run = game.newRun(seed);
   run.cash *= 1 + random() * 20;
   for (let dayNumber = 0; dayNumber < DAYS_PER_RUN && !run.gameOverReason; dayNumber++) {
-    for (const tipId of game.TIP_ORDER) if (random() < 0.3) game.useTip(run, tipId);
+    if (random() < 0.5 && run.today.hand.length) game.playCard(run, Math.floor(random() * run.today.hand.length), random() < 0.5 ? 0 : 1);
     if (random() < 0.1 && run.tickersOwned.length > 1) game.switchTicker(run, pickFrom(run.tickersOwned, random));
     game.openTheMarket(run);
     while (run.phase === 'trading') {
       if (random() < 0.08) checkInvariants(run, 'after trade ' + randomTrade(run, random));
+      if (random() < 0.05 && run.today.hand.length) { game.playCard(run, Math.floor(random() * run.today.hand.length), random() < 0.5 ? 0 : 1); checkInvariants(run, 'after a play'); }
       const outcome = game.advanceTick(run);
       checkInvariants(run, 'tick');
       if (outcome.closed) game.closeDay(run);

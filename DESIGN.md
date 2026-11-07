@@ -2,33 +2,45 @@
 
 Every number named here lives in `index.html` § 1 SETTINGS.
 
-## The price is a deck, dealt over many days
-- A stock is a deck of cards. NOVA (the starting stock) has 844: `up/down` ×100 (±1%), `UP/DOWN` ×100 (±5%), `bull/bear` ×10 (±10%), `BULL/BEAR` ×1 (±50%), and the same counts of vol cards (σ ±1/5/10/50%).
-- A day is `TICKS_PER_DAY` (90) ticks, one card per `SECONDS_PER_TICK` (0.25 s: about 22 seconds a day at 1×).
-- The cards are dealt from a **draw pile** that lasts several days; only when it runs out is the whole deck reshuffled. A BULL drawn this week is gone until the next shuffle, so the cards left (the 🂠 DECK window) are long-term information.
-- Positions are held overnight; each day opens at yesterday's close × (1 + `INFLATION_PER_DAY`).
-- Moves multiply: +5% then −5% is −0.25%, so a fair deck drifts slightly down, against the 1% overnight inflation.
+## Two decks
+You build two decks. **The market** (one deck per market you trade) decides what the price does; you change it by chance in the shop. **Your playbook** decides what you can do to the market each day; you learn and forget plays in the shop.
 
-## Cards that act on cards (the combinations)
-Move cards are × σ; vol cards (σ ±1/5/10/50%) are back in every deck (NOVA is the original 844 cards).
-| Card | Effect |
-|---|---|
-| ↻ repeat | the last move again, as it really happened |
-| ⇄ reverse | the last move, the other way |
-| ×2 / ½ (next) | the next move counts double / half; stacks until a move uses it |
-| +1% all day / −1% all day | every move after it, until the close, gets +1% / −1%; stacks |
-| ×2 all day / ½ all day | every card move after it, until the close, counts double / half; stacks |
-| no buying | until the close you cannot buy: no long trades, no closing shorts |
-| no selling | until the close you cannot sell: no short trades, no closing longs |
-| draw 3 | three more cards hit at once |
-All rules end at the close. A margin call still closes everything. The chart's corner shows what is waiting and in force (next ×4, +2% all day, no buying, σ).
-Examples: `×2 · BULL · ↻` → +100% twice; `+1% all day` turns every down into a smaller fall and every up into a bigger rise; `no selling` with a falling deck traps every long; `×2 all day · ×2 · BULL` → +200%.
-The deck sets the drift and the size of moves; late in a run you know roughly what the market will do, but the order of the cards keeps it uncertain.
+## The markets (§ 1.4)
+| Market | Type | σ at the open | Its own cards |
+|---|---|---|---|
+| 💻 Nova (start) | stock | 1 | dividend, ×3 (results day) |
+| 🛒 Mart | stock | 0.8 | dividends in the deck |
+| 🥇 Gold | commodity | 1.4 | ±20% jumps, −0.3% all day (storage), ½ back; reverses in the deck |
+| 🛢 Oil | commodity | 1.8 | ±20% jumps, storage, doubles in the deck |
+| 🌍 World | ETF | 0.5 | +0.3% all day (growth), ½ back |
+Every market also holds the common cards: moves ±1/5/10/50% × σ, vol cards (σ ±1/5/10/50%), repeat, reverse, ×2 / ½ next, and the rule cards (+1% / −1% all day, ×2 / ½ all day, no buying, no selling, draw 3). "Add a card" only offers cards that market's type can hold.
+A deck is dealt from a draw pile over several days; drawn cards stay gone until the reshuffle, so the deck window is long-term information. Positions are held overnight; each day opens at yesterday's close + 1% inflation.
 
-## Changing the deck: by chance
-- **Add a card** (bought, `CARD_PACK_PRICE`): 3 random cards, add one (or none).
-- **Remove a card** (bought, `REMOVE_PRICE`): 3 cards drawn at random from the deck, weighted by their copies (a single BEAR is almost never offered); remove `DECK_BATCH_FIRST` (10), then 9, 8 … copies of one.
-- Offers are weighted by rarity (`CARD_RARITIES`: common 6, uncommon 3, rare 1) and add ×10 / ×8 / ×4 copies. They are seeded and saved: reloading never re-rolls them. Every deck change adds `HEAT_PER_DECK_EDIT` heat.
+## Cards that act on cards
+repeat (the last move again, as it happened), reverse (the other way), ×2 / ½ / ×3 next (stack until a move uses them), ½ back (halfway to the open), and the rule cards that hold until the close. The chart's corner shows what is waiting or in force.
+
+## The playbook (§ 1.8, § 6)
+Every morning `HAND_SIZE` (5) plays are dealt from your playbook; you have `FOCUS_PER_DAY` (3) focus. Plays can be used before the open and during the day; some add heat.
+| Play | Focus | Heat | Effect |
+|---|---|---|---|
+| Peek 3 | 1 | 5 | see the next 3 market cards |
+| Rumour | 1 | 10 | will today close above or below the price now? |
+| Insider call | 2 | 40 | the exact close, as the cards lie now |
+| Pick 1 of 2 | 1 | 5 | see the next 2 cards, choose which comes next |
+| Skip | 1 | 0 | the next card goes to the bottom, unplayed |
+| Flip | 2 | 10 | the next move goes the other way |
+| Freeze | 1 | 0 | no market cards for 5 ticks |
+| Push up / Push down | 1 | 8 | move the price ±2% now |
+| Stack ×2 / Dampen ½ | 1 | 0 | the next move ×2 / ×½ |
+| Double down | 1 | 0 | double your stock position |
+| Turn around | 0 | 0 | close the stock and open the same size the other way |
+| Hedge | 1 | 0 | the next move against your stock costs half |
+| Trailing stop | 1 | 0 | close the stock when the price turns 5% from its best |
+| Pyramid | 2 | 0 | every move in your favour adds 10% to the stock |
+A play that changes the market rebuilds the rest of the day from the cards left (`changeMarket`), so later information (Rumour, Insider call) reads the new future. Synergies: Pick 1 of 2 + Stack ×2 on a BULL; Flip on the bear you see coming; Freeze after a spike; Pyramid in a repeat-heavy deck; Hedge + Push down for a cheap short entry.
+
+## Boss days (meetings)
+Every `MEETING_EVERY_DAYS` days the investors meet, and that day has a boss rule (`BOSS_RULES`), shown in the side menu from the start: no selling all day, no buying all day, −1% all day, ×2 all day, no options, 1 focus, or moves capped at 5%. Equity at that close must reach the target.
 
 ## Fair market maker
 The market maker knows the cards left in the draw pile and what the whole deck holds, but not the order. Every `FORECAST_EVERY_TICKS` ticks it plays out the rest of today plus `FORECAST_DAYS_AHEAD` (7) more days `FORECAST_PATHS` times (`simulateForecast`, using the same `tickMarket` as the real day). That gives:
@@ -54,11 +66,8 @@ Without information or a rigged deck, nothing has an edge. `node tools/sim.cjs f
 - **Margin (one rule for everything):** exposure = the stock's value + what long options are worth + short options counted as shares. Buying power = equity × leverage − exposure, and every trade (stock or option, long or short) uses it, so options are bought with leverage too. **Margin call** when equity < exposure × `MAINTENANCE_SHARE` ÷ leverage: everything is closed. The side menu shows "margin call below $X" (red within ×`MARGIN_WARNING`), and every trade shows the margin call level after it. A big move (a doubled BEAR × σ) can push equity below zero.
 - Options expire at the close `OPTION_EXPIRY_DAYS` (7) trading days after they're traded. The side menu shows the days left. The stock is held until you close it. The only costs are transaction costs (`STOCK_TRANSACTION_COST`, `OPTION_TRANSACTION_COST`).
 
-## Insider tips and heat
-- Tips are used before the open and read the fixed schedule (`INSIDER_TIPS`): Rumour (▲/▼, the starting tip), Analyst (close inside a 6% band), Peek (the first 10 cards, shown in the chart's corner), The Call (exact close).
-- Each tip adds heat and then rests `cooldownDays`.
-- Heat also comes from deck edits (`HEAT_PER_DECK_EDIT`) and from days above `ABNORMAL_RETURN` (`HEAT_PER_ABNORMAL_RETURN`, capped at `HEAT_ABNORMAL_CAP`). It decays by `HEAT_DECAY_PER_DAY`.
-- Ending a day at `HEAT_LIMIT` or more opens an investigation: `INVESTIGATION_DAYS` days with no tips, no options and 1× leverage. Afterwards heat resets to `HEAT_AFTER_INVESTIGATION`.
+## Heat and the SEC
+Heat comes from plays (their 🔥), from deck changes (`HEAT_PER_DECK_EDIT`) and from days above `ABNORMAL_RETURN`; it decays by `HEAT_DECAY_PER_DAY`. Ending a day at `HEAT_LIMIT` opens an investigation for `INVESTIGATION_DAYS` days: no plays that add heat, no options, new trades at 1×.
 
 ## The run
 - You start with `STARTING_CASH`. Trading money and shop money are the same cash.

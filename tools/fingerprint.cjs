@@ -8,7 +8,7 @@ function loadGame(htmlFile) {
   const html = fs.readFileSync(htmlFile, 'utf8');
   const code = html.split('<script id="game">')[1].split('</script>')[0];
   return new Function(code + `;return { newRun, advanceTick, closeDay, startNextDay, tradeStock, buyOption, writeOption,
-    closeOption, closeStockPart, useTip, totalEquity, currentPrice, shopCatalogue, buyShopItem, pickOfferedCard, strikeOffsets };`)();
+    closeOption, closeStockPart, playCard, totalEquity, currentPrice, shopCatalogue, buyShopItem, pickOfferedCard, strikeOffsets };`)();
 }
 const game = loadGame(process.argv[2]);
 
@@ -29,7 +29,7 @@ for (let seed = 1; seed <= 6; seed++) {
   for (const positionId in run.unlocked) run.unlocked[positionId] = true;
   run.leverageTier = 2;
   for (let dayNumber = 0; dayNumber < 12 && !run.gameOverReason; dayNumber++) {
-    game.useTip(run, 'rumour');
+    game.playCard(run, 0, 0);                                           // the first play of the hand
     run.phase = 'trading';
     let tick = 0;
     while (run.phase === 'trading') {
