@@ -16,4 +16,5 @@ Shop and deck picker: arrows move by position, Enter takes the selected card, Sp
 
 - `DESIGN.md`: every system and the setting that tunes it.
 - `tools/sim.cjs`: headless checks (`fairness`, `bots [runs] [days]`).
+- `tools/fingerprint.cjs`: a hash of scripted play over fixed seeds; unchanged hash = unchanged game (use around cleanups).
 - `tools/fuzz.cjs`: a random player over many days, checking that money, positions, decks and saves stay valid.
