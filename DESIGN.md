@@ -31,8 +31,9 @@ Without information or a rigged deck, nothing has an edge. `node tools/sim.cjs f
 
 ## Trading (any time: before the open or during the day. The TRADE menu asks one question at a time, and the day pauses while it is open)
 - **LONG STOCK / SHORT STOCK:** the slider sets the share of the room. For a long, the room is buying power = equity × leverage (`LEVERAGE_TIERS`, bought in order). For a short, it's the largest allowed short.
-- **LONG CALL / LONG PUT:** a strike from `CALL_STRIKE_OFFSETS` / `PUT_STRIKE_OFFSETS` (each row shows its 🎲 chance, win multiple and price), then the share of free cash to spend.
-- **SHORT CALL / SHORT PUT** (writing): same steps. You receive the premium now and owe the payout at the close. Written options count as exposure like a short of that many shares, and the slider sets the share of that room.
+- Each option position shows its P&L formula (S = price at expiry, K = strike): long call `max(S − K, 0) − premium`, short call `premium − max(S − K, 0)`, long put `max(K − S, 0) − premium`, short put `premium − max(K − S, 0)`.
+- **LONG CALL / LONG PUT:** choose K from `CALL_STRIKE_OFFSETS` / `PUT_STRIKE_OFFSETS` (each row shows its 🎲 chance, win multiple and price), then the share of free cash to spend.
+- **SHORT CALL / SHORT PUT** (writing): choose K the same way. You receive the premium now and owe the payout at the close. Written options count as exposure like a short of that many shares, and the slider sets the share of that room.
 - **CLOSE:** the stock, one lot, or everything.
 - The slider starts at `SLIDER_DEFAULT_PERCENT` and moves in `SLIDER_STEP_PERCENT` steps.
 - Margin call: when equity (with written options at their value) < exposure × `MAINTENANCE_SHARE` ÷ leverage, the stock is closed and written options are bought back. A gap (BEAR × σ) can push equity below zero.
@@ -53,7 +54,7 @@ Without information or a rigged deck, nothing has an edge. `node tools/sim.cjs f
 ## Shop
 - Deck: Remove takes `DECK_BATCH_FIRST` (10) copies of one card the first time, then 9, 8, … down to `DECK_BATCH_MINIMUM`. Add works the same way, with its own count. Each costs `DECK_EDIT_PRICE_GROWTH` more than the last. A deck never goes below `MINIMUM_DECK_SIZE`.
 - Event cards: `EVENT_CARD_PRICES`, ×`EVENT_PRICE_GROWTH` per copy.
-- Trading: calls and puts (`UNLOCK_PRICES`), the next leverage tier (`LEVERAGE_PRICES`). Shorting stock is always possible.
+- Trading: long call, short call, long put and short put, each bought separately (`OPTION_POSITIONS`, with each one's P&L formula), and the next leverage tier (`LEVERAGE_PRICES`). Shorting stock is always possible.
 - Insider: the four other tips (`INSIDER_TIPS[].price`).
 - Stocks: UTIL (calm) and BIOX (wild) (`TICKER_PRICES`). Pick one before the open.
 
