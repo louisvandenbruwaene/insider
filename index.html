@@ -53,6 +53,7 @@ button{font:inherit;color:inherit}
 .playerCard .big small{display:block;font-size:13px;opacity:.8;margin-bottom:3px}
 .playerCard .name{font:800 11.5px var(--mono);letter-spacing:.03em;white-space:nowrap}
 .playerCard .detail{font:500 9px var(--mono);color:var(--dim);margin-top:2px;min-height:12px;white-space:nowrap}
+.playerCard .retainTag{position:absolute;top:20px;left:50%;transform:translateX(-50%);font:800 8px var(--mono);letter-spacing:.16em;color:#1a1405;background:var(--accent);padding:1px 6px;border-radius:4px}
 .playerCard .heatTag{position:absolute;top:18px;right:7px;font:700 9px var(--mono);color:var(--heat)}
 #hand .playerCard{cursor:grab;touch-action:none}
 #hand .playerCard:hover{transform:translateY(-8px)}
@@ -292,7 +293,9 @@ const HEAT_EFFECTS = ['hype', 'volatility', 'ceiling', 'floor'];
 const STARTING_DECK = ['buyStock1', 'buyStock1', 'buyStock1', 'sellStock1', 'sellStock1', 'sellStock1', 'buyCall100', 'buyPut100',
   'sellCall', 'sellPut', 'times2', 'hype1', 'bash1'];
 const HAND_SIZE = 6;                            // every morning you draw this many (the rest of the hand is discarded at the close)
-const REDRAWS_PER_DAY = 2;                      // spin the hand: it is discarded and as many cards are drawn
+// REDRAW spins the hand (retained cards stay). It costs money, more each time in one day: $10, $50, $100, $500, $1,000,
+// $5,000 … (the 1-5-10 steps of REDRAW_PRICE_STEPS, ×10 every two redraws). The price starts again every morning.
+const REDRAW_PRICE_STEPS = [10, 50];
 
 // 1.6 Heat and the SEC
 const HEAT_LIMIT = 100;                         // reaching it at the close starts an investigation
@@ -540,20 +543,39 @@ function drawPlayerCards(run, count) {
     run.hand.push(run.drawPile.pop());
   }
 }
-// Redraw (a spin of the hand, like the shop's reels): the whole hand goes to the discard pile and as many are drawn.
+// Redraw (a spin of the hand, like the shop's reels): every card goes to the discard pile and a new one is drawn in
+// its place, except the cards with RETAIN: a trade card that would close one of your open trades stays where it is.
+function isRetained(run, cardId) {
+  if (!isTradeCard(cardId)) return false;
+  const outcome = tradeCardOutcome(run, cardId);
+  return outcome.closes !== undefined && outcome.closes !== null;
+}
 function redrawBlockedReason(run) {
   if (!marketOpen(run)) return 'The market is closed';
-  if (run.today.redrawsLeft <= 0) return 'No redraws left today';
-  return run.hand.length ? null : 'No cards in hand';
+  if (run.cash < redrawPrice(run)) return `A redraw costs ${formatMoney(redrawPrice(run))}`;
+  return run.hand.some(cardId => !isRetained(run, cardId)) ? null : 'Nothing to redraw (closing cards are retained)';
 }
+// Returns the hand positions that were kept, or false.
 function redrawHand(run) {
   if (redrawBlockedReason(run)) return false;
-  const count = run.hand.length;
-  run.discardPile.push(...run.hand);
+  const keptPositions = run.hand.map((cardId, index) => (isRetained(run, cardId) ? index : -1)).filter(index => index >= 0);
+  const oldHand = run.hand;
+  run.discardPile.push(...oldHand.filter((cardId, index) => !keptPositions.includes(index)));
   run.hand = [];
-  drawPlayerCards(run, count);
-  run.today.redrawsLeft--;
-  return true;
+  drawPlayerCards(run, oldHand.length - keptPositions.length);
+  const drawn = run.hand;
+  run.hand = [];
+  oldHand.forEach((cardId, index) => {                      // kept cards stay in place, new ones fill the other places
+    if (keptPositions.includes(index)) run.hand.push(cardId);
+    else if (drawn.length) run.hand.push(drawn.shift());
+  });
+  run.cash -= redrawPrice(run);
+  run.today.redrawsDone++;
+  return keptPositions;
+}
+function redrawPrice(run) {
+  const done = run.today.redrawsDone;
+  return REDRAW_PRICE_STEPS[done % 2] * Math.pow(10, Math.floor(done / 2));
 }
 
 // The leverage waiting for the next trade: today.pendingLeverage lists the leverage cards played since the last trade.
@@ -823,7 +845,7 @@ function prepareDay(run) {
   const open = freshMarketState(nextOpenPrice(run.market.lastClose), bossRule);
   run.today = {
     tick: 0, schedule: scheduleDay(run.market.drawPile, run.market.deck, open, makeRandom(mixSeed(run.seed, run.day, 0))),
-    trades: [], closedTrades: [], nextTradeNumber: 1, pendingLeverage: [], redrawsLeft: REDRAWS_PER_DAY, dividendShare: 0,
+    trades: [], closedTrades: [], nextTradeNumber: 1, pendingLeverage: [], redrawsDone: 0, dividendShare: 0,
     bossRule, investigation: run.investigationDaysLeft > 0, marketChanges: 0,
     startEquity: run.cash, tickClock: 0, closeForecast: null,
   };
@@ -1214,7 +1236,7 @@ function cardArt(card) {
   if (card.glyph) return `<svg viewBox="0 0 100 100">${GLYPHS[card.glyph]}</svg>`;
   return `<div class="big">${card.smallFace ? `<small>${card.smallFace}</small>` : ''}${card.face}</div>`;
 }
-// extra: { classes, action, argument, handIndex, detail, tip } for the card's element. Leverage cards show only their face.
+// extra: { classes, action, argument, handIndex, detail, tip, retained } for the card's element. Leverage cards show only their face.
 function playerCardHtml(cardId, extra = {}) {
   const card = PLAYER_CARDS[cardId], heat = cardHeat(cardId);
   const tip = extra.tip === undefined ? card.sentence : extra.tip;
@@ -1223,7 +1245,7 @@ function playerCardHtml(cardId, extra = {}) {
   const label = card.family === 'leverage' ? '' : `<div class="name">${card.name}</div><div class="detail">${extra.detail || card.detail}</div>`;
   return `<div class="playerCard ${card.family} ${extra.classes || ''}" ${action} data-tip="${tip}">
     <div class="family">${card.family === 'manip' ? 'MANIP' : card.family.toUpperCase()}</div><div class="tier">${ROMAN[card.tier]}</div>
-    ${heat ? `<div class="heatTag">🔥${heat}</div>` : ''}
+    ${heat ? `<div class="heatTag">🔥${heat}</div>` : ''}${extra.retained ? '<div class="retainTag">RETAIN</div>' : ''}
     <div class="glyph">${cardArt(card)}</div>${label}</div>`;
 }
 function tradeName(cardId) {
@@ -1292,25 +1314,30 @@ function renderHud() {
 function renderHand() {
   if (view.handSpin) return;                                   // the reels are spinning (spinHand)
   const run = view.run, firstFresh = run.hand.length - view.freshHand;
-  element('hand').innerHTML = run.hand.map((cardId, index) => {
-    const blocked = cardBlockedReason(run, cardId);
-    const classes = [blocked ? 'locked' : '', view.drag && view.drag.handIndex === index ? 'dragging' : '', index >= firstFresh ? 'fresh' : ''].join(' ');
-    const tip = blocked ? `${liveTip(run, cardId)} (${blocked})` : liveTip(run, cardId);
-    return playerCardHtml(cardId, { classes, handIndex: index, detail: liveDetail(run, cardId), tip });
-  }).join('') || '<span class="emptyHand">no cards in hand</span>';
+  element('hand').innerHTML = run.hand.map((cardId, index) => handCardHtml(run, cardId, index, index >= firstFresh)).join('')
+    || '<span class="emptyHand">no cards in hand</span>';
   view.freshHand = 0;
 }
+// A card in the hand: dimmed when it can't be played, its live line and hover text, RETAIN when a redraw keeps it.
+function handCardHtml(run, cardId, index, fresh = false) {
+  const blocked = cardBlockedReason(run, cardId), retained = isRetained(run, cardId);
+  const classes = [blocked ? 'locked' : '', view.drag && view.drag.handIndex === index ? 'dragging' : '', fresh ? 'fresh' : ''].join(' ');
+  const tip = liveTip(run, cardId) + (retained ? ' Retain: a redraw keeps it.' : '') + (blocked ? ` (${blocked})` : '');
+  return playerCardHtml(cardId, { classes, handIndex: index, detail: liveDetail(run, cardId), tip, retained });
+}
 // A redraw: every card of the hand becomes a reel that runs past cards of your deck and stops on the new card.
-function spinHand(previousHand) {
+// Retained cards (keptPositions) stand still.
+function spinHand(previousHand, keptPositions) {
   const run = view.run;
   view.handSpin = true;
-  element('hand').innerHTML = run.hand.map(() => '<div class="reelWindow handReel"><div class="reelStrip"></div></div>').join('');
-  const strips = element('hand').querySelectorAll('.reelStrip');
+  element('hand').innerHTML = run.hand.map((cardId, index) => keptPositions.includes(index)
+    ? handCardHtml(run, cardId, index)
+    : `<div class="reelWindow handReel"><div class="reelStrip" data-position="${index}"></div></div>`).join('');
   let longest = 0;
-  run.hand.forEach((cardId, index) => {
-    const seconds = REEL_SPIN_SECONDS + index * HAND_SPIN_STAGGER;
+  element('hand').querySelectorAll('.reelStrip').forEach(strip => {
+    const index = Number(strip.dataset.position), seconds = REEL_SPIN_SECONDS + index * HAND_SPIN_STAGGER;
     longest = Math.max(longest, seconds);
-    spinStrip(strips[index], previousHand[index] || cardId, run.deck, cardId, seconds);
+    spinStrip(strip, previousHand[index] || run.hand[index], run.deck, run.hand[index], seconds);
   });
   playReelTicks();
   setTimeout(() => { view.handSpin = false; renderAll(); }, longest * 1000 + 120);
@@ -1320,7 +1347,7 @@ function spinHand(previousHand) {
 function renderActions() {
   const run = view.run, redrawBlocked = redrawBlockedReason(run);
   const redraw = `<button class="button ${redrawBlocked || view.handSpin ? 'locked' : ''}" data-action="redraw"
-    data-tip="${redrawBlocked || 'Spin the hand: discard it, draw as many'}">🎰 REDRAW</button>`;
+    data-tip="${redrawBlocked || 'Spin the hand: every card except RETAIN is replaced. The next one costs more; the price starts again tomorrow.'}">🎰 REDRAW · $${redrawPrice(run).toLocaleString('en-US')}</button>`;
   if (run.phase === 'preopen') {
     element('actions').innerHTML = `${redraw}<span class="gap"></span><button class="button primary suggest" data-action="openMarket">OPEN ▶</button>`;
     return;
@@ -1657,9 +1684,10 @@ const ACTIONS = {
   openDeck() { if (!view.overlay) { view.deckSelling = false; showDeck(); } },
   redraw() {
     const run = view.run, previousHand = run.hand.slice();
-    if (view.handSpin || !redrawHand(run)) { sounds.denied(); return; }
+    const keptPositions = view.handSpin ? false : redrawHand(run);
+    if (!keptPositions) { sounds.denied(); return; }
     saveRun();
-    spinHand(previousHand);
+    spinHand(previousHand, keptPositions);
   },
   openMarket() {
     if (view.run.phase !== 'preopen') return;
