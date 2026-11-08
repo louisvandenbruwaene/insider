@@ -13,67 +13,28 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--
 button{font:inherit;color:inherit}
 .up{color:var(--up)} .down{color:var(--down)} .dim{color:var(--dim)} .heat{color:var(--heat)} .gold{color:var(--accent)}
 
-#app{position:fixed;inset:0;display:grid;grid-template-columns:290px 1fr;gap:18px;padding:18px}
-
-/* the side menu */
-#side{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;font-family:var(--mono);font-variant-numeric:tabular-nums;min-height:0;overflow:hidden}
-#brand{font:800 14px var(--mono);letter-spacing:.3em;color:var(--accent)}
-.sideHead{display:flex;justify-content:space-between;align-items:baseline;margin-top:10px}
-.sideHead b{font-size:15px}
-.clock{font:800 24px var(--mono)}
-.label{font:700 10px var(--sans);letter-spacing:.14em;color:var(--dim);text-transform:uppercase;margin-top:14px;display:flex;justify-content:space-between}
-.value{font-size:22px;font-weight:800;margin-top:2px}
-.line{font-size:13px;height:20px;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;justify-content:space-between;gap:8px}
-.rule{border-top:1px solid var(--line);margin-top:14px}
-.heatBar{height:6px;border-radius:3px;background:#2a2016;overflow:hidden;margin-top:6px}
-.heatBar i{display:block;height:100%;background:linear-gradient(90deg,#ffb347,#ff5a3d)}
-.sideButtons{margin-top:auto;display:flex;gap:8px;padding-top:14px}
-.sideButtons .button{flex:1}
-.flashUp{animation:flashUp .45s} .flashDown{animation:flashDown .45s}
-@keyframes flashUp{0%{color:var(--up);transform:scale(1.06)}}
-@keyframes flashDown{0%{color:var(--down);transform:scale(1.06)}}
-
-/* the main column: chart, the table (open trades and the bench), the hand, the buttons */
-#mainColumn{position:relative;display:flex;flex-direction:column;align-items:center;gap:12px;min-width:0;min-height:0}
-#chartBox{position:relative;width:100%;max-width:1060px;flex:1;min-height:170px;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+/* one column: the chart, the hand, the buttons */
+#app{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px 18px}
+#chartBox{position:relative;width:100%;flex:1;min-height:200px;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
 #chart{width:100%;height:100%;display:block}
-#corner{position:absolute;top:12px;left:12px;right:12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;pointer-events:none}
+#corner{position:absolute;top:12px;left:12px;right:430px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;pointer-events:none}
 #corner .chip{pointer-events:auto}
+/* the top right of the chart: cash, today's P&L, heat, the deck, the menu */
+#hud{position:absolute;top:10px;right:12px;display:flex;gap:8px;align-items:center;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.hudBox{background:rgba(13,15,18,.85);border:1px solid var(--line);border-radius:10px;padding:4px 12px;display:flex;flex-direction:column;min-width:74px}
+.hudBox small{font:700 9px var(--sans);letter-spacing:.14em;color:var(--dim);text-transform:uppercase}
+.hudBox b{font-size:16px}
+.hud .button{padding:10px 14px}
+.flashUp{animation:flashUp .45s} .flashDown{animation:flashDown .45s}
+@keyframes flashUp{0%{color:var(--up);transform:scale(1.08)}}
+@keyframes flashDown{0%{color:var(--down);transform:scale(1.08)}}
 #pauseNote{position:absolute;inset:0;display:none;place-items:center;font:800 32px var(--mono);letter-spacing:.3em;color:var(--accent);background:rgba(0,0,0,.45);pointer-events:none}
 .shake{animation:shake .35s} .shakeBig{animation:shakeBig .6s}
 @keyframes shake{20%{transform:translate(-4px,2px)}40%{transform:translate(4px,-2px)}60%{transform:translate(-3px,1px)}80%{transform:translate(2px,-1px)}}
 @keyframes shakeBig{10%{transform:translate(-12px,5px)}25%{transform:translate(11px,-6px)}40%{transform:translate(-9px,4px)}55%{transform:translate(7px,-3px)}75%{transform:translate(-4px,2px)}}
 
-#table{display:flex;gap:16px;align-items:center;width:100%;max-width:1060px;height:calc(var(--cardHeight) + 12px);flex:none}
-#openTrades{flex:1;display:flex;gap:10px;align-items:center;min-width:0;overflow:hidden;height:100%}
-.tableNote{color:var(--faint);font:600 12px var(--mono)}
-.tradeTile{--c:var(--ink);width:150px;height:118px;flex:none;border-radius:12px;background:var(--panel);border:2px solid color-mix(in srgb,var(--c) 60%,transparent);padding:8px 10px;display:flex;flex-direction:column;font-family:var(--mono);font-variant-numeric:tabular-nums;position:relative}
-.tradeTile.long{--c:var(--long)} .tradeTile.short{--c:var(--short)}
-.tradeTile .tileTop{display:flex;justify-content:space-between;font:800 11px var(--mono);color:var(--c)}
-.tradeTile .tileValue{font:800 18px var(--mono);margin-top:4px}
-.tradeTile .tileLine{font-size:11px;display:flex;justify-content:space-between}
-.tradeTile .tileClose{margin-top:auto;font:800 10px var(--mono);letter-spacing:.1em;padding:4px 0;border-radius:7px;border:1px solid var(--line);background:var(--panel2);cursor:pointer}
-.tradeTile .tileClose:hover{border-color:var(--accent)}
-.tradeTile.dropTarget{animation:glow 1s ease-in-out infinite}
-.tradeTile.dropHere{border-color:var(--accent);transform:scale(1.04)}
-#bench{display:none;gap:14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 14px;height:100%}
-#bench.show{display:flex}
-.benchCards{display:flex;align-items:center;gap:4px}
-.benchCards .arrow{font:800 14px var(--mono);color:var(--dim)}
-.benchCards .playerCard{width:calc(var(--cardWidth) * .8);height:calc(var(--cardHeight) * .8);padding:5px 4px}
-.benchCards .playerCard .glyph svg{width:40px;height:40px} .benchCards .playerCard .big{font-size:24px}
-.benchReadout{font:500 12px var(--mono);line-height:1.65;width:270px;font-variant-numeric:tabular-nums}
-.benchReadout b{font-weight:800}
-.benchReadout .slider{width:100%;accent-color:var(--accent);margin:2px 0;height:18px}
-.benchButtons{display:flex;gap:8px;margin-top:2px}
-.benchButtons .button{padding:8px 14px}
-.benchButtons .primary{flex:1}
-
-#handRow{display:flex;gap:14px;align-items:flex-end;width:100%;max-width:1060px;height:calc(var(--cardHeight) + 16px);flex:none}
-#handInfo{width:84px;flex:none;align-self:center;display:flex;flex-direction:column;gap:10px;font:700 10px var(--sans);letter-spacing:.12em;color:var(--dim);text-transform:uppercase;text-align:center}
-#handInfo b{display:block;font:800 18px var(--mono);color:var(--accent);letter-spacing:0}
-#hand{flex:1;display:flex;gap:8px;align-items:flex-end;justify-content:center;min-width:0}
-#actions{display:flex;gap:10px;align-items:center;justify-content:center;height:52px;width:100%;max-width:1060px;flex:none}
+#hand{display:flex;gap:8px;align-items:flex-end;justify-content:center;width:100%;height:calc(var(--cardHeight) + 16px);flex:none}
+#actions{display:flex;gap:10px;align-items:center;justify-content:center;height:52px;width:100%;flex:none}
 #actions .gap{width:18px}
 .emptyHand{align-self:center;color:var(--faint);font:600 12px var(--mono)}
 
@@ -81,35 +42,35 @@ button{font:inherit;color:inherit}
 .playerCard{--c:var(--ink);position:relative;width:var(--cardWidth);height:var(--cardHeight);border-radius:11px;flex:none;
   background:linear-gradient(160deg,color-mix(in srgb,var(--c) 16%,var(--panel2)),var(--panel) 70%);
   border:2px solid color-mix(in srgb,var(--c) 70%,transparent);box-shadow:0 5px 0 #050608,0 8px 16px rgba(0,0,0,.4);
-  display:flex;flex-direction:column;align-items:center;padding:7px 6px;overflow:hidden;cursor:pointer;transition:transform .1s}
+  display:flex;flex-direction:column;align-items:center;padding:7px 6px;overflow:hidden;transition:transform .1s}
 .playerCard.long{--c:var(--long)} .playerCard.short{--c:var(--short)} .playerCard.leverage{--c:var(--leverage)}
 .playerCard.special{--c:var(--special)} .playerCard.manip{--c:var(--manip)}
 .playerCard .family{font:800 8px var(--mono);letter-spacing:.18em;color:var(--c);align-self:flex-start}
 .playerCard .tier{position:absolute;top:7px;right:8px;font:800 9px var(--mono);color:var(--c)}
 .playerCard .glyph{flex:1;display:grid;place-items:center;width:100%}
 .playerCard .glyph svg{width:52px;height:52px;color:var(--c);filter:drop-shadow(0 0 8px color-mix(in srgb,var(--c) 55%,transparent))}
-.playerCard .big{font:800 31px var(--mono);color:var(--c);text-shadow:0 0 14px color-mix(in srgb,var(--c) 50%,transparent);line-height:1;text-align:center}
-.playerCard .big small{display:block;font-size:12px;opacity:.8;margin-bottom:2px}
-.playerCard .name{font:800 12px var(--mono);letter-spacing:.04em}
-.playerCard .detail{font:500 9.5px var(--mono);color:var(--dim);margin-top:2px;min-height:12px;white-space:nowrap}
+.playerCard .big{font:800 34px var(--mono);color:var(--c);text-shadow:0 0 14px color-mix(in srgb,var(--c) 50%,transparent);line-height:1;text-align:center}
+.playerCard .big small{display:block;font-size:13px;opacity:.8;margin-bottom:3px}
+.playerCard .name{font:800 11.5px var(--mono);letter-spacing:.03em;white-space:nowrap}
+.playerCard .detail{font:500 9px var(--mono);color:var(--dim);margin-top:2px;min-height:12px;white-space:nowrap}
 .playerCard .heatTag{position:absolute;top:18px;right:7px;font:700 9px var(--mono);color:var(--heat)}
 #hand .playerCard{cursor:grab;touch-action:none}
 #hand .playerCard:hover{transform:translateY(-8px)}
+#hand .playerCard.locked{opacity:.38} #hand .playerCard.locked:hover{transform:none}
 #hand .playerCard.dragging{opacity:.2;transform:none}
+#hand .playerCard.fresh{animation:dealt .35s}
+@keyframes dealt{0%{transform:translateY(40px) scale(.8);opacity:0}}
 #hand .handReel{width:calc(var(--cardWidth) + 8px);height:calc(var(--cardHeight) + 16px);align-self:flex-end}
 #hand .handReel .reelStrip{left:4px}
 /* dragging a card: it follows the mouse; above the hand it plays (the play zone lights up) */
-#dragGhost{position:fixed;left:0;top:0;z-index:30;pointer-events:none;display:none;transition:filter .1s}
+#dragGhost{position:fixed;left:0;top:0;z-index:30;pointer-events:none;display:none}
 #dragGhost .playerCard{transform:rotate(-3deg) scale(1.06);box-shadow:0 18px 30px rgba(0,0,0,.6)}
 #dragGhost.ready .playerCard{box-shadow:0 0 0 3px var(--accent),0 0 30px rgba(255,201,77,.45),0 18px 30px rgba(0,0,0,.6)}
-#playZone{position:absolute;left:0;right:0;top:0;display:none;place-items:start center;padding-top:56px;border:2px dashed var(--faint);border-radius:16px;background:rgba(255,201,77,.02);pointer-events:none;z-index:5}
+#playZone{position:absolute;left:12px;right:12px;top:12px;display:none;place-items:start center;padding-top:70px;border:2px dashed var(--faint);border-radius:16px;background:rgba(255,201,77,.02);pointer-events:none;z-index:5}
 #playZone.show{display:grid}
 #playZone.ready{border-color:var(--accent);background:rgba(255,201,77,.06)}
-#playZoneLabel{font:800 18px var(--mono);letter-spacing:.12em;color:var(--dim);background:rgba(13,15,18,.8);padding:8px 16px;border-radius:10px}
+#playZoneLabel{font:800 18px var(--mono);letter-spacing:.12em;color:var(--dim);background:rgba(13,15,18,.85);padding:8px 16px;border-radius:10px;max-width:760px;text-align:center}
 #playZone.ready #playZoneLabel{color:var(--accent)}
-.playerCard.locked{opacity:.38;cursor:default} #hand .playerCard.locked:hover{transform:none}
-.playerCard.fresh{animation:dealt .35s}
-@keyframes dealt{0%{transform:translateY(40px) scale(.8);opacity:0}}
 
 .button{font:800 13px var(--sans);letter-spacing:.06em;border-radius:10px;border:1px solid var(--line);border-bottom-width:3px;background:var(--panel2);padding:12px 18px;cursor:pointer;white-space:nowrap}
 .button:hover{filter:brightness(1.2)} .button:active{transform:translateY(2px);border-bottom-width:1px}
@@ -118,13 +79,15 @@ button{font:inherit;color:inherit}
 .button.suggest{animation:glow 1.4s ease-in-out infinite}
 @keyframes glow{50%{box-shadow:0 0 0 3px rgba(255,201,77,.3),0 0 24px rgba(255,201,77,.35)}}
 
-/* market card chips (the chart's corner, the deck window) */
+/* chips in the chart's corner and the deck window */
 .chip{flex:none;height:28px;min-width:44px;padding:0 8px;border-radius:7px;display:inline-grid;place-items:center;font:700 12px var(--mono);border:1px solid;background:var(--panel2)}
 .chip.move.pos{color:var(--up);border-color:#1f6b43} .chip.move.neg{color:var(--down);border-color:#7a2b2e}
 .chip.vol{color:var(--vol);border-color:#2a4f78}
 .chip.badge{color:var(--accent);border-color:#8a6d22;background:#2a2514}
 .chip.badge.blue{color:var(--vol);border-color:#2a4f78;background:#14202e}
 .chip.badge.orange{color:var(--heat);border-color:#7a4a22;background:#2a1d12}
+.chip.badge.alarm{color:#fff;border-color:var(--down);background:#5a1a1d;animation:alarm .5s ease-in-out infinite alternate}
+@keyframes alarm{to{background:#8a2328}}
 .chip.extreme{box-shadow:0 0 0 2px currentColor inset}
 .chip.fresh{animation:pop .3s}
 @keyframes pop{0%{transform:translateY(-10px) scale(1.35)}}
@@ -138,8 +101,8 @@ button{font:inherit;color:inherit}
 .dialog .huge{font:800 56px var(--mono);margin:6px 0;font-variant-numeric:tabular-nums}
 .dialog .note{color:var(--dim);margin:5px 0;font-family:var(--mono)}
 .menuButtons{display:flex;gap:12px;justify-content:center;margin-top:18px}
-.closedTrades{margin:12px auto 0;font:500 13px var(--mono);font-variant-numeric:tabular-nums;width:340px;text-align:left}
-.closedTrades .line{height:22px}
+.closedTrades{margin:12px auto 0;font:500 13px var(--mono);font-variant-numeric:tabular-nums;width:360px;text-align:left}
+.line{font-size:13px;height:22px;line-height:22px;white-space:nowrap;overflow:hidden;display:flex;justify-content:space-between;gap:8px}
 .dialog.fullScreen{width:calc(100vw - 48px);height:calc(100vh - 48px);display:flex;flex-direction:column;text-align:left}
 .dialogHead{display:flex;align-items:center;gap:16px;margin-bottom:10px}
 .dialogHead h1{margin:0}
@@ -150,6 +113,7 @@ button{font:inherit;color:inherit}
 .cardGrid{display:flex;flex-wrap:wrap;gap:12px}
 .ownedCard{display:flex;flex-direction:column;align-items:center;gap:4px;font:700 12px var(--mono)}
 .ownedCard .sellPrice{color:var(--accent)}
+.ownedCard .playerCard{cursor:pointer}
 .marketGrid{display:flex;flex-wrap:wrap;gap:10px}
 .marketCount{display:flex;flex-direction:column;align-items:center;gap:4px;font:700 13px var(--mono)}
 .marketCount small{color:var(--faint)}
@@ -167,18 +131,14 @@ button{font:inherit;color:inherit}
 .reelPrice{font:800 14px var(--mono);color:var(--accent)} .reelPrice.poor{color:var(--down)}
 .spinRow{display:flex;gap:12px;justify-content:center;margin-top:18px}
 #selectedSentence{height:22px;margin-top:14px;color:var(--ink);font-size:15px;text-align:center}
-#tooltip{position:fixed;z-index:20;pointer-events:none;background:#000;border:1px solid var(--line);border-radius:6px;padding:4px 8px;font:600 12px var(--sans);display:none;max-width:280px}
+#tooltip{position:fixed;z-index:20;pointer-events:none;background:#000;border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:600 12px var(--sans);display:none;max-width:320px;line-height:1.4}
 </style></head>
 <body>
 <div id="app">
-  <aside id="side"></aside>
-  <main id="mainColumn">
-    <div id="chartBox"><canvas id="chart"></canvas><div id="corner"></div><div id="pauseNote">PAUSED</div></div>
-    <div id="table"><div id="openTrades"></div><div id="bench"></div></div>
-    <div id="handRow"><div id="handInfo"></div><div id="hand"></div></div>
-    <div id="actions"></div>
-    <div id="playZone"><span id="playZoneLabel"></span></div>
-  </main>
+  <div id="chartBox"><canvas id="chart"></canvas><div id="corner"></div><div id="hud"></div><div id="pauseNote">PAUSED</div></div>
+  <div id="hand"></div>
+  <div id="actions"></div>
+  <div id="playZone"><span id="playZoneLabel"></span></div>
 </div>
 <div id="overlay"></div>
 <div id="dragGhost"></div>
@@ -186,46 +146,52 @@ button{font:inherit;color:inherit}
 <script id="game">
 "use strict";
 /* INSIDER — a trading roguelike deckbuilder. The stock's price is a deck of cards: every quarter second one card is
-   drawn and moves it. You hold a second deck: your own cards. A trade is a trade card (long or short stock, a call or
-   a put) with leverage cards stacked on it in order (+n, ×n, (L + 1)^n). Special cards double or top up an open trade,
-   pay dividends or pin the price under a ceiling or above a floor; manipulation cards hype, bash, shake or calm the
-   market. The market maker prices options fairly from the market deck, but only learns of a manipulation once it is
-   played: the order you play your cards in is the edge. Every trade is closed at the close. The shop is four slot
-   machine reels. Prices inflate 1% a day, every 10 days the investors want a target, and the run ends when there is
-   no money left to trade.
+   drawn and moves it. You hold a second deck: your own cards, and playing them is the only thing you do. A trade card
+   buys or sells a fixed amount at its price now (BUY STOCK: 1 stock, about $100), and a trade card the other way closes
+   your oldest open trade. Leverage cards multiply the risk and reward of the next trade. Special cards double or top up
+   your newest trade, pay dividends or pin the price under a ceiling or above a floor; manipulation cards hype, bash,
+   shake or calm the market. The market maker prices options fairly from the market deck, but only learns of a
+   manipulation once it is played: the order you play your cards in is the edge. Every trade still open is closed at the
+   close. The shop is four slot machine reels. Prices inflate 1% a day, every 10 days the investors want a target, and
+   the run ends when there is no money left to trade.
 
    File guide (search "§ 1" etc.):
    § 1 SETTINGS        every tunable number, the market deck, your cards, the shop
    § 2 HELPERS         number formatting, seeded random numbers, shuffling
    § 3 MARKET          one tick of the market, the day's schedule, the market maker
-   § 4 YOUR DECK       drawing, redrawing, the leverage chain
-   § 5 TRADES          opening, value, liquidation, closing, double, top-up, dividends
-   § 6 MARKET CARDS    manipulation, ceiling and floor, heat and the SEC
+   § 4 YOUR DECK       drawing, redrawing, the leverage waiting for the next trade
+   § 5 TRADES          what a trade card does, opening, value, liquidation, closing, double, top-up, dividends
+   § 6 PLAYING CARDS   why a card can't be played, playing any card, manipulation, heat and the SEC
    § 7 RUN             days, the close, meetings, the shop reels, saving
    § 8 SOUND           small synthesised effects
-   § 9 CHART           last week, today, your liquidation prices and strikes, ceilings and floors
-   § 10 PANELS         the side menu, open trades, the bench, the hand, the buttons, the chart's corner
+   § 9 CHART           the past week, today, liquidation prices and strikes, ceilings and floors
+   § 10 PANELS         card faces and what they say, the chart's top right, the hand, the buttons, the chart's corner
    § 11 OVERLAYS       title, menu, day result, game over, deck window, shop
-   § 12 INPUT          actions, mouse, tooltips (the game is mouse only)
+   § 12 INPUT          dragging cards, actions, tooltips (the game is mouse only)
    § 13 START          main loop and start-up (only in a browser; tools/ load §1-§7 headless) */
 
 // ═══════════════════════════════════════ § 1 SETTINGS ═══════════════════════════════════════
 const SAVE_KEY = 'insider.save.v1';             // the running game (written every tick, so quitting mid-day resumes there)
-const SAVE_VERSION = 8;                         // saves from other versions are not resumed
+const SAVE_VERSION = 9;                         // saves from other versions are not resumed
 const RECORDS_KEY = 'insider.records.v1';       // best equity and longest run, kept across runs
 const PREFERENCES_KEY = 'insider.preferences.v1'; // sound and speed
 
 // 1.1 The run
-const STARTING_CASH = 1000;
+const STARTING_CASH = 500;                      // so 1 stock (about $100) is a real part of the fund
 const INFLATION_PER_DAY = 0.01;                 // shop prices grow ×(1.01)^(day−1); the stock gains 1% overnight
 const BASE_OPEN_PRICE = 100;                    // the stock opens day 1 at this price (after a week of history)
-const MINIMUM_CASH_TO_TRADE = 10;               // × inflation: below this after the close the run is over
+// Overnight the stock splits 2:1 while it costs more than SPLIT_ABOVE × BASE_OPEN_PRICE × inflation, and reverse splits
+// 1:2 while it costs less than ÷SPLIT_ABOVE of that, so a card's 1 stock always costs about $100 (× inflation).
+const SPLIT_ABOVE = 1.5;
+// The run ends when cash after the close is below BROKE_SHARE of 1 stock at the next open (cheap options can still trade below 1 stock).
+const BROKE_SHARE = 0.25;
 
 // 1.2 The trading day
 const TICKS_PER_DAY = 90;                       // one market card per tick
 const SECONDS_PER_TICK = 0.25;                  // at 1× speed: a day lasts about 22 seconds
 const GAME_SPEEDS = [1, 2, 4];
-const HISTORY_DAYS = 5;                         // the chart shows the previous days
+const HISTORY_DAYS = 7;                         // the chart shows the past week
+const CLOSE_WARNING_TICKS = 16;                 // this many ticks before the close: a warning that open trades will be closed
 
 // 1.3 The market deck. Move cards move the price by move × σ (σ = volatility, 1 at every open); vol cards multiply σ.
 const MARKET_NAME = 'NOVA';
@@ -255,43 +221,51 @@ const VOLATILITY_MINIMUM = 0.1, VOLATILITY_MAXIMUM = 8;
 const BIG_CARD_MOVE = 0.10;                     // moves this big (and vol factors this far from 1) shake the chart
 
 // 1.4 Trading
-const TRADE_FEE = 0.01;                         // the only cost: every trade costs 1% of its stake when it opens
-const SMALLEST_STAKE = 1;                       // no trade with less money in it
 const MINIMUM_OPTION_PRICE = 0.0005;            // the market maker sells no option for less than this share of S
 const MAXIMUM_LEVERAGE = 1e9;
-const SLIDER_STEP_PERCENT = 5;                  // the stake slider (share of cash) moves in these steps
 const FORECAST_PATHS = 800;                     // the market maker plays out the rest of the day this many times, every tick
 
-// 1.5 Your cards. family: long / short (trade cards), leverage, special, manip(ulation). tier 1-3 = rarity and price.
-//   Trades:    stock (P&L per share = S − entry, or entry − S short); options expire at today's close, K = strikeShare × S
-//   Leverage:  applied left to right to L (starting at 1): add L + n, multiply L × n, power (L + 1)^n
-//   Special:   double / topUp act on an open trade; dividends pay at the close; ceiling / floor pin the price for some ticks
+// 1.5 Your cards. family: long (green) / short (red) say which way a card bets, leverage (gold), special (blue),
+// manip(ulation, orange). tier 1-3 = rarity and price.
+//   Trades:    BUY / SELL STOCK (quantity stock at the price now; a card the other way closes your oldest trade),
+//              BUY CALL / PUT (OPTION_QUANTITY options, K = strikeShare × S, they expire at the close),
+//              SELL CALL / PUT (close your oldest call or put)
+//   Leverage:  the next trade's leverage L (starting at 1), in the order played: + n, × n, (L + 1)^n
+//   Special:   double / topUp act on your newest open trade; dividends pay at the close; ceiling / floor pin the price
 //   Manip:     hype / bash push the price, then back; turmoil / calm multiply σ until the close
 const PLAYER_CARDS = {};
 function defineCard(cardId, card) { PLAYER_CARDS[cardId] = card; }
+const STOCK_QUANTITIES = [[1, 1], [3, 2], [10, 3]];                                    // [stock per card, tier]
 const STRIKES = [[1, 'S', 1], [0.75, '3S/4', 1], [0.5, 'S/2', 2], [0.25, 'S/4', 3]];   // [K ÷ S, label, tier]
-defineCard('longStock',  { family: 'long',  kind: 'stock', side: +1, tier: 1, name: 'STOCK', detail: 'S − entry', sentence: 'Long the stock: profit = shares × (S − entry price).' });
-defineCard('shortStock', { family: 'short', kind: 'stock', side: -1, tier: 1, name: 'STOCK', detail: 'entry − S', sentence: 'Short the stock: profit = shares × (entry price − S).' });
+const OPTION_QUANTITY = 5;                      // options per BUY CALL / BUY PUT card
+for (const [quantity, tier] of STOCK_QUANTITIES) {
+  defineCard('buyStock' + quantity, { family: 'long', kind: 'stock', side: +1, quantity, tier, name: 'BUY STOCK', detail: `${quantity} stock`,
+    sentence: `Buy ${quantity} stock at the price now. Holding a short: closes your oldest short instead.` });
+  defineCard('sellStock' + quantity, { family: 'short', kind: 'stock', side: -1, quantity, tier, name: 'SELL STOCK', detail: `${quantity} stock`,
+    sentence: `Holding stock: sells your oldest stock trade. Holding none: shorts ${quantity} stock at the price now.` });
+}
 for (const [share, label, tier] of STRIKES)
-  defineCard('call' + share * 100, { family: 'long', kind: 'call', side: +1, strikeShare: share, tier, name: 'CALL', detail: 'K = ' + label,
-    sentence: `A call that expires at the close, K = ${label} (S = the price now): pay the premium, get max(S − K, 0).` });
+  defineCard('buyCall' + share * 100, { family: 'long', kind: 'call', side: +1, quantity: OPTION_QUANTITY, strikeShare: share, strikeLabel: label, tier,
+    name: 'BUY CALL', detail: 'K = ' + label, sentence: `Buy ${OPTION_QUANTITY} calls, K = ${label} (S = the price now): P&L = max(S − K, 0) × ${OPTION_QUANTITY} − the price. They expire at the close.` });
 for (const [share, label, tier] of STRIKES)
-  defineCard('put' + share * 100, { family: 'short', kind: 'put', side: +1, strikeShare: share, tier, name: 'PUT', detail: 'K = ' + label,
-    sentence: `A put that expires at the close, K = ${label} (S = the price now): pay the premium, get max(K − S, 0).` });
+  defineCard('buyPut' + share * 100, { family: 'short', kind: 'put', side: +1, quantity: OPTION_QUANTITY, strikeShare: share, strikeLabel: label, tier,
+    name: 'BUY PUT', detail: 'K = ' + label, sentence: `Buy ${OPTION_QUANTITY} puts, K = ${label} (S = the price now): P&L = max(K − S, 0) × ${OPTION_QUANTITY} − the price. They expire at the close.` });
+defineCard('sellCall', { family: 'short', closes: 'call', tier: 1, name: 'SELL CALL', detail: 'closes a call', sentence: 'Sells your oldest call trade at its value now.' });
+defineCard('sellPut',  { family: 'long',  closes: 'put',  tier: 1, name: 'SELL PUT',  detail: 'closes a put',  sentence: 'Sells your oldest put trade at its value now.' });
 for (const [amount, tier] of [[1, 1], [4, 2], [9, 3]])
-  defineCard('add' + amount, { family: 'leverage', operation: 'add', amount, tier, name: 'ADD', face: '+' + amount, detail: 'L + ' + amount, sentence: `Leverage L becomes L + ${amount}.` });
+  defineCard('add' + amount, { family: 'leverage', operation: 'add', amount, tier, face: '+' + amount, sentence: `Next trade: leverage + ${amount}.` });
 for (const [amount, tier] of [[2, 1], [5, 2], [10, 3]])
-  defineCard('times' + amount, { family: 'leverage', operation: 'times', amount, tier, name: 'MULTIPLY', face: '×' + amount, detail: 'L × ' + amount, sentence: `Leverage L becomes L × ${amount}.` });
+  defineCard('times' + amount, { family: 'leverage', operation: 'times', amount, tier, face: '×' + amount, sentence: `Next trade: ${amount}× the risk and reward.` });
 for (const [amount, tier] of [[2, 2], [5, 3], [10, 3]])
-  defineCard('power' + amount, { family: 'leverage', operation: 'power', amount, tier, name: 'POWER', face: '^' + amount, smallFace: '+1 &', detail: `(L + 1)^${amount}`, sentence: `Leverage L becomes (L + 1)^${amount}.` });
-defineCard('double', { family: 'special', effect: 'double', target: 'trade', tier: 2, name: 'DOUBLE', face: '2×', detail: 'open trade ×2',
-  sentence: 'Play on an open trade: its position doubles with the same money in it, so its liquidation price comes twice as close.' });
+  defineCard('power' + amount, { family: 'leverage', operation: 'power', amount, tier, face: '^' + amount, smallFace: '+1 &', sentence: `Next trade: leverage L becomes (L + 1)^${amount}.` });
+defineCard('double', { family: 'special', effect: 'double', target: 'trade', tier: 2, name: 'DOUBLE', face: '2×', detail: 'newest trade',
+  sentence: 'Your newest trade: double risk and reward, with the same money in it.' });
 for (const [share, tier] of [[0.5, 1], [1, 2], [2, 3]])
   defineCard('topUp' + tier, { family: 'special', effect: 'topUp', target: 'trade', share, tier, name: 'TOP-UP', glyph: 'topUp', detail: `+${share * 100}% margin`,
-    sentence: `Play on an open trade: put ${share * 100}% of its stake in again, from cash, so its liquidation price moves away.` });
+    sentence: `Your newest trade: put ${share * 100}% of its money in again, so it is liquidated later.` });
 for (const [share, tier] of [[0.01, 1], [0.03, 2], [0.08, 3]])
   defineCard('dividends' + tier, { family: 'special', effect: 'dividends', share, tier, name: 'DIVIDENDS', glyph: 'dividend', detail: `${Math.round(share * 100)}% at the close`,
-    sentence: `At today's close every long stock and call trade is paid ${Math.round(share * 100)}% of its position. A short stock trade pays it.` });
+    sentence: `At today's close your long stock and calls are paid ${Math.round(share * 100)}% of their value. A short pays it.` });
 for (const [ticks, tier] of [[15, 1], [30, 2], [60, 3]])
   defineCard('ceiling' + tier, { family: 'special', effect: 'ceiling', ticks, tier, name: 'CEILING', glyph: 'ceiling', detail: `${ticks} ticks`,
     sentence: `For ${ticks} ticks the price cannot rise above the price now.` });
@@ -306,19 +280,18 @@ for (const [move, tier] of [[-0.10, 1], [-0.20, 2], [-0.35, 3]])
     sentence: `The price falls ${Math.round(-move * 100)}% over the next 10 ticks, then climbs back over the 10 after.` });
 for (const [factor, tier] of [[1.5, 1], [2, 2], [3, 3]])
   defineCard('turmoil' + tier, { family: 'manip', effect: 'volatility', factor, tier, name: 'TURMOIL', glyph: 'turmoil', detail: `σ ×${factor}`,
-    sentence: `σ ×${factor} until the close: every market card moves the price ${factor}× as much.` });
+    sentence: `Until the close every market card moves the price ${factor}× as much.` });
 for (const [factor, tier] of [[0.7, 1], [0.5, 2], [0.25, 3]])
   defineCard('calm' + tier, { family: 'manip', effect: 'volatility', factor, tier, name: 'CALM', glyph: 'calm', detail: `σ ×${factor}`,
-    sentence: `σ ×${factor} until the close: every market card moves the price ${factor}× as much.` });
+    sentence: `Until the close every market card moves the price ${factor}× as much.` });
 const PLAYER_CARD_ORDER = Object.keys(PLAYER_CARDS);
 const HYPE_TICKS = 10;                          // a hype climbs over this many ticks, then falls back over as many
 const HEAT_BY_TIER = [0, 10, 20, 35];           // heat from a manipulation, ceiling or floor card, by tier
 const HEAT_EFFECTS = ['hype', 'volatility', 'ceiling', 'floor'];
 
-const STARTING_DECK = ['longStock', 'longStock', 'longStock', 'shortStock', 'shortStock', 'shortStock', 'call100', 'put100',
-  'add1', 'times2', 'hype1', 'bash1'];
+const STARTING_DECK = ['buyStock1', 'buyStock1', 'buyStock1', 'sellStock1', 'sellStock1', 'sellStock1', 'buyCall100', 'buyPut100',
+  'sellCall', 'sellPut', 'times2', 'hype1', 'bash1'];
 const HAND_SIZE = 6;                            // every morning you draw this many (the rest of the hand is discarded at the close)
-const TRADES_PER_DAY = 3;                       // trade cards played per day
 const REDRAWS_PER_DAY = 2;                      // spin the hand: it is discarded and as many cards are drawn
 
 // 1.6 Heat and the SEC
@@ -332,16 +305,15 @@ const HEAT_AFTER_INVESTIGATION = 50;
 
 // 1.7 Investor meetings: at the close of every 10th day equity must reach STARTING_CASH × inflation × the multiple
 const MEETING_EVERY_DAYS = 10;
-const MEETING_MULTIPLES = [1.2, 2, 5, 20, 100, 800, 1e4, 2e5, 1e7, 1e9];
+const MEETING_MULTIPLES = [1.1, 1.5, 3, 10, 50, 400, 5e3, 1e5, 5e6, 5e8];   // soft at first: the cards trade small fixed amounts
 const MEETING_GROWTH_AFTER_LAST = 30;           // the endless meetings after the last one grow ×30 each
 // The meeting day is a boss day: one of these rules holds all day, and you see which one well in advance.
 const BOSS_RULES = {
-  noShorts:       { face: 'no shorts',          sentence: 'The investors want buyers: no short cards (red) all day.' },
-  noLongs:        { face: 'no longs',           sentence: 'A short sellers\' day: no long cards (green) all day.' },
+  noShorts:       { face: 'no new shorts',      sentence: 'The investors want buyers: red cards cannot open trades all day (closing still works).' },
+  noLongs:        { face: 'no new longs',       sentence: 'A short sellers\' day: green cards cannot open trades all day (closing still works).' },
   bearMarket:     { face: '−0.3% every tick',   sentence: 'A nervous market: every move gets −0.3% all day.' },
   doubleAllDay:   { face: '×2 all day',         sentence: 'A wild market: every card move counts double all day.' },
-  noOptions:      { face: 'no options',         sentence: 'The options desk is closed all day.' },
-  oneTrade:       { face: '1 trade',            sentence: 'The investors keep you busy: only 1 trade card all day.' },
+  noOptions:      { face: 'no options',         sentence: 'The options desk is closed: no BUY CALL or BUY PUT all day.' },
   leverageCap:    { face: 'leverage ≤ 5×',      sentence: 'The broker is careful: no trade above 5× leverage all day.' },
   circuitBreaker: { face: 'moves capped at 5%', sentence: 'Circuit breakers: no move is bigger than 5% all day.' },
 };
@@ -358,19 +330,20 @@ const TIER_ODDS = [0, 70, 25, 5];               // % chance a reel lands on tier
 const TIER_PRICES = [0, 40, 100, 250];
 const SPIN_PRICE = 5, SPIN_PRICE_STEP = 5;      // the first spin of a shop visit costs 5, every next one 5 more
 const SELL_SHARE = 0.5;                         // a card sells for half its price
+const SHOP_RESERVE_STOCKS = 2;                  // the shop keeps the cash for this many stock at the next open
 const MINIMUM_PLAYER_DECK = 8;                  // you cannot sell below this many cards
 
 // 1.9 Look
 const CHART_COLOURS = { up: '#3ddc84', down: '#ff5a5f', average: '#edf1f5', openPrice: '#3a4350', label: '#8592a3', grid: '#1e242d', history: '#6b7686',
   liquidation: '#ff8a3d', pin: '#6cb6ff', accent: '#ffc94d' };
-const CHART_HISTORY_SHARE = 0.32;               // share of the chart's width for the previous days
-const CHART_HISTORY_STEP = 3;                   // draw every 3rd tick of past days
+const CHART_HISTORY_SHARE = 0.5;                // share of the chart's width for the past week
+const CHART_HISTORY_STEP = 2;                   // draw every 2nd tick of past days
 const CARD_WIDTH = 104, CARD_HEIGHT = 146;      // a card in the hand (the CSS reads these)
-const REEL_CARD_STEP = CARD_HEIGHT + 16;        // a card and its margins on a shop reel
+const REEL_CARD_STEP = CARD_HEIGHT + 16;        // a card and its margins on a reel
 const REEL_SPIN_CARDS = 16, REEL_SPIN_SECONDS = 0.9, REEL_STOP_STAGGER = 0.22;
 const HAND_SPIN_STAGGER = 0.12;                 // a redraw spins the hand like reels, stopping left to right this far apart
 const DRAG_THRESHOLD = 8;                       // pixels: less than this is a click (the card is picked up and follows the mouse)
-const EQUITY_FLASH_CHANGE = 0.002;              // the equity number flashes when it moves more than 0.2% …
+const EQUITY_FLASH_CHANGE = 0.002;              // the P&L flashes when equity moves more than 0.2% …
 const POPUP_CHANGE = 0.01;                      // … and a +$ / −$ popup appears over the chart above 1%
 const POPUP_SECONDS = 1.2;                      // popups over the chart fade in this time
 const POPUPS_SHOWN = 3;                         // at most this many at once, stacked
@@ -395,6 +368,12 @@ function formatLeverage(leverage) {
   if (leverage < 100) return String(Math.round(leverage * 100) / 100);
   if (leverage < 1e6) return Math.round(leverage).toLocaleString('en-US');
   return leverage.toExponential(1).replace('e+', 'e');
+}
+function formatCount(count) { return count < 1e6 ? formatLeverage(count) : count.toExponential(1).replace('e+', 'e'); }
+function formatPlain(price) {
+  if (price < 10) return price.toFixed(2);
+  if (price < 1000) return price.toFixed(price < 100 ? 1 : 0);
+  return formatMoney(price).replace('$', '');
 }
 
 // Seeded random numbers: the same seed gives the same numbers, so a shuffle is the same after a reload.
@@ -424,7 +403,7 @@ function clamp(value, low, high) { return Math.max(low, Math.min(high, value)); 
 function inflationIndex(day) { return Math.pow(1 + INFLATION_PER_DAY, day - 1); }
 
 // ═══════════════════════════════════════ § 3 MARKET ═══════════════════════════════════════
-// ── 3.1 Market cards: their chip text and sentence, deck sizes, the deck as a list
+// ── 3.1 Market cards: their chip text and sentence, the deck as a list
 function marketCardText(cardId) {
   const card = MARKET_CARDS[cardId];
   if (card.category === 'move') return (card.move > 0 ? '+' : '−') + Math.abs(card.move * 100) + '%';
@@ -545,11 +524,9 @@ function averagePayoff(closes, type, strikePrice) {
 }
 
 // ═══════════════════════════════════════ § 4 YOUR DECK ═══════════════════════════════════════
-// run.deck lists every card you own. Each is in exactly one place: run.drawPile, run.hand, run.discardPile or
-// today.bench (a trade being built). Played cards go to the discard pile, and so does the rest of the hand at the
-// close; the discard pile is shuffled into a new draw pile when the draw pile is empty.
-function isTradeCard(cardId) { return !!PLAYER_CARDS[cardId].kind; }
-function isOption(cardId) { const kind = PLAYER_CARDS[cardId].kind; return kind === 'call' || kind === 'put'; }
+// run.deck lists every card you own. Each is in exactly one place: run.drawPile, run.hand or run.discardPile. Played
+// cards go to the discard pile, and so does the rest of the hand at the close; the discard pile is shuffled into a new
+// draw pile when the draw pile is empty.
 function cardHeat(cardId) { const card = PLAYER_CARDS[cardId]; return HEAT_EFFECTS.includes(card.effect) ? HEAT_BY_TIER[card.tier] : 0; }
 
 function drawPlayerCards(run, count) {
@@ -565,10 +542,8 @@ function drawPlayerCards(run, count) {
 }
 // Redraw (a spin of the hand, like the shop's reels): the whole hand goes to the discard pile and as many are drawn.
 function redrawBlockedReason(run) {
-  const today = run.today;
   if (!marketOpen(run)) return 'The market is closed';
-  if (today.redrawsLeft <= 0) return 'No redraws left today';
-  if (benchBusy(today)) return 'Finish the trade on the bench first';
+  if (run.today.redrawsLeft <= 0) return 'No redraws left today';
   return run.hand.length ? null : 'No cards in hand';
 }
 function redrawHand(run) {
@@ -581,8 +556,8 @@ function redrawHand(run) {
   return true;
 }
 
-// The leverage chain of a trade being built: L starts at 1 and each card changes it in turn.
-// Returns { steps: [{ cardId, leverage }], leverage } with the cap of a boss day or an investigation applied at the end.
+// The leverage waiting for the next trade: today.pendingLeverage lists the leverage cards played since the last trade.
+// L starts at 1 and each card changes it in turn; the cap of a boss day or an investigation applies at the end.
 function applyLeverageCard(leverage, cardId) {
   const card = PLAYER_CARDS[cardId];
   if (card.operation === 'add') return leverage + card.amount;
@@ -593,18 +568,18 @@ function leverageCap(run) {
   if (run.today.investigation) return 1;
   return run.today.bossRule === 'leverageCap' ? BOSS_LEVERAGE_CAP : MAXIMUM_LEVERAGE;
 }
-function leverageChain(run, leverageCards) {
-  const steps = [];
+function leverageOf(run, leverageCards) {
   let leverage = 1;
-  for (const cardId of leverageCards) { leverage = Math.min(MAXIMUM_LEVERAGE, applyLeverageCard(leverage, cardId)); steps.push({ cardId, leverage }); }
-  return { steps, leverage: Math.min(leverage, leverageCap(run)) };
+  for (const cardId of leverageCards) leverage = Math.min(MAXIMUM_LEVERAGE, applyLeverageCard(leverage, cardId));
+  return Math.min(leverage, leverageCap(run));
 }
+function pendingLeverage(run) { return leverageOf(run, run.today.pendingLeverage); }
 
 // ═══════════════════════════════════════ § 5 TRADES ═══════════════════════════════════════
-// A trade: { number, cardId, leverageCards, kind: 'stock' | 'call' | 'put', side (+1 long, −1 short stock; options
-// are always bought), strikePrice, quantity (shares or options), referenceUnitPrice, margin, cashIn, leverageAtOpen }.
-// The trade is worth margin + side × quantity × (unit price now − referenceUnitPrice): the money in it plus what it
-// made. When that reaches 0 it is liquidated: the money in it is gone, never more (the broker takes a gap).
+// A trade: { number, cardId, kind: 'stock' | 'call' | 'put', side (+1 long, −1 short stock; options are always bought),
+// strikePrice, quantity (stock or options), referenceUnitPrice, margin, cashIn, leverageAtOpen }.
+// It is worth margin + side × quantity × (unit price now − referenceUnitPrice): the money in it plus what it made.
+// When that reaches 0 it is liquidated: the money in it is gone, never more (the broker takes a gap).
 // Double and top-up reset the reference: margin = the trade's value then, reference = the unit price then.
 function currentPrice(today) { return today.schedule.states[today.tick].price; }
 function marketNow(today) { return today.schedule.states[today.tick]; }
@@ -617,9 +592,41 @@ function optionUnitValue(today, type, strikePrice) {
   return Math.max(exerciseNow, averagePayoff(today.closeForecast, type, strikePrice));
 }
 function optionBuyPrice(today, type, strikePrice) { return Math.max(optionUnitValue(today, type, strikePrice), currentPrice(today) * MINIMUM_OPTION_PRICE); }
-function strikeFor(today, cardId) { return PLAYER_CARDS[cardId].strikeShare * currentPrice(today); }
 
-// ── 5.2 Value
+// ── 5.2 What a trade card does now: { closes: trade index } when it closes your oldest trade the other way, or the
+// trade it would open: { unitPrice, strikePrice, cost, leverage, quantity, liquidationPrice }.
+function oldestTradeIndex(run, test) { return run.today.trades.findIndex(test); }
+function tradeCardOutcome(run, cardId) {
+  const today = run.today, card = PLAYER_CARDS[cardId];
+  if (card.closes) {
+    const index = oldestTradeIndex(run, trade => trade.kind === card.closes);
+    return index >= 0 ? { closes: index } : { closes: null };
+  }
+  if (card.kind === 'stock') {
+    const index = oldestTradeIndex(run, trade => trade.kind === 'stock' && trade.side === -card.side);
+    if (index >= 0) return { closes: index };
+  }
+  const leverage = pendingLeverage(run);
+  const strikePrice = card.kind === 'stock' ? null : card.strikeShare * currentPrice(today);
+  const unitPrice = card.kind === 'stock' ? currentPrice(today) : optionBuyPrice(today, card.kind, strikePrice);
+  const cost = card.quantity * unitPrice;
+  return { unitPrice, strikePrice, cost, leverage, quantity: card.quantity * leverage,
+    liquidationPrice: card.kind === 'stock' && leverage > 1 ? unitPrice * (1 - card.side / leverage) : null };
+}
+// A trade card that opens: pay its cost, use the leverage waiting.
+function openTrade(run, cardId) {
+  const today = run.today, card = PLAYER_CARDS[cardId], outcome = tradeCardOutcome(run, cardId);
+  run.cash -= outcome.cost;
+  const trade = {
+    number: today.nextTradeNumber++, cardId, kind: card.kind, side: card.kind === 'stock' ? card.side : 1, strikePrice: outcome.strikePrice,
+    quantity: outcome.quantity, referenceUnitPrice: outcome.unitPrice, margin: outcome.cost, cashIn: outcome.cost, leverageAtOpen: outcome.leverage,
+  };
+  today.trades.push(trade);
+  today.pendingLeverage = [];
+  return trade;
+}
+
+// ── 5.3 Value
 function unitPriceNow(run, trade) { return trade.kind === 'stock' ? currentPrice(run.today) : optionUnitValue(run.today, trade.kind, trade.strikePrice); }
 function rawTradeValue(run, trade) { return trade.margin + trade.side * trade.quantity * (unitPriceNow(run, trade) - trade.referenceUnitPrice); }
 function tradeValue(run, trade) { return Math.max(0, rawTradeValue(run, trade)); }
@@ -635,63 +642,20 @@ function totalEquity(run) {
   if (!run.today) return run.cash;
   return run.cash + run.today.trades.reduce((total, trade) => total + tradeValue(run, trade), 0);
 }
-function benchBusy(today) { return !!today.bench.tradeCard; }
+function newestTrade(run) { return run.today.trades[run.today.trades.length - 1] || null; }
 
-// ── 5.3 Opening the trade on the bench. stakeShare = the share of cash (0..1) put in, the fee on top.
-// Returns everything the bench shows; .reason says why it cannot open.
-function benchPreview(run, stakeShare) {
-  const today = run.today, bench = today.bench, tradeCardId = bench.tradeCard;
-  if (!tradeCardId) return { reason: 'No trade card' };
-  const card = PLAYER_CARDS[tradeCardId], chain = leverageChain(run, bench.leverageCards);
-  const stake = Math.max(0, stakeShare * run.cash / (1 + TRADE_FEE)), fee = stake * TRADE_FEE;
-  const strikePrice = card.kind === 'stock' ? null : strikeFor(today, tradeCardId);
-  const unitPrice = card.kind === 'stock' ? currentPrice(today) : optionBuyPrice(today, card.kind, strikePrice);
-  const quantity = stake * chain.leverage / unitPrice;
-  const preview = { tradeCardId, card, chain, stake, fee, strikePrice, unitPrice, quantity, position: stake * chain.leverage };
-  preview.liquidationPrice = card.kind === 'stock' && chain.leverage > 1 ? unitPrice * (1 - card.side / chain.leverage) : null;
-  preview.reason = today.tick >= TICKS_PER_DAY ? 'The market is closed' : stake < SMALLEST_STAKE ? 'No cash to trade' : null;
-  return preview;
-}
-function openBenchTrade(run, stakeShare) {
-  const today = run.today, preview = benchPreview(run, stakeShare);
-  if (preview.reason) return preview.reason;
-  run.cash -= preview.stake + preview.fee;
-  const trade = {
-    number: today.nextTradeNumber++, cardId: preview.tradeCardId, leverageCards: today.bench.leverageCards.slice(),
-    kind: preview.card.kind, side: preview.card.kind === 'stock' ? preview.card.side : 1, strikePrice: preview.strikePrice,
-    quantity: preview.quantity, referenceUnitPrice: preview.unitPrice, margin: preview.stake, cashIn: preview.stake + preview.fee,
-    leverageAtOpen: preview.chain.leverage,
-  };
-  today.trades.push(trade);
-  run.discardPile.push(trade.cardId, ...trade.leverageCards);
-  today.bench = { tradeCard: null, leverageCards: [] };
-  today.tradesLeft--;
-  return trade;
-}
-// Taking the bench apart: its cards go back to the hand.
-function clearBench(run) {
-  const bench = run.today.bench;
-  if (bench.tradeCard) run.hand.push(bench.tradeCard, ...bench.leverageCards);
-  run.today.bench = { tradeCard: null, leverageCards: [] };
-}
-function returnBenchCard(run, benchPosition) {
-  const bench = run.today.bench;
-  if (benchPosition === 0) { clearBench(run); return; }
-  run.hand.push(...bench.leverageCards.splice(benchPosition - 1, 1));
-}
-
-// ── 5.4 Closing. reason: 'closed' (by you), 'liquidated', 'the close'.
-function closeTrade(run, tradeIndex, reason = 'closed') {
+// ── 5.4 Closing. reason: 'sold' (by a card), 'liquidated', 'the close'.
+function closeTrade(run, tradeIndex, reason) {
   const today = run.today, trade = today.trades[tradeIndex];
   if (!trade) return null;
   const value = tradeValue(run, trade);
   run.cash += value;
   today.trades.splice(tradeIndex, 1);
-  const closed = { cardId: trade.cardId, leverage: trade.leverageAtOpen, strikePrice: trade.strikePrice, profit: value - trade.cashIn, reason };
+  const closed = { number: trade.number, cardId: trade.cardId, leverage: trade.leverageAtOpen, profit: value - trade.cashIn, reason };
   today.closedTrades.push(closed);
   return closed;
 }
-function closeAllTrades(run, reason = 'closed') {
+function closeAllTrades(run, reason) {
   for (let index = run.today.trades.length - 1; index >= 0; index--) closeTrade(run, index, reason);
 }
 // Every tick: trades worth nothing are liquidated. Returns how many.
@@ -702,16 +666,15 @@ function liquidateTrades(run) {
   return count;
 }
 
-// ── 5.5 Cards that act on an open trade
+// ── 5.5 Cards that act on your newest trade
 function rebaseTrade(run, trade) { trade.margin = tradeValue(run, trade); trade.referenceUnitPrice = unitPriceNow(run, trade); }
 function doubleTrade(run, trade) { rebaseTrade(run, trade); trade.quantity *= 2; }
+function topUpCost(run, trade, share) { return Math.min(run.cash, share * trade.cashIn); }
 function topUpTrade(run, trade, share) {
-  const extra = Math.min(run.cash, share * trade.cashIn);
-  if (extra <= 0) return 0;
+  const extra = topUpCost(run, trade, share);
   run.cash -= extra;
   trade.margin += extra;
   trade.cashIn += extra;
-  return extra;
 }
 // At the close, before the trades close: dividends are paid into each trade (a short stock trade pays them).
 function payDividends(run) {
@@ -727,43 +690,54 @@ function payDividends(run) {
   return total;
 }
 
-// ═══════════════════════════════════════ § 6 MARKET CARDS & HEAT ═══════════════════════════════════════
+// ═══════════════════════════════════════ § 6 PLAYING CARDS ═══════════════════════════════════════
 // ── 6.1 Why a card in the hand cannot be played now, or null.
 function marketOpen(run) { return (run.phase === 'preopen' || run.phase === 'trading') && run.today.tick < TICKS_PER_DAY; }
+function isTradeCard(cardId) { const card = PLAYER_CARDS[cardId]; return !!(card.kind || card.closes); }
 function cardBlockedReason(run, cardId) {
   const today = run.today, card = PLAYER_CARDS[cardId];
   if (!marketOpen(run)) return 'The market is closed';
   if (isTradeCard(cardId)) {
-    if (benchBusy(today)) return 'Finish the trade on the bench first';
-    if (today.tradesLeft <= 0) return 'No trades left today';
-    if (today.bossRule === 'noOptions' && isOption(cardId)) return 'No options today';
-    if (today.bossRule === 'noLongs' && card.family === 'long') return 'No longs today';
-    if (today.bossRule === 'noShorts' && card.family === 'short') return 'No shorts today';
-    if (run.cash < SMALLEST_STAKE * (1 + TRADE_FEE)) return 'No cash to trade';
-    return null;
+    const outcome = tradeCardOutcome(run, cardId);
+    if (outcome.closes !== undefined) return outcome.closes === null ? `No ${card.closes} to sell` : null;
+    if (today.bossRule === 'noOptions' && card.kind !== 'stock') return 'No options today';
+    if (today.bossRule === 'noLongs' && card.family === 'long') return 'No new longs today';
+    if (today.bossRule === 'noShorts' && card.family === 'short') return 'No new shorts today';
+    return outcome.cost > run.cash ? `Costs ${formatMoney(outcome.cost)}, you have ${formatMoney(run.cash)}` : null;
   }
-  if (card.family === 'leverage') {
-    if (today.investigation) return 'No leverage during an investigation';
-    return benchBusy(today) ? null : 'Put a trade card on the bench first';
-  }
-  if (benchBusy(today)) return 'Finish the trade on the bench first';
+  if (card.family === 'leverage') return today.investigation ? 'No leverage during an investigation' : null;
   if (cardHeat(cardId) > 0 && today.investigation) return 'Not during an investigation';
-  if (card.target === 'trade' && today.trades.length === 0) return 'No open trade';
+  if (card.target === 'trade' && !newestTrade(run)) return 'No open trade';
   if (card.effect === 'topUp' && run.cash <= 0) return 'No cash';
   return null;
 }
 
-// ── 6.2 Playing a card from the hand that acts on the market (or on the day). Returns a short line, or { error }.
-function playMarketCard(run, handIndex) {
+// ── 6.2 Playing a card from the hand. Returns { line, kind: 'trade' | 'sold' | 'leverage' | 'market' } or { error }.
+function playCard(run, handIndex) {
   const cardId = run.hand[handIndex], card = PLAYER_CARDS[cardId];
-  const blocked = cardBlockedReason(run, cardId);
+  const blocked = cardId ? cardBlockedReason(run, cardId) : 'No such card';
   if (blocked) return { error: blocked };
-  if (card.effect === 'dividends') run.today.dividendShare += card.share;
-  else changeMarket(run, market => MARKET_CARD_EFFECTS[card.effect](market, card));
   run.hand.splice(handIndex, 1);
   run.discardPile.push(cardId);
   run.heat += cardHeat(cardId);
-  return `${card.name} ${card.detail}`;
+  if (isTradeCard(cardId)) {
+    const outcome = tradeCardOutcome(run, cardId);
+    if (outcome.closes !== undefined) {
+      const closed = closeTrade(run, outcome.closes, 'sold');
+      return { kind: 'sold', line: `#${closed.number} closed ${formatSignedMoney(closed.profit)}`, profit: closed.profit };
+    }
+    const trade = openTrade(run, cardId);
+    return { kind: 'trade', line: `#${trade.number} ${card.name}${trade.leverageAtOpen > 1 ? ' ×' + formatLeverage(trade.leverageAtOpen) : ''}` };
+  }
+  if (card.family === 'leverage') {
+    run.today.pendingLeverage.push(cardId);
+    return { kind: 'leverage', line: `next trade ×${formatLeverage(pendingLeverage(run))}` };
+  }
+  if (card.effect === 'double') { const trade = newestTrade(run); doubleTrade(run, trade); return { kind: 'trade', line: `#${trade.number} DOUBLED` }; }
+  if (card.effect === 'topUp') { const trade = newestTrade(run); topUpTrade(run, trade, card.share); return { kind: 'trade', line: `#${trade.number} TOPPED UP` }; }
+  if (card.effect === 'dividends') run.today.dividendShare += card.share;
+  else changeMarket(run, market => MARKET_CARD_EFFECTS[card.effect](market, card));
+  return { kind: 'market', line: `${card.name} ${card.detail}` };
 }
 const MARKET_CARD_EFFECTS = {
   hype(market, card) { market.pendingPushes = addPushes(market.pendingPushes, card.move); },
@@ -776,17 +750,6 @@ function addPushes(pendingPushes, move) {
   const step = Math.log(1 + move) / HYPE_TICKS, pushes = pendingPushes.slice();
   for (let tick = 0; tick < 2 * HYPE_TICKS; tick++) pushes[tick] = (pushes[tick] || 0) + (tick < HYPE_TICKS ? step : -step);
   return pushes;
-}
-// Play a card on an open trade (double, top-up).
-function playTradeCard(run, handIndex, tradeIndex) {
-  const cardId = run.hand[handIndex], card = PLAYER_CARDS[cardId], trade = run.today.trades[tradeIndex];
-  const blocked = cardBlockedReason(run, cardId) || (trade ? null : 'No such trade');
-  if (blocked) return { error: blocked };
-  if (card.effect === 'double') doubleTrade(run, trade);
-  else if (topUpTrade(run, trade, card.share) <= 0) return { error: 'No cash' };
-  run.hand.splice(handIndex, 1);
-  run.discardPile.push(cardId);
-  return `${card.name} #${trade.number}`;
 }
 // Changing the market mid-day: change a copy of the state now, then deal the rest of the day again (the reshuffles
 // get a new seed each time, so nothing can be replayed) and let the market maker see it.
@@ -839,7 +802,7 @@ function bossRuleOn(run, day) {
   const ruleIds = Object.keys(BOSS_RULES);
   return ruleIds[mixSeed(run.seed, day / MEETING_EVERY_DAYS, 13) % ruleIds.length];
 }
-// The stock starts with a few days of history already played, scaled so that day 1 opens at BASE_OPEN_PRICE.
+// The stock starts with a week of history already played, scaled so that day 1 opens at BASE_OPEN_PRICE.
 function createMarket(run) {
   const deck = { ...MARKET_DECK }, random = makeRandom(mixSeed(run.seed, 99));
   let drawPile = shuffleInPlace(deckToCardList(deck), random), price = 1;
@@ -854,14 +817,13 @@ function createMarket(run) {
   for (const day of history) day.prices = day.prices.map(value => value * scale);
   run.market = { deck, drawPile, history, lastClose: history[history.length - 1].prices[TICKS_PER_DAY] };
 }
-// Fix today's schedule, draw up to a full hand.
+// Fix today's schedule, draw a hand.
 function prepareDay(run) {
   const bossRule = bossRuleOn(run, run.day);
   const open = freshMarketState(nextOpenPrice(run.market.lastClose), bossRule);
   run.today = {
     tick: 0, schedule: scheduleDay(run.market.drawPile, run.market.deck, open, makeRandom(mixSeed(run.seed, run.day, 0))),
-    trades: [], closedTrades: [], nextTradeNumber: 1, bench: { tradeCard: null, leverageCards: [] },
-    tradesLeft: bossRule === 'oneTrade' ? 1 : TRADES_PER_DAY, redrawsLeft: REDRAWS_PER_DAY, dividendShare: 0,
+    trades: [], closedTrades: [], nextTradeNumber: 1, pendingLeverage: [], redrawsLeft: REDRAWS_PER_DAY, dividendShare: 0,
     bossRule, investigation: run.investigationDaysLeft > 0, marketChanges: 0,
     startEquity: run.cash, tickClock: 0, closeForecast: null,
   };
@@ -878,6 +840,7 @@ function refreshForecast(run) {
     TICKS_PER_DAY - today.tick, FORECAST_PATHS, random);
 }
 function openTheMarket(run) { if (run.phase === 'preopen') run.phase = 'trading'; }
+function ticksLeft(run) { return TICKS_PER_DAY - run.today.tick; }
 
 // One tick of the live day. Returns what happened so the screen can react.
 function advanceTick(run) {
@@ -885,7 +848,8 @@ function advanceTick(run) {
   today.tick++;
   refreshForecast(run);
   const liquidated = liquidateTrades(run);
-  return { cards: today.schedule.cards[today.tick], liquidated, closed: today.tick >= TICKS_PER_DAY };
+  return { cards: today.schedule.cards[today.tick], liquidated, closed: today.tick >= TICKS_PER_DAY,
+    closeWarning: ticksLeft(run) === CLOSE_WARNING_TICKS && today.trades.length > 0 };
 }
 
 // Meeting n is held at the close of day n × MEETING_EVERY_DAYS.
@@ -895,7 +859,11 @@ function meetingTarget(run, meetingNumber) {
   const extra = Math.pow(MEETING_GROWTH_AFTER_LAST, Math.max(0, meetingNumber - MEETING_MULTIPLES.length));
   return STARTING_CASH * inflationIndex(day) * listed * extra;
 }
-function nextMeetingNumber(run) { return Math.ceil(run.day / MEETING_EVERY_DAYS); }
+// The next meeting from a day on: { number, day, target, rule }.
+function nextMeeting(run, fromDay = run.day) {
+  const number = Math.ceil(fromDay / MEETING_EVERY_DAYS), day = number * MEETING_EVERY_DAYS;
+  return { number, day, target: meetingTarget(run, number), rule: bossRuleOn(run, day) };
+}
 function holdMeeting(run, equity) {
   if (run.day % MEETING_EVERY_DAYS !== 0) return null;
   const number = run.day / MEETING_EVERY_DAYS, target = meetingTarget(run, number);
@@ -904,11 +872,10 @@ function holdMeeting(run, equity) {
   return meeting;
 }
 
-// The close: dividends, every trade closed, the market moves on, heat, the meeting, and the end of the run if there
-// is no money left or the meeting failed.
+// The close: dividends, every trade still open closed, the hand discarded, the market moves on, heat, the meeting,
+// and the end of the run if there is no money left or the meeting failed.
 function closeDay(run) {
   const today = run.today;
-  clearBench(run);
   run.discardPile.push(...run.hand);
   run.hand = [];
   const dividends = payDividends(run);
@@ -918,20 +885,33 @@ function closeDay(run) {
   market.history.push({ day: run.day, prices: today.schedule.states.map(state => state.price) });
   market.history = market.history.slice(-HISTORY_DAYS);
   market.lastClose = currentPrice(today);
+  const split = splitStock(run);
 
   const endEquity = run.cash, dayReturn = (endEquity - today.startEquity) / Math.max(1e-9, today.startEquity);
   const heatBefore = run.heat;
   const investigationNote = updateHeat(run, dayReturn);
   const meeting = holdMeeting(run, endEquity);
   run.peakEquity = Math.max(run.peakEquity, endEquity);
-  if (endEquity < MINIMUM_CASH_TO_TRADE * inflationIndex(run.day + 1)) run.gameOverReason = 'broke';
+  if (endEquity < BROKE_SHARE * nextOpenPrice(market.lastClose)) run.gameOverReason = 'broke';
   else if (meeting && !meeting.passed) run.gameOverReason = 'meeting';
   run.lastResult = {
     day: run.day, openPrice: today.schedule.states[0].price, closePrice: market.lastClose, startEquity: today.startEquity, endEquity,
-    dayReturn, dividends, closedTrades: today.closedTrades, heatAdded: run.heat - heatBefore, investigationNote, meeting,
+    dayReturn, dividends, split, closedTrades: today.closedTrades, heatAdded: run.heat - heatBefore, investigationNote, meeting,
   };
   run.phase = 'result';
   return run.lastResult;
+}
+// Overnight (no trade is open then): split or reverse split until the stock costs about BASE_OPEN_PRICE × inflation.
+// Returns the factor the price was multiplied by (½ for a 2:1 split, 2 for a reverse split, 1 for none).
+function splitStock(run) {
+  const market = run.market, normalPrice = BASE_OPEN_PRICE * inflationIndex(run.day + 1);
+  let factor = 1;
+  while (market.lastClose * factor > SPLIT_ABOVE * normalPrice) factor /= 2;
+  while (market.lastClose * factor < normalPrice / SPLIT_ABOVE) factor *= 2;
+  if (factor === 1) return 1;
+  market.lastClose *= factor;
+  for (const day of market.history) day.prices = day.prices.map(price => price * factor);
+  return factor;
 }
 function startNextDay(run) {
   run.day++;
@@ -943,6 +923,9 @@ function startNextDay(run) {
 // ── 7.1 The shop: four reels. run.shop = { reels: [cardId × 4], sold: [bool × 4], spins }. Each reel lands on a tier
 // (TIER_ODDS), then on one of its cards of that tier (or of a lower tier when it holds none).
 function cardPrice(run, cardId) { return TIER_PRICES[PLAYER_CARDS[cardId].tier] * inflationIndex(run.day); }
+// The shop never spends the cash for SHOP_RESERVE_STOCKS stock at the next open.
+function shopReserve(run) { return SHOP_RESERVE_STOCKS * nextOpenPrice(run.market.lastClose); }
+function canSpend(run, price) { return run.cash - price >= shopReserve(run); }
 function cardSellPrice(run, cardId) { return cardPrice(run, cardId) * SELL_SHARE; }
 function spinPrice(run) { return (SPIN_PRICE + SPIN_PRICE_STEP * run.shop.spins) * inflationIndex(run.day); }
 function reelPool(reelIndex) { return PLAYER_CARD_ORDER.filter(cardId => SHOP_REELS[reelIndex].holds(PLAYER_CARDS[cardId])); }
@@ -964,7 +947,7 @@ function openShop(run) {
 }
 function spinReels(run) {
   const price = spinPrice(run);
-  if (run.cash < price) return false;
+  if (!canSpend(run, price)) return false;
   run.cash -= price;
   run.shop.spins++;
   rollReels(run);
@@ -973,7 +956,7 @@ function spinReels(run) {
 // A bought card is shuffled into the draw pile.
 function buyReelCard(run, reelIndex) {
   const cardId = run.shop.reels[reelIndex];
-  if (!cardId || run.shop.sold[reelIndex] || run.cash < cardPrice(run, cardId)) return false;
+  if (!cardId || run.shop.sold[reelIndex] || !canSpend(run, cardPrice(run, cardId))) return false;
   run.cash -= cardPrice(run, cardId);
   run.shop.sold[reelIndex] = true;
   run.deck.push(cardId);
@@ -1029,6 +1012,7 @@ const sounds = {
   trade() { playTone(880, 0.09, { volume: 0.05, type: 'square' }); playTone(1320, 0.1, { volume: 0.035, delay: 0.05 }); },
   manipulation() { playTone(300, 0.3, { volume: 0.05, slideTo: 900, type: 'sawtooth' }); },
   bad() { playTone(220, 0.4, { volume: 0.07, slideTo: 90, type: 'sawtooth' }); },
+  warning() { [880, 660, 880, 660].forEach((frequency, index) => playTone(frequency, 0.1, { volume: 0.04, type: 'square', delay: index * 0.12 })); },
   cash(gained) { (gained ? [523, 659, 784, 1047] : [392, 330, 262]).forEach((frequency, index) => playTone(frequency, 0.14, { volume: 0.05, delay: index * 0.08 })); },
   buy() { playTone(980, 0.1, { volume: 0.04 }); playTone(1470, 0.12, { volume: 0.03, delay: 0.06 }); },
   reelTick() { playTone(1100, 0.025, { volume: 0.015, type: 'square' }); },
@@ -1040,10 +1024,9 @@ const sounds = {
 // Everything the screen keeps that is not part of the saved run.
 const view = {
   run: null, speedIndex: 0, paused: false, overlay: null,
-  popups: [], lastEquity: null, freshTick: -1, freshHand: 0,     // chart popups, equity flash, newest chip, newest hand cards
-  stakePercent: 100,                                              // the bench's stake slider (share of cash)
-  drag: null,                                                     // the card being dragged or carried (§ 12.2)
-  handSpin: null,                                                 // { previousHand } while a redraw spins the hand
+  popups: [], lastEquity: null, freshTick: -1, freshHand: 0,     // chart popups, P&L flash, newest chip, newest hand cards
+  drag: null,                                                     // the card being dragged or carried (§ 12.1)
+  handSpin: false,                                                // a redraw is spinning the hand
   deckSelling: false,                                             // the deck window sells cards (opened from the shop)
 };
 const element = id => document.getElementById(id);
@@ -1060,8 +1043,8 @@ function fitCanvas(canvas) {
   return { context, width: bounds.width, height: bounds.height };
 }
 
-// The chart, left to right: the previous days (thin) and today (live). Lines mark each stock trade's liquidation
-// price, each option's strike, the trade on the bench, and a ceiling or floor for as long as it holds.
+// The chart, left to right: the past week (thin) and today (live). Lines mark each stock trade's liquidation price
+// and each option's strike, and a ceiling or floor for as long as it holds.
 function drawChart() {
   const { context, width, height } = fitCanvas(element('chart'));
   context.clearRect(0, 0, width, height);
@@ -1078,7 +1061,7 @@ function drawChart() {
 function chartLayout(run, context, width, height) {
   const today = run.today, states = today.schedule.states;
   const history = run.market.history;
-  const left = 20, right = width - 90, top = 44, bottom = height - 22;
+  const left = 20, right = width - 96, top = 64, bottom = height - 26;
   const historyEnd = left + (right - left) * CHART_HISTORY_SHARE;
   const prices = history.flatMap(day => day.prices).concat(states.slice(0, today.tick + 1).map(state => state.price), chartLevels(run));
   let low = Math.min(...prices), high = Math.max(...prices);
@@ -1093,25 +1076,18 @@ function chartLayout(run, context, width, height) {
     yOfPrice: price => bottom - (bottom - top) * (Math.log(Math.max(price, 1e-12)) - logLow) / (logHigh - logLow),
   };
 }
-// Price levels the chart keeps in view: liquidation prices close to the price, strikes, the bench's liquidation.
+// Price levels the chart keeps in view: liquidation prices and strikes not too far from the price.
 function chartLevels(run) {
-  const levels = [], price = currentPrice(run.today);
-  const near = level => level > price / 3 && level < price * 3;
-  for (const level of tradeLevels(run)) if (near(level.price)) levels.push(level.price);
-  return levels;
+  const price = currentPrice(run.today);
+  return tradeLevels(run).map(level => level.price).filter(level => level > price / 3 && level < price * 3);
 }
 // Every horizontal line for your trades: { price, colour, label }.
 function tradeLevels(run) {
-  const today = run.today, levels = [];
-  for (const trade of today.trades) {
+  const levels = [];
+  for (const trade of run.today.trades) {
     if (trade.kind === 'stock' && tradeLeverageNow(run, trade) > 1.0001)
       levels.push({ price: liquidationPrice(trade), colour: CHART_COLOURS.liquidation, label: `#${trade.number} liq` });
     if (trade.kind !== 'stock') levels.push({ price: trade.strikePrice, colour: trade.kind === 'call' ? CHART_COLOURS.up : CHART_COLOURS.down, label: `#${trade.number} K` });
-  }
-  if (benchBusy(today)) {
-    const preview = benchPreview(run, view.stakePercent / 100);
-    if (preview.liquidationPrice) levels.push({ price: preview.liquidationPrice, colour: CHART_COLOURS.accent, label: 'liq' });
-    if (preview.strikePrice) levels.push({ price: preview.strikePrice, colour: CHART_COLOURS.accent, label: 'K' });
   }
   return levels;
 }
@@ -1138,9 +1114,14 @@ function drawPath(context, points, colour, width) {
   points.forEach(([screenX, screenY], index) => (index === 0 ? context.moveTo(screenX, screenY) : context.lineTo(screenX, screenY)));
   context.stroke();
 }
-function drawGrid({ context, history, top, bottom, right, historyEnd, xOfPastTick, yOfPrice, openPrice }) {
-  for (let dayIndex = 1; dayIndex < history.length; dayIndex++) drawLine(context, xOfPastTick(dayIndex, 0), top - 10, xOfPastTick(dayIndex, 0), bottom + 10, CHART_COLOURS.grid);
+// Day boundaries (with each past day's number), today's open (dashed).
+function drawGrid({ context, history, top, bottom, right, historyEnd, xOfPastTick, yOfPrice, openPrice, run }) {
+  history.forEach((day, dayIndex) => {
+    if (dayIndex > 0) drawLine(context, xOfPastTick(dayIndex, 0), top - 10, xOfPastTick(dayIndex, 0), bottom + 10, CHART_COLOURS.grid);
+    if (day.day >= 1) drawText(context, 'day ' + day.day, xOfPastTick(dayIndex, TICKS_PER_DAY / 2), bottom + 14, CHART_COLOURS.openPrice, { size: 10, weight: 700, align: 'center' });
+  });
   drawLine(context, historyEnd, top - 10, historyEnd, bottom + 10, CHART_COLOURS.openPrice);
+  drawText(context, 'today · day ' + run.day, (historyEnd + right) / 2, bottom + 14, CHART_COLOURS.label, { size: 10, weight: 700, align: 'center' });
   drawLine(context, historyEnd, yOfPrice(openPrice), right, yOfPrice(openPrice), CHART_COLOURS.openPrice, { dashed: true });
 }
 function drawHistory({ context, history, xOfPastTick, xOfTodayTick, yOfPrice, openPrice }) {
@@ -1167,11 +1148,11 @@ function drawTradeLevels({ run, context, historyEnd, right, top, bottom, yOfPric
 // A ceiling or floor: a thick blue bar from now for as many ticks as it still holds.
 function drawPins({ today, context, xOfTodayTick, yOfPrice }) {
   const market = marketNow(today);
-  for (const [ticksLeft, price, name] of [[market.ceilingTicksLeft, market.ceilingPrice, 'ceiling'], [market.floorTicksLeft, market.floorPrice, 'floor']]) {
-    if (ticksLeft <= 0) continue;
-    const fromX = xOfTodayTick(today.tick), toX = xOfTodayTick(Math.min(TICKS_PER_DAY, today.tick + ticksLeft)), pinY = yOfPrice(price);
+  for (const [ticks, price, name] of [[market.ceilingTicksLeft, market.ceilingPrice, 'ceiling'], [market.floorTicksLeft, market.floorPrice, 'floor']]) {
+    if (ticks <= 0) continue;
+    const fromX = xOfTodayTick(today.tick), toX = xOfTodayTick(Math.min(TICKS_PER_DAY, today.tick + ticks)), pinY = yOfPrice(price);
     drawLine(context, fromX, pinY, toX, pinY, CHART_COLOURS.pin, { width: 4 });
-    drawText(context, `${name} ${ticksLeft}`, toX, pinY + (name === 'ceiling' ? -12 : 12), CHART_COLOURS.pin, { size: 11, align: 'right' });
+    drawText(context, `${name} ${ticks}`, toX, pinY + (name === 'ceiling' ? -12 : 12), CHART_COLOURS.pin, { size: 11, align: 'right' });
   }
 }
 // Today's path: green above the open, red below. Then the current price.
@@ -1183,10 +1164,9 @@ function drawToday({ context, today, height, historyEnd, right, xOfTodayTick, yO
     drawPath(context, points, colour, 2.6);
     context.restore();
   }
-  const currentX = xOfTodayTick(today.tick), currentY = yOfPrice(price);
+  const currentX = xOfTodayTick(today.tick), currentY = yOfPrice(price), leftHalf = today.tick < TICKS_PER_DAY / 2;
   drawDot(context, currentX, currentY, 5.5, price >= openPrice ? CHART_COLOURS.up : CHART_COLOURS.down);
-  drawText(context, formatPlain(price), currentX + (today.tick < TICKS_PER_DAY / 2 ? 12 : -12), currentY - 18, CHART_COLOURS.average,
-    { size: 15, align: today.tick < TICKS_PER_DAY / 2 ? 'left' : 'right' });
+  drawText(context, formatPlain(price), currentX + (leftHalf ? 12 : -12), currentY - 18, CHART_COLOURS.average, { size: 15, align: leftHalf ? 'left' : 'right' });
 }
 // Popups (+$ / −$, messages) rise and fade above the current price; the newest sits lowest.
 function drawPopups({ context, today, left, right, top, xOfTodayTick, yOfPrice, price }) {
@@ -1195,7 +1175,7 @@ function drawPopups({ context, today, left, right, top, xOfTodayTick, yOfPrice, 
   view.popups.forEach((popup, index) => {
     const age = (now - popup.born) / POPUP_SECONDS;
     const stackOffset = (view.popups.length - 1 - index) * (popup.size + 6);
-    const textX = clamp(xOfTodayTick(today.tick), left + 90, right - 90);
+    const textX = clamp(xOfTodayTick(today.tick), left + 140, right - 140);
     const textY = Math.max(top + 10, yOfPrice(price) - 46 - stackOffset - age * 30);
     drawText(context, popup.text, textX, textY, popup.colour, { size: popup.size, align: 'center', alpha: 1 - age });
   });
@@ -1206,11 +1186,6 @@ function shakeChart(strength) {
   box.classList.remove('shake', 'shakeBig');
   void box.offsetWidth;                                        // restart the animation
   box.classList.add(strength >= 2 ? 'shakeBig' : 'shake');
-}
-function formatPlain(price) {
-  if (price < 10) return price.toFixed(2);
-  if (price < 1000) return price.toFixed(price < 100 ? 1 : 0);
-  return formatMoney(price).replace('$', '');
 }
 
 // ═══════════════════════════════════════ § 10 PANELS ═══════════════════════════════════════
@@ -1235,142 +1210,100 @@ const GLYPHS = {
   topUp:    '<rect x="14" y="56" width="72" height="32" rx="6" fill="none" stroke="currentColor" stroke-width="7"/><path d="M50 8 V44 M32 26 H68" stroke="currentColor" stroke-width="9" stroke-linecap="round"/>',
 };
 function cardArt(card) {
-  if (card.kind) return `<svg viewBox="0 0 100 100">${GLYPHS[card.family === 'long' ? 'trendUp' : 'trendDown']}</svg>`;
+  if (card.kind || card.closes) return `<svg viewBox="0 0 100 100">${GLYPHS[card.family === 'long' ? 'trendUp' : 'trendDown']}</svg>`;
   if (card.glyph) return `<svg viewBox="0 0 100 100">${GLYPHS[card.glyph]}</svg>`;
   return `<div class="big">${card.smallFace ? `<small>${card.smallFace}</small>` : ''}${card.face}</div>`;
 }
-// extra: { classes, action, argument, handIndex, tip } for the card's element.
+// extra: { classes, action, argument, handIndex, detail, tip } for the card's element. Leverage cards show only their face.
 function playerCardHtml(cardId, extra = {}) {
   const card = PLAYER_CARDS[cardId], heat = cardHeat(cardId);
   const tip = extra.tip === undefined ? card.sentence : extra.tip;
   const action = extra.action ? `data-action="${extra.action}" data-argument="${extra.argument}"`
     : extra.handIndex !== undefined ? `data-hand-index="${extra.handIndex}"` : '';
+  const label = card.family === 'leverage' ? '' : `<div class="name">${card.name}</div><div class="detail">${extra.detail || card.detail}</div>`;
   return `<div class="playerCard ${card.family} ${extra.classes || ''}" ${action} data-tip="${tip}">
     <div class="family">${card.family === 'manip' ? 'MANIP' : card.family.toUpperCase()}</div><div class="tier">${ROMAN[card.tier]}</div>
     ${heat ? `<div class="heatTag">🔥${heat}</div>` : ''}
-    <div class="glyph">${cardArt(card)}</div><div class="name">${card.name}</div><div class="detail">${card.detail}</div></div>`;
+    <div class="glyph">${cardArt(card)}</div>${label}</div>`;
 }
 function tradeName(cardId) {
   const card = PLAYER_CARDS[cardId];
-  return card.kind === 'stock' ? (card.side > 0 ? 'LONG' : 'SHORT') + ' STOCK' : card.name;
+  return card.kind === 'stock' ? (card.side > 0 ? 'LONG' : 'SHORT') + ' STOCK' : card.kind.toUpperCase();
 }
 
-// ── 10.2 The side menu: day, clock, cash, open trades, equity, heat, the next meeting.
-function renderSide() {
-  const run = view.run, today = run.today, equity = totalEquity(run);
-  const secondsLeft = (TICKS_PER_DAY - today.tick) * SECONDS_PER_TICK;
-  const minutes = Math.floor(secondsLeft / 60), seconds = String(Math.floor(secondsLeft % 60)).padStart(2, '0');
-  const clock = run.phase === 'preopen' ? '<span class="dim">pre-open</span>' : `${minutes}:${seconds}`;
-  const inTrades = equity - run.cash, profitToday = equity - today.startEquity;
-  const meetingNumber = nextMeetingNumber(run), meetingDay = meetingNumber * MEETING_EVERY_DAYS, target = meetingTarget(run, meetingNumber);
-  const bossRule = BOSS_RULES[bossRuleOn(run, meetingDay)];
-  const investigation = run.investigationDaysLeft > 0 ? ` · SEC ${run.investigationDaysLeft}d` : '';
-  element('side').innerHTML = `
-    <div id="brand">INSIDER</div>
-    <div class="sideHead"><b>DAY ${run.day} · ${MARKET_NAME}</b><span class="clock">${clock}</span></div>
-    <div class="label"><span>price</span></div><div class="value">${formatPrice(currentPrice(today))}</div>
-    <div class="label">cash</div><div class="value">${formatMoney(run.cash)}</div>
-    <div class="label"><span>in trades</span><span>${today.trades.length || ''}</span></div>
-    <div class="line"><span>${today.trades.length ? formatMoney(inTrades) : '<span class="dim">—</span>'}</span></div>
-    <div class="rule"></div>
-    <div class="label">equity</div><div class="value ${colourClass(profitToday)}" id="equityValue">${formatMoney(equity)}</div>
-    <div class="line ${colourClass(profitToday)}"><span>today</span><span>${formatSignedMoney(profitToday)}</span></div>
-    <div class="label" data-tip="SEC heat: ending a day at ${HEAT_LIMIT} starts an investigation (no heat cards, no leverage)"><span>heat</span><span class="heat">${Math.round(run.heat)} / ${HEAT_LIMIT}${investigation}</span></div>
-    <div class="heatBar"><i style="width:${clamp(run.heat / HEAT_LIMIT, 0, 1) * 100}%"></i></div>
-    <div class="label" data-tip="Equity at the close of that day must reach this, under that day's rule"><span>meeting · day ${meetingDay}</span></div>
-    <div class="line"><span class="${equity >= target ? 'up' : 'gold'}">${formatMoney(target)}</span><span class="heat" data-tip="${bossRule.sentence}">${bossRule.face}</span></div>
-    <div class="sideButtons">
-      <button class="button" data-action="openDeck" data-tip="Your cards and the market deck">🂠 DECK</button>
-      <button class="button" data-action="menu" data-tip="Menu">☰</button>
-    </div>`;
+// ── 10.2 What a card in the hand does right now: the line under its name and its hover text (with today's prices and
+// the leverage waiting).
+function liveDetail(run, cardId) {
+  const card = PLAYER_CARDS[cardId];
+  if (!isTradeCard(cardId)) return card.detail;
+  const outcome = tradeCardOutcome(run, cardId);
+  if (outcome.closes !== undefined) return outcome.closes === null ? card.detail : `closes #${run.today.trades[outcome.closes].number}`;
+  const amount = card.kind === 'stock' ? `${formatCount(outcome.quantity)} stock` : `K ${formatPlain(outcome.strikePrice)}`;
+  return `${formatMoney(outcome.cost)} · ${amount}`;
+}
+function liveTip(run, cardId) {
+  const card = PLAYER_CARDS[cardId], today = run.today;
+  if (card.family === 'leverage') {
+    const before = pendingLeverage(run), after = leverageOf(run, today.pendingLeverage.concat(cardId));
+    if (before === 1 && card.operation === 'times') return `Next trade: ${after === 2 ? 'double' : after + '×'} risk & reward.`;
+    return `Next trade: ${formatLeverage(after)}× risk & reward${before > 1 ? ` (now ${formatLeverage(before)}×)` : ''}.`;
+  }
+  if (card.target === 'trade') {
+    const trade = newestTrade(run);
+    if (!trade) return card.sentence;
+    if (card.effect === 'double') return `Trade #${trade.number}: double risk & reward, with the same money in it.`;
+    return `Trade #${trade.number}: put ${formatMoney(topUpCost(run, trade, card.share))} more in, so it is liquidated later.`;
+  }
+  if (!isTradeCard(cardId)) return card.sentence;
+  const outcome = tradeCardOutcome(run, cardId);
+  if (outcome.closes !== undefined) {
+    if (outcome.closes === null) return card.sentence;
+    const trade = today.trades[outcome.closes];
+    return `Closes trade #${trade.number} (${tradeName(trade.cardId)}): now ${formatMoney(tradeValue(run, trade))}, P&L ${formatSignedMoney(tradeProfit(run, trade))}.`;
+  }
+  const quantity = formatCount(outcome.quantity), cost = formatMoney(outcome.cost), leverage = outcome.leverage;
+  const borrowed = leverage > 1 ? ` (${formatLeverage(leverage)}× leverage)` : '';
+  if (card.kind === 'stock') {
+    const formula = card.side > 0 ? `${quantity} × (S − ${formatPlain(outcome.unitPrice)})` : `${quantity} × (${formatPlain(outcome.unitPrice)} − S)`;
+    const liquidation = outcome.liquidationPrice ? ` Liquidated at S = ${formatPlain(outcome.liquidationPrice)}.` : '';
+    return `${card.side > 0 ? 'Buy' : 'Short'} ${quantity} stock for ${cost}${borrowed}. P&L = ${formula}.${liquidation}`;
+  }
+  const K = formatPlain(outcome.strikePrice), payoffText = card.kind === 'call' ? `max(S − ${K}, 0)` : `max(${K} − S, 0)`;
+  const liquidation = leverage > 1 ? ` Liquidated if they lose ${Math.round(100 / leverage * 10) / 10}% of their value.` : '';
+  return `Buy ${quantity} ${card.kind}s, K = ${K}, for ${cost}${borrowed}. P&L = ${payoffText} × ${quantity} − ${cost}. They expire at the close.${liquidation}`;
+}
+
+// ── 10.3 The chart's top right: cash, today's P&L, heat, the deck, the menu.
+function renderHud() {
+  const run = view.run, today = run.today, equity = totalEquity(run), profit = equity - today.startEquity;
+  const heat = Math.round(100 * run.heat / HEAT_LIMIT);
+  element('hud').innerHTML = `
+    <div class="hudBox" data-tip="Cash you can trade with"><small>cash</small><b>${formatMoney(run.cash)}</b></div>
+    <div class="hudBox" data-tip="Today's profit or loss, open trades at their value now"><small>p&l</small><b class="${colourClass(profit)}" id="profitValue">${formatSignedMoney(profit)}</b></div>
+    <div class="hudBox" data-tip="SEC heat: ending a day at 100% starts an investigation (no heat cards, no leverage)${run.investigationDaysLeft ? ` · investigation: ${run.investigationDaysLeft} days left` : ''}"><small>heat</small><b class="heat">${heat}%</b></div>
+    <button class="button" data-action="openDeck" data-tip="Your cards and the market deck">🂠</button>
+    <button class="button" data-action="menu" data-tip="Menu">☰</button>`;
   if (view.lastEquity !== null && Math.abs(equity - view.lastEquity) > Math.abs(view.lastEquity) * EQUITY_FLASH_CHANGE)
-    element('equityValue').classList.add(equity > view.lastEquity ? 'flashUp' : 'flashDown');
+    element('profitValue').classList.add(equity > view.lastEquity ? 'flashUp' : 'flashDown');
   view.lastEquity = equity;
 }
 
-// ── 10.3 The table: open trades (value, P&L, leverage, liquidation, CLOSE), then the bench when a trade is being built.
-function renderTable() {
-  const run = view.run, today = run.today;
-  const tiles = today.trades.map((trade, index) => tradeTileHtml(run, trade, index)).join('');
-  element('openTrades').innerHTML = tiles || `<span class="tableNote">${marketOpen(run) ? 'drag a card up to play it' : ''}</span>`;
-  const bench = element('bench');
-  bench.classList.toggle('show', benchBusy(today));
-  bench.innerHTML = benchBusy(today) ? benchHtml(run) : '';
-}
-function tradeTileHtml(run, trade, index) {
-  const card = PLAYER_CARDS[trade.cardId], profit = tradeProfit(run, trade), leverage = tradeLeverageNow(run, trade);
-  const levelLine = trade.kind === 'stock'
-    ? (leverage > 1.0001 ? `<span>liq</span><span class="heat">${formatPlain(liquidationPrice(trade))}</span>` : '<span>no liq</span>')
-    : `<span>K ${formatPlain(trade.strikePrice)}</span><span>${trade.kind}</span>`;
-  const dragged = view.drag && PLAYER_CARDS[view.run.hand[view.drag.handIndex]];
-  const dropTarget = dragged && dragged.target === 'trade';
-  return `<div class="tradeTile ${card.family} ${dropTarget ? 'dropTarget' : ''}" data-trade-index="${index}"
-      data-tip="#${trade.number} ${tradeName(trade.cardId)}: money in ${formatMoney(trade.cashIn)}, now ${formatMoney(tradeValue(run, trade))}">
-    <div class="tileTop"><span>${tradeName(trade.cardId)}</span><span>×${formatLeverage(leverage)}</span></div>
-    <div class="tileValue">${formatMoney(tradeValue(run, trade))}</div>
-    <div class="tileLine ${colourClass(profit)}"><span>${formatSignedMoney(profit)}</span></div>
-    <div class="tileLine dim">${levelLine}</div>
-    <button class="tileClose" data-action="closeTrade" data-argument="${index}">CLOSE</button>
-  </div>`;
-}
-function leverageChainText(chain) {
-  return ['1'].concat(chain.steps.map(step => `${PLAYER_CARDS[step.cardId].face} = ${formatLeverage(step.leverage)}`)).join(' → ');
-}
-function benchHtml(run) {
-  const bench = run.today.bench, preview = benchPreview(run, view.stakePercent / 100);
-  const cards = [bench.tradeCard, ...bench.leverageCards].map((cardId, position) =>
-    playerCardHtml(cardId, { action: 'returnBenchCard', argument: position, tip: position === 0 ? 'Back to the hand (with the leverage cards)' : 'Back to the hand' }))
-    .join('<span class="arrow">→</span>');
-  return `<div class="benchCards">${cards}</div>
-    <div class="benchReadout">${benchReadoutHtml(run, preview)}
-      <input class="slider" type="range" min="0" max="100" step="${SLIDER_STEP_PERCENT}" value="${view.stakePercent}" id="stakeSlider">
-      <div class="benchButtons">
-        <button class="button primary ${preview.reason ? 'locked' : 'suggest'}" data-action="openBenchTrade" ${preview.reason ? `data-tip="${preview.reason}"` : ''}>OPEN TRADE</button>
-        <button class="button" data-action="clearBench" data-tip="All cards back to the hand">✕</button>
-      </div></div>`;
-}
-// The bench's numbers (redrawn on their own while the slider is dragged).
-function benchReadoutHtml(run, preview) {
-  const chain = preview.chain, capped = chain.steps.length && chain.leverage < chain.steps[chain.steps.length - 1].leverage;
-  const optionLine = preview.strikePrice ? `<div>K <b>${formatPlain(preview.strikePrice)}</b> · <b class="gold">${formatPrice(preview.unitPrice)}</b> per option</div>` : '';
-  const liquidation = preview.liquidationPrice
-    ? `liq <b class="heat">${formatPlain(preview.liquidationPrice)}</b> (${formatPercent(preview.liquidationPrice / currentPrice(run.today) - 1)})`
-    : (preview.card.kind === 'stock' ? 'no liquidation' : chain.leverage > 1 ? `liq when the option loses ${formatPercent(-1 / chain.leverage)}` : 'can lose only the stake');
-  return `<div id="benchNumbers">
-    <div>leverage <b class="gold">${leverageChainText(chain)}</b>${capped ? ` <span class="heat">capped ${formatLeverage(chain.leverage)}</span>` : ''}</div>
-    ${optionLine}
-    <div>stake <b>${formatMoney(preview.stake)}</b> <span class="dim">(${view.stakePercent}% of cash, fee ${formatMoney(preview.fee)})</span></div>
-    <div>position <b>${formatMoney(preview.position)}</b> · ${liquidation}</div></div>`;
-}
-function refreshBenchReadout() {
-  const holder = element('benchNumbers');
-  if (!holder) return;
-  const preview = benchPreview(view.run, view.stakePercent / 100);
-  holder.outerHTML = benchReadoutHtml(view.run, preview);
-  const openButton = document.querySelector('[data-action="openBenchTrade"]');
-  if (openButton) openButton.classList.toggle('locked', !!preview.reason);
-}
-
-// ── 10.4 The hand, and what is left of the day (trades, redraws). Cards are dragged up to play them (§ 12.2).
+// ── 10.4 The hand. Cards are dragged up to play them (§ 12.1). A redraw spins it like the shop's reels.
 function renderHand() {
-  const run = view.run, today = run.today;
-  element('handInfo').innerHTML = `
-    <div data-tip="Trade cards you can still play today">trades<b>${today.tradesLeft}</b></div>
-    <div data-tip="Spins of the hand left today">redraws<b>${today.redrawsLeft}</b></div>
-    <div data-tip="Cards in your draw pile / discard pile">piles<b style="font-size:13px">${run.drawPile.length} / ${run.discardPile.length}</b></div>`;
   if (view.handSpin) return;                                   // the reels are spinning (spinHand)
-  const firstFresh = run.hand.length - view.freshHand;
+  const run = view.run, firstFresh = run.hand.length - view.freshHand;
   element('hand').innerHTML = run.hand.map((cardId, index) => {
     const blocked = cardBlockedReason(run, cardId);
     const classes = [blocked ? 'locked' : '', view.drag && view.drag.handIndex === index ? 'dragging' : '', index >= firstFresh ? 'fresh' : ''].join(' ');
-    return playerCardHtml(cardId, { classes, handIndex: index, tip: blocked ? `${PLAYER_CARDS[cardId].sentence} (${blocked})` : undefined });
+    const tip = blocked ? `${liveTip(run, cardId)} (${blocked})` : liveTip(run, cardId);
+    return playerCardHtml(cardId, { classes, handIndex: index, detail: liveDetail(run, cardId), tip });
   }).join('') || '<span class="emptyHand">no cards in hand</span>';
   view.freshHand = 0;
 }
 // A redraw: every card of the hand becomes a reel that runs past cards of your deck and stops on the new card.
 function spinHand(previousHand) {
   const run = view.run;
-  view.handSpin = { previousHand };
+  view.handSpin = true;
   element('hand').innerHTML = run.hand.map(() => '<div class="reelWindow handReel"><div class="reelStrip"></div></div>').join('');
   const strips = element('hand').querySelectorAll('.reelStrip');
   let longest = 0;
@@ -1380,28 +1313,26 @@ function spinHand(previousHand) {
     spinStrip(strips[index], previousHand[index] || cardId, run.deck, cardId, seconds);
   });
   playReelTicks();
-  setTimeout(() => { view.handSpin = null; renderAll(); }, longest * 1000 + 120);
+  setTimeout(() => { view.handSpin = false; renderAll(); }, longest * 1000 + 120);
 }
 
-// ── 10.5 The buttons. Before the open: REDRAW, OPEN. During the day: REDRAW, CLOSE ALL, speed, skip to the close, pause.
+// ── 10.5 The buttons. Before the open: REDRAW, OPEN. During the day: REDRAW, speed, skip to the close, pause.
 function renderActions() {
-  const run = view.run, today = run.today, redrawBlocked = redrawBlockedReason(run);
+  const run = view.run, redrawBlocked = redrawBlockedReason(run);
   const redraw = `<button class="button ${redrawBlocked || view.handSpin ? 'locked' : ''}" data-action="redraw"
-    data-tip="${redrawBlocked || `Spin the hand: discard it, draw as many (${today.redrawsLeft} left today)`}">🎰 REDRAW</button>`;
+    data-tip="${redrawBlocked || 'Spin the hand: discard it, draw as many'}">🎰 REDRAW</button>`;
   if (run.phase === 'preopen') {
-    element('actions').innerHTML = `${redraw}<span class="gap"></span><button class="button primary ${benchBusy(today) ? 'locked' : 'suggest'}" data-action="openMarket">OPEN ▶</button>`;
+    element('actions').innerHTML = `${redraw}<span class="gap"></span><button class="button primary suggest" data-action="openMarket">OPEN ▶</button>`;
     return;
   }
-  element('actions').innerHTML = `${redraw}
-    <button class="button" style="visibility:${today.trades.length ? 'visible' : 'hidden'}" data-action="closeAll">CLOSE ALL</button>
-    <span class="gap"></span>
+  element('actions').innerHTML = `${redraw}<span class="gap"></span>
     <button class="button" data-action="speed" data-tip="Speed" style="width:74px">${GAME_SPEEDS[view.speedIndex]}×</button>
-    <button class="button ${benchBusy(today) ? 'locked' : ''}" data-action="skipToClose" data-tip="Play the rest of the day instantly">⏭ CLOSE</button>
+    <button class="button" data-action="skipToClose" data-tip="Play the rest of the day instantly">⏭ CLOSE</button>
     <button class="button" data-action="pause" data-tip="Pause" style="width:56px">${view.paused ? '▶' : '⏸'}</button>`;
 }
 
-// ── 10.6 The chart's corner: the last market card, then what is in force (σ, pushes waiting, ceiling, floor,
-// dividends, the boss rule, an investigation).
+// ── 10.6 The chart's corner: the last market card, then what is in force (the leverage waiting, the close coming,
+// σ, pushes still to come, ceiling, floor, dividends, the boss rule, an investigation).
 function renderCorner() {
   const run = view.run, today = run.today, market = marketNow(today);
   const last = today.tick > 0 ? today.schedule.cards[today.tick] : [];
@@ -1410,30 +1341,29 @@ function renderCorner() {
     return `<span class="chip ${card.category} ${sign} ${marketCardImpact(cardId) === 2 ? 'extreme' : ''} ${view.freshTick === today.tick ? 'fresh' : ''}" data-tip="${marketCardSentence(cardId)}">${marketCardText(cardId)}</span>`;
   });
   const badge = (text, tip, colour = '') => `<span class="chip badge ${colour}" data-tip="${tip}">${text}</span>`;
+  if (today.pendingLeverage.length) chips.push(badge(`next trade ×${formatLeverage(pendingLeverage(run))}`, 'The leverage waiting for your next trade card'));
+  if (run.phase === 'trading' && ticksLeft(run) <= CLOSE_WARNING_TICKS && today.trades.length)
+    chips.push(badge(`closing in ${Math.ceil(ticksLeft(run) * SECONDS_PER_TICK)}s: all trades close`, 'Every trade still open is closed at the close', 'alarm'));
   if (market.volatility !== 1) chips.push(badge('σ ' + market.volatility.toFixed(2), 'Every market card move is × σ', 'blue'));
   const pushesLeft = market.pendingPushes.length;
   if (pushesLeft) {
     const total = Math.exp(market.pendingPushes.reduce((sum, push) => sum + push, 0)) - 1;
-    const nextPush = market.pendingPushes[0];
-    chips.push(badge(`${nextPush >= 0 ? 'pushing ▲' : 'pushing ▼'} ${pushesLeft}`, `Hype and bash still to come: ${formatPercent(total)} in all over ${pushesLeft} ticks`, 'orange'));
+    chips.push(badge(`${market.pendingPushes[0] >= 0 ? 'pushing ▲' : 'pushing ▼'} ${pushesLeft}`, `Hype and bash still to come: ${formatPercent(total)} in all over ${pushesLeft} ticks`, 'orange'));
   }
   if (market.ceilingTicksLeft > 0) chips.push(badge(`ceiling ${market.ceilingTicksLeft}`, `The price cannot rise above ${formatPlain(market.ceilingPrice)}`, 'blue'));
   if (market.floorTicksLeft > 0) chips.push(badge(`floor ${market.floorTicksLeft}`, `The price cannot fall below ${formatPlain(market.floorPrice)}`, 'blue'));
-  if (today.dividendShare) chips.push(badge(`dividends ${Math.round(today.dividendShare * 100)}%`, 'Paid at the close on long stock and calls (short stock pays)'));
-  if (today.bossRule) chips.push(badge(BOSS_RULES[today.bossRule].face, BOSS_RULES[today.bossRule].sentence, 'orange'));
+  if (today.dividendShare) chips.push(badge(`dividends ${Math.round(today.dividendShare * 100)}%`, 'Paid at the close on long stock and calls (a short pays)'));
+  if (today.bossRule) chips.push(badge('meeting: ' + BOSS_RULES[today.bossRule].face, BOSS_RULES[today.bossRule].sentence, 'orange'));
   if (today.investigation) chips.push(badge('SEC investigation', 'No heat cards, no leverage', 'orange'));
   element('corner').innerHTML = chips.join('');
 }
 
 function renderAll() {
   if (!view.run || !view.run.today) return;
-  renderSide();
-  renderTable();
+  renderHud();
   renderHand();
   renderActions();
   renderCorner();
-  const slider = element('stakeSlider');
-  if (slider) slider.addEventListener('input', () => { view.stakePercent = Number(slider.value); refreshBenchReadout(); });
 }
 
 // ═══════════════════════════════════════ § 11 OVERLAYS ═══════════════════════════════════════
@@ -1447,6 +1377,11 @@ function hideOverlay() {
   view.deckSelling = false;
   element('overlay').classList.remove('show');
   element('overlay').innerHTML = '';
+}
+// "Meeting 1 · day 10: $1,312 · no options" for the next meeting from that day on.
+function meetingLine(run, fromDay) {
+  const meeting = nextMeeting(run, fromDay);
+  return `meeting ${meeting.number} · day ${meeting.day}: ${formatMoney(meeting.target)} · ${BOSS_RULES[meeting.rule].face}`;
 }
 
 // ── 11.1 Title, menu, day result, game over
@@ -1477,9 +1412,11 @@ function showTitle() {
 }
 function showMenu() {
   view.paused = true;
+  const run = view.run;
   showOverlay('menu', `
     <div class="dialog">
       <h1>Paused</h1>
+      <div class="note">day ${run.day} · ${meetingLine(run, run.day)}</div>
       <div class="menuButtons">
         <button class="button primary" data-action="resume">RESUME</button>
         <button class="button" data-action="sound">${sound.muted ? 'SOUND OFF' : 'SOUND ON'}</button>
@@ -1491,21 +1428,24 @@ function showResult() {
   const run = view.run, result = run.lastResult, meeting = result.meeting;
   const profit = result.endEquity - result.startEquity;
   const notes = [];
+  if (result.split !== 1) notes.push(`<div class="note gold">${result.split < 1 ? `${Math.round(1 / result.split)}:1 split: the stock costs ${Math.round(1 / result.split)}× less` : `1:${Math.round(result.split)} reverse split: the stock costs ${Math.round(result.split)}× more`} tomorrow</div>`);
   if (result.dividends) notes.push(`<div class="note gold">dividends ${formatSignedMoney(result.dividends)}</div>`);
-  if (result.heatAdded > 0) notes.push(`<div class="note heat">🔥 +${Math.round(result.heatAdded)} heat: abnormal day</div>`);
+  if (result.heatAdded > 0) notes.push(`<div class="note heat">🔥 +${Math.round(result.heatAdded)}% heat: abnormal day</div>`);
   if (result.investigationNote === 'opened') notes.push(`<div class="note heat">🚨 SEC investigation: ${INVESTIGATION_DAYS} clean days</div>`);
   if (result.investigationNote === 'cleared') notes.push('<div class="note up">Investigation closed</div>');
   if (meeting) notes.push(`<div class="note ${meeting.passed ? 'up' : 'down'}">Meeting ${meeting.number}: ${formatMoney(meeting.target)} ${meeting.passed ? '✓' : '✗'}</div>`);
   if (meeting && meeting.passed && meeting.final) notes.push('<div class="note gold">🏆 Last meeting passed. Play on for bigger numbers.</div>');
+  if (!run.gameOverReason) notes.push(`<div class="note">next ${meetingLine(run, run.day + 1)}</div>`);
+  const reasons = { sold: 'sold', liquidated: 'liquidated', 'the close': 'at the close' };
   const trades = result.closedTrades.map(closed => `
-    <div class="line"><span>${tradeName(closed.cardId)} ×${formatLeverage(closed.leverage)} <span class="dim">${closed.reason === 'liquidated' ? 'liquidated' : ''}</span></span>
+    <div class="line"><span>#${closed.number} ${tradeName(closed.cardId)}${closed.leverage > 1 ? ' ×' + formatLeverage(closed.leverage) : ''} <span class="dim">${reasons[closed.reason]}</span></span>
     <span class="${colourClass(closed.profit)}">${formatSignedMoney(closed.profit)}</span></div>`).join('');
   showOverlay('result', `
     <div class="dialog">
       <h1>Day ${result.day} · ${MARKET_NAME}</h1>
       <div class="note">${formatPrice(result.openPrice)} → ${formatPrice(result.closePrice)} <span class="${colourClass(result.closePrice - result.openPrice)}">${formatPercent(result.closePrice / result.openPrice - 1)}</span></div>
       <div class="huge ${colourClass(profit)}" id="countUp">${formatSignedMoney(0)}</div>
-      <div class="note">equity ${formatMoney(result.endEquity)}</div>
+      <div class="note">cash ${formatMoney(result.endEquity)}</div>
       ${trades ? `<div class="closedTrades">${trades}</div>` : ''}
       ${notes.join('')}
       <div class="menuButtons"><button class="button primary" data-action="afterResult">${run.gameOverReason ? 'CONTINUE' : 'SHOP'}</button></div>
@@ -1549,7 +1489,7 @@ function showDeck() {
       ${playerCardHtml(cardId, canSell ? { action: 'sellCard', argument: cardId, tip: `Sell one for ${formatMoney(cardSellPrice(run, cardId))}` } : {})}
       <span>×${owned[cardId]}${selling ? ` <span class="sellPrice">${formatMoney(cardSellPrice(run, cardId))}</span>` : ''}</span>
     </div>`).join('');
-  const marketLeft = countCards(run.today && run.phase !== 'shop' ? drawPileAfter(run.today.schedule, run.today.tick) : run.market.drawPile);
+  const marketLeft = countCards(run.phase === 'shop' ? run.market.drawPile : drawPileAfter(run.today.schedule, run.today.tick));
   const marketCards = MARKET_CARD_ORDER.map(cardId => {
     const card = MARKET_CARDS[cardId], sign = card.category === 'move' ? (card.move > 0 ? 'pos' : 'neg') : '';
     return `<div class="marketCount" data-tip="${marketCardSentence(cardId)}"><span class="chip ${card.category} ${sign}">${marketCardText(cardId)}</span>
@@ -1580,8 +1520,8 @@ function showShop(spinFrom = null) {
       <div class="reelName">${reel.name}</div>
       <div class="reelWindow" data-sentence="${PLAYER_CARDS[cardId].sentence}">
         <div class="reelStrip">${playerCardHtml(cardId, { action: 'buyReel', argument: reelIndex, tip: '' })}</div><div class="reelSold">SOLD</div></div>
-      <div class="reelPrice ${!sold && run.cash < price ? 'poor' : ''}">${formatMoney(price)}</div>
-      <button class="button ${sold || run.cash < price ? 'locked' : ''}" data-action="buyReel" data-argument="${reelIndex}">${sold ? 'SOLD' : 'BUY'}</button>
+      <div class="reelPrice ${!sold && !canSpend(run, price) ? 'poor' : ''}">${formatMoney(price)}</div>
+      <button class="button ${sold || !canSpend(run, price) ? 'locked' : ''}" data-action="buyReel" data-argument="${reelIndex}">${sold ? 'SOLD' : 'BUY'}</button>
     </div>`;
   }).join('');
   const spin = spinPrice(run);
@@ -1589,14 +1529,15 @@ function showShop(spinFrom = null) {
     <div class="dialog">
       <div class="dialogHead">
         <h1>Shop</h1>
-        <span class="slot"><small>cash</small><b>${formatMoney(run.cash)}</b></span>
+        <span class="slot" data-tip="The shop keeps ${formatMoney(shopReserve(run))} for tomorrow's first stock"><small>to spend</small><b>${formatMoney(Math.max(0, run.cash - shopReserve(run)))}</b></span>
         <span class="slot"><small>your deck</small><b>${run.deck.length}</b></span>
         <span class="spacer"></span>
         <button class="button primary" data-action="nextDay">DAY ${run.day + 1} ▶</button>
       </div>
+      <div class="note" style="text-align:left">${meetingLine(run, run.day + 1)}</div>
       <div class="reels">${reels}</div>
       <div class="spinRow">
-        <button class="button primary ${run.cash < spin ? 'locked' : ''}" data-action="spin">SPIN · ${formatMoney(spin)}</button>
+        <button class="button primary ${!canSpend(run, spin) ? 'locked' : ''}" data-action="spin">🎰 SPIN · ${formatMoney(spin)}</button>
         <button class="button" data-action="sellCards" data-tip="Sell cards for half their price">SELL A CARD</button>
       </div>
       <div id="selectedSentence"></div>
@@ -1607,8 +1548,7 @@ function showShop(spinFrom = null) {
 function animateReels(previousReels) {
   const run = view.run;
   SHOP_REELS.forEach((reel, reelIndex) => {
-    const strip = document.querySelector(`#reel${reelIndex} .reelStrip`);
-    spinStrip(strip, previousReels[reelIndex], reelPool(reelIndex), run.shop.reels[reelIndex],
+    spinStrip(document.querySelector(`#reel${reelIndex} .reelStrip`), previousReels[reelIndex], reelPool(reelIndex), run.shop.reels[reelIndex],
       REEL_SPIN_SECONDS + reelIndex * REEL_STOP_STAGGER, { action: 'buyReel', argument: reelIndex, tip: '' });
   });
   playReelTicks();
@@ -1628,98 +1568,43 @@ function spinStrip(strip, fromCardId, pool, landingCardId, seconds, landingExtra
 function playReelTicks() { for (let click = 0; click < 10; click++) setTimeout(sounds.reelTick, click * 80); }
 
 // ═══════════════════════════════════════ § 12 INPUT ═══════════════════════════════════════
-// The game is played with the mouse only: every clickable element names its action in data-action.
 function saveRun() {
   try { if (view.run) localStorage.setItem(SAVE_KEY, serialiseRun(view.run)); } catch (error) { /* storage blocked */ }
 }
 function savePreferences() {
   try { localStorage.setItem(PREFERENCES_KEY, JSON.stringify({ muted: sound.muted, speedIndex: view.speedIndex })); } catch (error) { /* storage blocked */ }
 }
-function showPlayResult(line, playedSound = sounds.card) {
-  if (line && line.error) { sounds.denied(); addPopup(line.error, CHART_COLOURS.label, 14); }
-  else { playedSound(); addPopup(line, CHART_COLOURS.accent, 17); }
-  saveRun();
-}
-function defaultStakePercent(run) {
-  return clamp(Math.floor(100 / Math.max(1, run.today.tradesLeft) / SLIDER_STEP_PERCENT) * SLIDER_STEP_PERCENT, SLIDER_STEP_PERCENT, 100);
-}
-// ── 12.1 Playing a card from the hand where it was dropped: a trade card opens the bench, a leverage card joins it,
-// Double and Top-up need an open trade (the one dropped on, or the only one), every other card plays at once.
-// target = { inPlayZone, tradeIndex } (dropTargetAt).
-function playHandCard(handIndex, target) {
-  const run = view.run, cardId = run.hand[handIndex], card = PLAYER_CARDS[cardId];
-  const blocked = cardBlockedReason(run, cardId) || (card.target === 'trade' && tradeIndexFor(run, target) === null ? 'Drop it on an open trade' : null);
-  if (blocked) { sounds.denied(); addPopup(blocked, CHART_COLOURS.label, 14); return; }
-  if (isTradeCard(cardId)) {
-    run.hand.splice(handIndex, 1);
-    run.today.bench.tradeCard = cardId;
-    view.stakePercent = defaultStakePercent(run);
-    sounds.card();
-  } else if (card.family === 'leverage') {
-    run.hand.splice(handIndex, 1);
-    run.today.bench.leverageCards.push(cardId);
-    sounds.card();
-  } else if (card.target === 'trade') {
-    showPlayResult(playTradeCard(run, handIndex, tradeIndexFor(run, target)), sounds.trade);
-  } else {
-    showPlayResult(playMarketCard(run, handIndex), HEAT_EFFECTS.includes(card.effect) ? sounds.manipulation : sounds.card);
-    if (card.family === 'manip') shakeChart(card.tier >= 3 ? 2 : 1);
-  }
-  saveRun();
-}
-function tradeIndexFor(run, target) {
-  if (target.tradeIndex !== null) return target.tradeIndex;
-  return run.today.trades.length === 1 ? 0 : null;
-}
-// What letting go of this card here would do (the play zone's label).
-function dropLabel(run, cardId, target) {
-  const card = PLAYER_CARDS[cardId], blocked = cardBlockedReason(run, cardId);
-  if (blocked) return blocked;
-  if (isTradeCard(cardId)) return 'BUILD A TRADE';
-  if (card.family === 'leverage') return 'ADD TO THE TRADE';
-  if (card.target === 'trade') {
-    const tradeIndex = tradeIndexFor(run, target);
-    return tradeIndex === null ? 'DROP IT ON A TRADE' : `${card.name} TRADE #${run.today.trades[tradeIndex].number}`;
-  }
-  return `PLAY ${card.name}`;
-}
 
-// ── 12.2 Dragging. Press a card in the hand and drag it up: above the hand it plays where you let go. A click without
-// dragging picks the card up: it follows the mouse until the next click plays it there (right click puts it back).
-// view.drag = { handIndex, offsetX, offsetY, startX, startY, moved, carrying }.
-function dropTargetAt(screenX, screenY) {
-  const handTop = element('handRow').getBoundingClientRect().top;
-  const under = document.elementFromPoint(screenX, screenY), tile = under && under.closest('[data-trade-index]');
-  return { inPlayZone: screenY < handTop - 4, tradeIndex: tile ? Number(tile.dataset.tradeIndex) : null };
-}
+// ── 12.1 Dragging (like Slay the Spire). Press a card in the hand and drag it up: above the hand it plays when you let
+// go. A click without dragging picks the card up: it follows the mouse until the next click (right click puts it
+// back). view.drag = { handIndex, offsetX, offsetY, startX, startY, moved, carrying }.
+function inPlayZone(screenY) { return screenY < element('hand').getBoundingClientRect().top - 4; }
 function startDrag(event, handIndex) {
   const bounds = event.target.closest('[data-hand-index]').getBoundingClientRect();
   view.drag = { handIndex, offsetX: event.clientX - bounds.left, offsetY: event.clientY - bounds.top,
     startX: event.clientX, startY: event.clientY, moved: false, carrying: false };
-  element('dragGhost').innerHTML = playerCardHtml(view.run.hand[handIndex], { tip: '' });
+  element('dragGhost').innerHTML = playerCardHtml(view.run.hand[handIndex], { tip: '', detail: liveDetail(view.run, view.run.hand[handIndex]) });
   element('dragGhost').style.display = 'block';
   element('tooltip').style.display = 'none';
   const playZone = element('playZone');
-  playZone.style.height = (element('handRow').offsetTop - 6) + 'px';
+  playZone.style.height = (element('hand').offsetTop - 24) + 'px';
   playZone.classList.add('show');
   moveDrag(event.clientX, event.clientY);
   renderAll();
 }
 function moveDrag(screenX, screenY) {
-  const drag = view.drag;
+  const drag = view.drag, run = view.run, cardId = run.hand[drag.handIndex];
   if (Math.hypot(screenX - drag.startX, screenY - drag.startY) > DRAG_THRESHOLD) drag.moved = true;
-  const ghost = element('dragGhost'), target = dropTargetAt(screenX, screenY), run = view.run;
+  const ghost = element('dragGhost'), ready = inPlayZone(screenY), blocked = cardBlockedReason(run, cardId);
   ghost.style.transform = `translate(${screenX - drag.offsetX}px, ${screenY - drag.offsetY}px)`;
-  const ready = target.inPlayZone || target.tradeIndex !== null;
-  ghost.classList.toggle('ready', ready);
-  element('playZone').classList.toggle('ready', ready);
-  element('playZoneLabel').textContent = ready ? dropLabel(run, run.hand[drag.handIndex], target) : 'DRAG UP TO PLAY';
-  document.querySelectorAll('[data-trade-index]').forEach(tile => tile.classList.toggle('dropHere', Number(tile.dataset.tradeIndex) === target.tradeIndex));
+  ghost.classList.toggle('ready', ready && !blocked);
+  element('playZone').classList.toggle('ready', ready && !blocked);
+  element('playZoneLabel').textContent = blocked || (ready ? liveTip(run, cardId) : 'DRAG UP TO PLAY');
 }
-function endDrag(screenX, screenY) {
-  const handIndex = view.drag.handIndex, target = dropTargetAt(screenX, screenY);
+function endDrag(screenY) {
+  const handIndex = view.drag.handIndex;
   clearDrag();
-  if (target.inPlayZone || target.tradeIndex !== null) playHandCard(handIndex, target);
+  if (inPlayZone(screenY)) playHandCard(handIndex);
   renderAll();
 }
 function clearDrag() {
@@ -1732,10 +1617,25 @@ function handlePointerMove(event) { if (view.drag) moveDrag(event.clientX, event
 function handlePointerUp(event) {
   const drag = view.drag;
   if (!drag || drag.carrying) return;
-  if (drag.moved) endDrag(event.clientX, event.clientY);
+  if (drag.moved) endDrag(event.clientY);
   else drag.carrying = true;                                   // a click: the card is picked up and follows the mouse
 }
+// Playing a dropped card, with its sound, shake and popup.
+function playHandCard(handIndex) {
+  const run = view.run, card = PLAYER_CARDS[run.hand[handIndex]], result = playCard(run, handIndex);
+  if (result.error) { sounds.denied(); addPopup(result.error, CHART_COLOURS.label, 14); return; }
+  if (result.kind === 'sold') {
+    sounds.cash(result.profit >= 0);
+    addPopup(result.line, result.profit >= 0 ? CHART_COLOURS.up : CHART_COLOURS.down, 22);
+  } else {
+    if (result.kind === 'market') sounds.manipulation(); else sounds.trade();
+    addPopup(result.line, CHART_COLOURS.accent, 17);
+  }
+  if (card.family === 'manip') shakeChart(card.tier >= 3 ? 2 : 1);
+  saveRun();
+}
 
+// ── 12.2 Buttons. Every clickable element names its action in data-action (and an optional data-argument).
 const ACTIONS = {
   newRun() { view.run = newRun(); resetViewForDay(); hideOverlay(); saveRun(); },
   continueRun() {
@@ -1755,23 +1655,6 @@ const ACTIONS = {
   sound() { sound.muted = !sound.muted; savePreferences(); if (view.overlay === 'menu') showMenu(); },
   pause() { if (view.run.phase === 'trading') view.paused = !view.paused; },
   openDeck() { if (!view.overlay) { view.deckSelling = false; showDeck(); } },
-  returnBenchCard(position) { returnBenchCard(view.run, position); sounds.card(); saveRun(); },
-  clearBench() { clearBench(view.run); saveRun(); },
-  openBenchTrade() {
-    const trade = openBenchTrade(view.run, view.stakePercent / 100);
-    if (typeof trade === 'string') { sounds.denied(); addPopup(trade, CHART_COLOURS.label, 14); return; }
-    sounds.trade();
-    addPopup(`#${trade.number} ${tradeName(trade.cardId)} ×${formatLeverage(trade.leverageAtOpen)}`, CHART_COLOURS.accent, 17);
-    saveRun();
-  },
-  closeTrade(tradeIndex) {
-    const closed = closeTrade(view.run, tradeIndex);
-    if (!closed) return;
-    sounds.cash(closed.profit >= 0);
-    addPopup(formatSignedMoney(closed.profit), closed.profit >= 0 ? CHART_COLOURS.up : CHART_COLOURS.down, 22);
-    saveRun();
-  },
-  closeAll() { if (marketOpen(view.run)) { closeAllTrades(view.run); sounds.trade(); saveRun(); } },
   redraw() {
     const run = view.run, previousHand = run.hand.slice();
     if (view.handSpin || !redrawHand(run)) { sounds.denied(); return; }
@@ -1779,12 +1662,12 @@ const ACTIONS = {
     spinHand(previousHand);
   },
   openMarket() {
-    if (view.run.phase !== 'preopen' || benchBusy(view.run.today)) return;
+    if (view.run.phase !== 'preopen') return;
     openTheMarket(view.run);
     view.paused = false;
     saveRun();
   },
-  skipToClose() { if (!benchBusy(view.run.today)) while (view.run.phase === 'trading') runOneTick(true); },
+  skipToClose() { while (view.run.phase === 'trading') runOneTick(true); },
   afterResult() {
     if (view.run.gameOverReason) { showGameOver(); return; }
     openShop(view.run);
@@ -1808,14 +1691,14 @@ const ACTIONS = {
   },
   backToShop() { view.deckSelling = false; showShop(); },
 };
-const NUMBER_ARGUMENT_ACTIONS = ['returnBenchCard', 'closeTrade', 'buyReel'];
+const NUMBER_ARGUMENT_ACTIONS = ['buyReel'];
 function resetViewForDay() { view.lastEquity = null; view.freshHand = view.run.hand.length; if (view.drag) clearDrag(); }
 
-// Actions fire on the press, not the release: the table and the hand are redrawn every tick, and a redraw between
-// press and release would swallow a click.
+// Actions fire on the press, not the release: the screen is redrawn every tick, and a redraw between press and release
+// would swallow a click.
 function handlePress(event) {
-  if (view.drag && view.drag.carrying) {                       // a carried card: this click plays it here (right click: back)
-    if (event.button === 0) endDrag(event.clientX, event.clientY); else { clearDrag(); renderAll(); }
+  if (view.drag && view.drag.carrying) {                       // a carried card: this click plays it (right click: back)
+    if (event.button === 0) endDrag(event.clientY); else { clearDrag(); renderAll(); }
     return;
   }
   if (event.button !== 0) return;
@@ -1840,7 +1723,7 @@ function handleMouseMove(event) {
   tooltip.textContent = target.dataset.tip;
   tooltip.style.display = 'block';
   tooltip.style.left = Math.min(window.innerWidth - tooltip.offsetWidth - 8, event.clientX + 14) + 'px';
-  tooltip.style.top = Math.min(window.innerHeight - tooltip.offsetHeight - 8, event.clientY + 16) + 'px';
+  tooltip.style.top = Math.max(8, Math.min(window.innerHeight - tooltip.offsetHeight - 8, event.clientY - tooltip.offsetHeight - 12)) + 'px';
 }
 
 // ═══════════════════════════════════════ § 13 START ═══════════════════════════════════════
@@ -1857,9 +1740,11 @@ function runOneTick(quiet) {
     const change = totalEquity(run) - equityBefore;
     if (Math.abs(change) > Math.max(1, Math.abs(equityBefore) * POPUP_CHANGE))
       addPopup(formatSignedMoney(change), change > 0 ? CHART_COLOURS.up : CHART_COLOURS.down, impact === 2 ? 26 : 18);
+    if (outcome.closeWarning) { sounds.warning(); addPopup('ALL TRADES CLOSE AT THE CLOSE', CHART_COLOURS.down, 20); }
   }
   if (outcome.liquidated) { sounds.bad(); addPopup(outcome.liquidated > 1 ? `${outcome.liquidated} trades liquidated` : 'Liquidated!', CHART_COLOURS.liquidation, 22); }
   if (outcome.closed) {
+    if (view.drag) clearDrag();
     const result = closeDay(run);
     saveRun();
     sounds.cash(result.endEquity >= result.startEquity);
@@ -1867,10 +1752,8 @@ function runOneTick(quiet) {
     showResult();
   }
 }
-// The clock stops while a window is open, the game is paused, or you are building a trade, holding a card or spinning the hand.
-function clockRuns(run) {
-  return run && run.phase === 'trading' && !view.paused && !view.overlay && !benchBusy(run.today) && !view.drag && !view.handSpin;
-}
+// The clock stops while a window is open, the game is paused, a card is held or the hand spins.
+function clockRuns(run) { return run && run.phase === 'trading' && !view.paused && !view.overlay && !view.drag && !view.handSpin; }
 let lastFrameTime = null;
 function frame(time) {
   const seconds = lastFrameTime === null ? 0 : Math.min(0.25, (time - lastFrameTime) / 1000);

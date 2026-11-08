@@ -1,6 +1,6 @@
 // Usage: node tools/fuzz.cjs [runs] [days]
-// A random player: random cards from the hand (trades with random leverage stacks and stakes, manipulation, specials on
-// random open trades), redraws, random closes, random shop spins, buys and sales, over many days. After every action and
+// A random player: random cards from the hand (trades, leverage, specials, manipulation), redraws, random shop spins,
+// buys and sales, over many days. After every action and
 // tick it checks that money, trades and card piles stay valid, and that saving and loading keeps the same equity.
 // Prints every problem it finds (at most 15) and a short summary.
 const fs = require('fs'), path = require('path');
@@ -9,8 +9,7 @@ function loadGame() {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const code = html.split('<script id="game">')[1].split('</script>')[0];
   return new Function(code + `;return { newRun, advanceTick, closeDay, startNextDay, openTheMarket, openShop, spinReels, buyReelCard, sellCard,
-    cardBlockedReason, isTradeCard, playMarketCard, playTradeCard, openBenchTrade, closeTrade, redrawHand, totalEquity, currentPrice,
-    tradeValue, serialiseRun, loadRun, PLAYER_CARDS, TICKS_PER_DAY };`)();
+    playCard, redrawHand, totalEquity, currentPrice, tradeValue, serialiseRun, loadRun };`)();
 }
 const game = loadGame();
 const RUNS = Number(process.argv[2]) || 40;
@@ -34,7 +33,7 @@ function checkInvariants(run, where) {
     if (!(game.tradeValue(run, trade) >= 0)) report(run, where, 'trade value ' + game.tradeValue(run, trade));
   }
   // every owned card is in exactly one place
-  const placed = [...run.drawPile, ...run.hand, ...run.discardPile, ...(today.bench.tradeCard ? [today.bench.tradeCard] : []), ...today.bench.leverageCards];
+  const placed = [...run.drawPile, ...run.hand, ...run.discardPile];
   if (placed.slice().sort().join() !== run.deck.slice().sort().join()) report(run, where, `cards: deck ${run.deck.length}, placed ${placed.length}`);
   if (run.heat < 0) report(run, where, 'heat below 0');
 }
@@ -45,19 +44,10 @@ function checkSave(run, where) {
   if (Math.abs(before - after) > 1e-6 * Math.max(1, Math.abs(before))) report(run, where, `save changed equity ${before} → ${after}`);
 }
 
-// One random action during the day.
+// One random action during the day: a redraw now and then, else a random card from the hand.
 function randomAction(run, random) {
-  const today = run.today, roll = random();
-  if (roll < 0.08 && today.trades.length) { game.closeTrade(run, Math.floor(random() * today.trades.length)); return; }
-  if (roll < 0.11) { game.redrawHand(run); return; }
-  if (today.bench.tradeCard && random() < 0.5) { game.openBenchTrade(run, 0.05 + random() * 0.95); return; }
-  const handIndex = Math.floor(random() * run.hand.length), cardId = run.hand[handIndex];
-  if (!cardId || game.cardBlockedReason(run, cardId)) return;
-  const card = game.PLAYER_CARDS[cardId];
-  if (game.isTradeCard(cardId)) { run.hand.splice(handIndex, 1); today.bench.tradeCard = cardId; }
-  else if (card.family === 'leverage') { run.hand.splice(handIndex, 1); today.bench.leverageCards.push(cardId); }
-  else if (card.target === 'trade') game.playTradeCard(run, handIndex, Math.floor(random() * today.trades.length));
-  else game.playMarketCard(run, handIndex);
+  if (random() < 0.05) { game.redrawHand(run); return; }
+  game.playCard(run, Math.floor(random() * run.hand.length));
 }
 function randomShop(run, random) {
   game.openShop(run);
@@ -76,11 +66,9 @@ for (let runNumber = 0; runNumber < RUNS; runNumber++) {
   const run = game.newRun(500 + runNumber);
   for (let day = 0; day < DAYS_PER_RUN && !run.gameOverReason; day++) {
     for (let step = 0; step < 4; step++) { randomAction(run, random); checkInvariants(run, 'preopen'); }
-    if (run.today.bench.tradeCard) game.openBenchTrade(run, 0.5);
     game.openTheMarket(run);
     while (run.phase === 'trading') {
       if (random() < 0.08) { randomAction(run, random); checkInvariants(run, 'action'); }
-      if (run.today.bench.tradeCard) game.openBenchTrade(run, 0.5);
       const outcome = game.advanceTick(run);
       liquidations += outcome.liquidated;
       checkInvariants(run, 'tick');
