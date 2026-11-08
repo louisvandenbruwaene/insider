@@ -11,7 +11,7 @@ function loadGame() {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const code = html.split('<script id="game">')[1].split('</script>')[0];
   return new Function(code + `;return { newRun, advanceTick, closeDay, startNextDay, openTheMarket, openShop, buyReelCard, spinReels,
-    cardBlockedReason, playMarketCard, redrawCards, openBenchTrade, closeTrade, closeAllTrades, totalEquity, currentPrice, averagePayoff, cardPrice,
+    cardBlockedReason, playMarketCard, redrawHand, openBenchTrade, closeTrade, closeAllTrades, totalEquity, currentPrice, averagePayoff, cardPrice,
     PLAYER_CARDS, TICKS_PER_DAY, HYPE_TICKS };`)();
 }
 const game = loadGame();
@@ -66,12 +66,9 @@ const BOTS = {
   hype: {
     morning(run) {
       run.today.closeAtTick = null;
-      // redraw what this bot never plays
-      for (let redraw = 0; redraw < 2; redraw++) {
-        const useless = run.hand.map((cardId, index) => [game.PLAYER_CARDS[cardId], index])
-          .filter(([card]) => !(card.kind === 'stock' || card.family === 'leverage' || card.name === 'HYPE' || card.name === 'BASH')).map(([, index]) => index);
-        if (useless.length) game.redrawCards(run, useless);
-      }
+      // spin the hand while it holds no Hype or Bash
+      for (let redraw = 0; redraw < 2; redraw++)
+        if (!run.hand.some(cardId => ['HYPE', 'BASH'].includes(game.PLAYER_CARDS[cardId].name))) game.redrawHand(run);
       for (const [manipulation, side] of [['HYPE', 'long'], ['BASH', 'short']]) {
         const manipulationCard = playableCard(run, card => card.name === manipulation);
         const tradeCard = playableCard(run, card => card.kind === 'stock' && card.family === side);

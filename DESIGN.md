@@ -8,21 +8,23 @@ Every number named here lives in `index.html` § 1 SETTINGS.
 **Your deck** holds trade, leverage, special and manipulation cards. Every morning you draw `HAND_SIZE` (6). At the close the rest of the hand is discarded. The discard pile is shuffled into a new draw pile when the draw pile is empty.
 
 ## A day
-1. **Morning (pre-open):** play cards, build trades, `REDRAWS_PER_DAY` (2) redraws (pick cards, discard them, draw as many).
-2. **The day:** the same, while the price runs. The clock stops while a trade is on the bench, a card is aimed at a trade, or a redraw is being picked.
+1. **Morning (pre-open):** play cards, build trades, `REDRAWS_PER_DAY` (2) redraws. A redraw spins the hand like the shop's reels: the hand is discarded, as many cards are drawn, and each slot runs past cards of your deck and stops on its new card, left to right.
+2. **The day:** the same, while the price runs. The clock stops while a trade is on the bench, a card is held, or the hand spins.
+
+**Playing a card (like Slay the Spire):** drag it from the hand up into the play zone (everything above the hand, outlined while you drag, with a label saying what letting go will do). A click without dragging picks the card up and it follows the mouse until the next click plays it there (right click puts it back). Double and Top-up are dropped on an open trade (with one trade open, anywhere works).
 3. **The close:** dividends are paid, every trade is closed at the closing price (options at max(S − K, 0) / max(K − S, 0)), heat is added, the meeting is held if it is due.
 4. **The shop.**
 
 At most `TRADES_PER_DAY` (3) trade cards a day. Other cards have no daily limit, only heat.
 
 ## Building a trade: the bench
-Click a trade card: it goes to the bench. Click leverage cards: they line up behind it and apply **left to right**. Click a bench card to send it back. The bench shows the chain (`1 → +1 = 2 → ×2 = 4`), the stake slider (share of cash, starting at cash ÷ trades left), the position, the option price, and the liquidation price (also on the chart). OPEN TRADE costs `TRADE_FEE` (1%) of the stake on top.
+Play a trade card: it goes to the bench. Play leverage cards: they line up behind it and apply **left to right**. Click a bench card to send it back. The bench shows the chain (`1 → +1 = 2 → ×2 = 4`), the stake slider (share of cash, starting at cash ÷ trades left), the position, the option price, and the liquidation price (also on the chart). OPEN TRADE costs `TRADE_FEE` (1%) of the stake on top.
 
 ## The cards
 | Family | Cards | Effect |
 |---|---|---|
-| Long (green, lightning up) | stock, call K = S, 3S/4, S/2, S/4 | stock P&L = S − entry; a call pays max(S − K, 0) at the close |
-| Short (red, lightning down) | stock, put K = S, 3S/4, S/2, S/4 | stock P&L = entry − S; a put pays max(K − S, 0) |
+| Long (green, a rising price line) | stock, call K = S, 3S/4, S/2, S/4 | stock P&L = S − entry; a call pays max(S − K, 0) at the close |
+| Short (red, a falling price line) | stock, put K = S, 3S/4, S/2, S/4 | stock P&L = entry − S; a put pays max(K − S, 0) |
 | Leverage (gold) | +1 +4 +9, ×2 ×5 ×10, +1 & ^2 ^5 ^10 | L + n, L × n, (L + 1)ⁿ |
 | Special (blue) | Double | on an open trade: the position doubles, the money in it stays |
 | | Top-up I/II/III | on an open trade: +50/100/200% of its stake from cash as extra margin |
@@ -61,7 +63,7 @@ Heat comes from cards and from days above `ABNORMAL_RETURN` (+25%). It decays `H
 After every close: LONG (long cards, Dividends, Floor), SHORT (short cards, Ceiling), MANIP, LEVERAGE (leverage cards, Double, Top-up). Each reel shows one card. BUY adds it to your draw pile. SPIN rerolls all four like a slot machine, `SPIN_PRICE` (5) and `SPIN_PRICE_STEP` (5) more per spin in one visit. A reel lands on tier I/II/III with `TIER_ODDS` (70/25/5%). Prices `TIER_PRICES` (40/100/250). SELL A CARD sells for `SELL_SHARE` (half), never below `MINIMUM_PLAYER_DECK` (8) cards. All prices × inflation.
 
 ## Screen (mouse only, actions fire on the press)
-Side menu: day, clock, price, cash, money in trades, equity and today's P&L, heat, the next meeting and its rule. Chart: the previous days and today, liquidation lines, strikes, the bench's preview, ceiling and floor bars. The corner shows the last market card, σ, pushes still to come, ceiling, floor, dividends, the boss rule. Table: open trades (value, P&L, leverage now, liquidation price, CLOSE) and the bench. Hand, with trades and redraws left. Buttons: REDRAW, OPEN / CLOSE ALL, speed, skip to the close, pause.
+Side menu: day, clock, price, cash, money in trades, equity and today's P&L, heat, the next meeting and its rule. Chart: the previous days and today, liquidation lines, strikes, the bench's preview, ceiling and floor bars. The corner shows the last market card, σ, pushes still to come, ceiling, floor, dividends, the boss rule. Table: open trades (value, P&L, leverage now, liquidation price, CLOSE) and the bench. Hand, with trades and redraws left. Buttons: 🎰 REDRAW, OPEN / CLOSE ALL, speed, skip to the close, pause.
 
 ## Balance notes (`node tools/sim.cjs bots`, 30 runs)
 - Holding cash and coin-flipping stock trades: fail the first meeting (median).

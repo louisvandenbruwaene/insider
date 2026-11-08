@@ -8,7 +8,7 @@ function loadGame() {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const code = html.split('<script id="game">')[1].split('</script>')[0];
   return new Function(code + `;return { newRun, advanceTick, closeDay, startNextDay, openTheMarket, openShop, buyReelCard, spinReels, sellCard,
-    cardBlockedReason, isTradeCard, playMarketCard, playTradeCard, openBenchTrade, closeTrade, redrawCards, totalEquity, PLAYER_CARDS };`)();
+    cardBlockedReason, isTradeCard, playMarketCard, playTradeCard, openBenchTrade, closeTrade, redrawHand, totalEquity, PLAYER_CARDS };`)();
 }
 const game = loadGame();
 const hash = crypto.createHash('sha256');
@@ -37,7 +37,7 @@ function playHand(run) {
 for (const seed of [11, 22, 33]) {
   const run = game.newRun(seed);
   for (let day = 0; day < 25 && !run.gameOverReason; day++) {
-    if (day % 3 === 1) game.redrawCards(run, [0, 2]);
+    if (day % 3 === 1) game.redrawHand(run);
     playHand(run);
     game.openTheMarket(run);
     while (run.phase === 'trading') {

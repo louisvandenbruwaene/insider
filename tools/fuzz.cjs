@@ -9,7 +9,7 @@ function loadGame() {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const code = html.split('<script id="game">')[1].split('</script>')[0];
   return new Function(code + `;return { newRun, advanceTick, closeDay, startNextDay, openTheMarket, openShop, spinReels, buyReelCard, sellCard,
-    cardBlockedReason, isTradeCard, playMarketCard, playTradeCard, openBenchTrade, closeTrade, redrawCards, totalEquity, currentPrice,
+    cardBlockedReason, isTradeCard, playMarketCard, playTradeCard, openBenchTrade, closeTrade, redrawHand, totalEquity, currentPrice,
     tradeValue, serialiseRun, loadRun, PLAYER_CARDS, TICKS_PER_DAY };`)();
 }
 const game = loadGame();
@@ -49,7 +49,7 @@ function checkSave(run, where) {
 function randomAction(run, random) {
   const today = run.today, roll = random();
   if (roll < 0.08 && today.trades.length) { game.closeTrade(run, Math.floor(random() * today.trades.length)); return; }
-  if (roll < 0.11) { game.redrawCards(run, run.hand.map((cardId, index) => index).filter(() => random() < 0.5)); return; }
+  if (roll < 0.11) { game.redrawHand(run); return; }
   if (today.bench.tradeCard && random() < 0.5) { game.openBenchTrade(run, 0.05 + random() * 0.95); return; }
   const handIndex = Math.floor(random() * run.hand.length), cardId = run.hand[handIndex];
   if (!cardId || game.cardBlockedReason(run, cardId)) return;

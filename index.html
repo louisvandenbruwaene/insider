@@ -34,7 +34,7 @@ button{font:inherit;color:inherit}
 @keyframes flashDown{0%{color:var(--down);transform:scale(1.06)}}
 
 /* the main column: chart, the table (open trades and the bench), the hand, the buttons */
-#mainColumn{display:flex;flex-direction:column;align-items:center;gap:12px;min-width:0;min-height:0}
+#mainColumn{position:relative;display:flex;flex-direction:column;align-items:center;gap:12px;min-width:0;min-height:0}
 #chartBox{position:relative;width:100%;max-width:1060px;flex:1;min-height:170px;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
 #chart{width:100%;height:100%;display:block}
 #corner{position:absolute;top:12px;left:12px;right:12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;pointer-events:none}
@@ -54,7 +54,8 @@ button{font:inherit;color:inherit}
 .tradeTile .tileLine{font-size:11px;display:flex;justify-content:space-between}
 .tradeTile .tileClose{margin-top:auto;font:800 10px var(--mono);letter-spacing:.1em;padding:4px 0;border-radius:7px;border:1px solid var(--line);background:var(--panel2);cursor:pointer}
 .tradeTile .tileClose:hover{border-color:var(--accent)}
-.tradeTile.target{cursor:pointer;animation:glow 1s ease-in-out infinite}
+.tradeTile.dropTarget{animation:glow 1s ease-in-out infinite}
+.tradeTile.dropHere{border-color:var(--accent);transform:scale(1.04)}
 #bench{display:none;gap:14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 14px;height:100%}
 #bench.show{display:flex}
 .benchCards{display:flex;align-items:center;gap:4px}
@@ -92,9 +93,21 @@ button{font:inherit;color:inherit}
 .playerCard .name{font:800 12px var(--mono);letter-spacing:.04em}
 .playerCard .detail{font:500 9.5px var(--mono);color:var(--dim);margin-top:2px;min-height:12px;white-space:nowrap}
 .playerCard .heatTag{position:absolute;top:18px;right:7px;font:700 9px var(--mono);color:var(--heat)}
+#hand .playerCard{cursor:grab;touch-action:none}
 #hand .playerCard:hover{transform:translateY(-8px)}
+#hand .playerCard.dragging{opacity:.2;transform:none}
+#hand .handReel{width:calc(var(--cardWidth) + 8px);height:calc(var(--cardHeight) + 16px);align-self:flex-end}
+#hand .handReel .reelStrip{left:4px}
+/* dragging a card: it follows the mouse; above the hand it plays (the play zone lights up) */
+#dragGhost{position:fixed;left:0;top:0;z-index:30;pointer-events:none;display:none;transition:filter .1s}
+#dragGhost .playerCard{transform:rotate(-3deg) scale(1.06);box-shadow:0 18px 30px rgba(0,0,0,.6)}
+#dragGhost.ready .playerCard{box-shadow:0 0 0 3px var(--accent),0 0 30px rgba(255,201,77,.45),0 18px 30px rgba(0,0,0,.6)}
+#playZone{position:absolute;left:0;right:0;top:0;display:none;place-items:start center;padding-top:56px;border:2px dashed var(--faint);border-radius:16px;background:rgba(255,201,77,.02);pointer-events:none;z-index:5}
+#playZone.show{display:grid}
+#playZone.ready{border-color:var(--accent);background:rgba(255,201,77,.06)}
+#playZoneLabel{font:800 18px var(--mono);letter-spacing:.12em;color:var(--dim);background:rgba(13,15,18,.8);padding:8px 16px;border-radius:10px}
+#playZone.ready #playZoneLabel{color:var(--accent)}
 .playerCard.locked{opacity:.38;cursor:default} #hand .playerCard.locked:hover{transform:none}
-.playerCard.picked{transform:translateY(-14px);box-shadow:0 0 0 3px var(--accent),0 8px 16px rgba(0,0,0,.4)}
 .playerCard.fresh{animation:dealt .35s}
 @keyframes dealt{0%{transform:translateY(40px) scale(.8);opacity:0}}
 
@@ -164,9 +177,11 @@ button{font:inherit;color:inherit}
     <div id="table"><div id="openTrades"></div><div id="bench"></div></div>
     <div id="handRow"><div id="handInfo"></div><div id="hand"></div></div>
     <div id="actions"></div>
+    <div id="playZone"><span id="playZoneLabel"></span></div>
   </main>
 </div>
 <div id="overlay"></div>
+<div id="dragGhost"></div>
 <div id="tooltip"></div>
 <script id="game">
 "use strict";
@@ -304,7 +319,7 @@ const STARTING_DECK = ['longStock', 'longStock', 'longStock', 'shortStock', 'sho
   'add1', 'times2', 'hype1', 'bash1'];
 const HAND_SIZE = 6;                            // every morning you draw this many (the rest of the hand is discarded at the close)
 const TRADES_PER_DAY = 3;                       // trade cards played per day
-const REDRAWS_PER_DAY = 2;                      // pick cards from the hand, discard them, draw as many
+const REDRAWS_PER_DAY = 2;                      // spin the hand: it is discarded and as many cards are drawn
 
 // 1.6 Heat and the SEC
 const HEAT_LIMIT = 100;                         // reaching it at the close starts an investigation
@@ -353,6 +368,8 @@ const CHART_HISTORY_STEP = 3;                   // draw every 3rd tick of past d
 const CARD_WIDTH = 104, CARD_HEIGHT = 146;      // a card in the hand (the CSS reads these)
 const REEL_CARD_STEP = CARD_HEIGHT + 16;        // a card and its margins on a shop reel
 const REEL_SPIN_CARDS = 16, REEL_SPIN_SECONDS = 0.9, REEL_STOP_STAGGER = 0.22;
+const HAND_SPIN_STAGGER = 0.12;                 // a redraw spins the hand like reels, stopping left to right this far apart
+const DRAG_THRESHOLD = 8;                       // pixels: less than this is a click (the card is picked up and follows the mouse)
 const EQUITY_FLASH_CHANGE = 0.002;              // the equity number flashes when it moves more than 0.2% …
 const POPUP_CHANGE = 0.01;                      // … and a +$ / −$ popup appears over the chart above 1%
 const POPUP_SECONDS = 1.2;                      // popups over the chart fade in this time
@@ -546,15 +563,21 @@ function drawPlayerCards(run, count) {
     run.hand.push(run.drawPile.pop());
   }
 }
-// Redraw: these hand positions go to the discard pile and as many cards are drawn.
-function redrawCards(run, handIndices) {
+// Redraw (a spin of the hand, like the shop's reels): the whole hand goes to the discard pile and as many are drawn.
+function redrawBlockedReason(run) {
   const today = run.today;
-  if (today.redrawsLeft <= 0 || handIndices.length === 0 || benchBusy(today)) return false;
-  const chosen = new Set(handIndices);
-  run.discardPile.push(...run.hand.filter((cardId, index) => chosen.has(index)));
-  run.hand = run.hand.filter((cardId, index) => !chosen.has(index));
-  drawPlayerCards(run, chosen.size);
-  today.redrawsLeft--;
+  if (!marketOpen(run)) return 'The market is closed';
+  if (today.redrawsLeft <= 0) return 'No redraws left today';
+  if (benchBusy(today)) return 'Finish the trade on the bench first';
+  return run.hand.length ? null : 'No cards in hand';
+}
+function redrawHand(run) {
+  if (redrawBlockedReason(run)) return false;
+  const count = run.hand.length;
+  run.discardPile.push(...run.hand);
+  run.hand = [];
+  drawPlayerCards(run, count);
+  run.today.redrawsLeft--;
   return true;
 }
 
@@ -1019,8 +1042,8 @@ const view = {
   run: null, speedIndex: 0, paused: false, overlay: null,
   popups: [], lastEquity: null, freshTick: -1, freshHand: 0,     // chart popups, equity flash, newest chip, newest hand cards
   stakePercent: 100,                                              // the bench's stake slider (share of cash)
-  targeting: null,                                                // the hand position of a card waiting for an open trade
-  redrawing: null,                                                // the hand positions picked for a redraw (a Set), or null
+  drag: null,                                                     // the card being dragged or carried (§ 12.2)
+  handSpin: null,                                                 // { previousHand } while a redraw spins the hand
   deckSelling: false,                                             // the deck window sells cards (opened from the shop)
 };
 const element = id => document.getElementById(id);
@@ -1195,10 +1218,13 @@ const colourClass = value => (value >= 0 ? 'up' : 'down');
 const ROMAN = ['', 'I', 'II', 'III'];
 
 // ── 10.1 A player card's face. Glyphs are drawn in a 100 × 100 box.
-const BOLT_UP = '<path d="M60 4 L86 38 L69 38 L59 55 L74 55 L34 97 L45 63 L30 63 L47 38 L34 38 Z" fill="currentColor"/>';
+// A stock chart going up: a faint baseline, a wobbly rising line, an arrowhead on its last (45°) leg.
+const TREND_UP = '<line x1="4" y1="94" x2="96" y2="94" stroke="currentColor" stroke-width="3" opacity=".3"/>'
+  + '<polyline points="6,84 22,64 34,72 52,40 60,48 84,24" fill="none" stroke="currentColor" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/>'
+  + '<polygon points="96,12 77,17 91,31" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>';
 const GLYPHS = {
-  boltUp:   BOLT_UP,
-  boltDown: '<g transform="translate(0 100) scale(1 -1)">' + BOLT_UP + '</g>',
+  trendUp:   TREND_UP,
+  trendDown: '<g transform="translate(0 100) scale(1 -1)">' + TREND_UP.replace('y1="94" x2="96" y2="94"', 'y1="6" x2="96" y2="6"') + '</g>',
   hype:     '<polyline points="6,80 30,62 50,14 70,62 94,80" fill="none" stroke="currentColor" stroke-width="9" stroke-linejoin="round" stroke-linecap="round"/>',
   bash:     '<polyline points="6,20 30,38 50,86 70,38 94,20" fill="none" stroke="currentColor" stroke-width="9" stroke-linejoin="round" stroke-linecap="round"/>',
   turmoil:  '<polyline points="4,50 14,18 24,80 34,10 46,88 58,16 70,84 82,24 96,50" fill="none" stroke="currentColor" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/>',
@@ -1209,15 +1235,16 @@ const GLYPHS = {
   topUp:    '<rect x="14" y="56" width="72" height="32" rx="6" fill="none" stroke="currentColor" stroke-width="7"/><path d="M50 8 V44 M32 26 H68" stroke="currentColor" stroke-width="9" stroke-linecap="round"/>',
 };
 function cardArt(card) {
-  if (card.kind) return `<svg viewBox="0 0 100 100">${GLYPHS[card.family === 'long' ? 'boltUp' : 'boltDown']}</svg>`;
+  if (card.kind) return `<svg viewBox="0 0 100 100">${GLYPHS[card.family === 'long' ? 'trendUp' : 'trendDown']}</svg>`;
   if (card.glyph) return `<svg viewBox="0 0 100 100">${GLYPHS[card.glyph]}</svg>`;
   return `<div class="big">${card.smallFace ? `<small>${card.smallFace}</small>` : ''}${card.face}</div>`;
 }
-// extra: { classes, action, argument, tip } for the card's element.
+// extra: { classes, action, argument, handIndex, tip } for the card's element.
 function playerCardHtml(cardId, extra = {}) {
   const card = PLAYER_CARDS[cardId], heat = cardHeat(cardId);
   const tip = extra.tip === undefined ? card.sentence : extra.tip;
-  const action = extra.action ? `data-action="${extra.action}" data-argument="${extra.argument}"` : '';
+  const action = extra.action ? `data-action="${extra.action}" data-argument="${extra.argument}"`
+    : extra.handIndex !== undefined ? `data-hand-index="${extra.handIndex}"` : '';
   return `<div class="playerCard ${card.family} ${extra.classes || ''}" ${action} data-tip="${tip}">
     <div class="family">${card.family === 'manip' ? 'MANIP' : card.family.toUpperCase()}</div><div class="tier">${ROMAN[card.tier]}</div>
     ${heat ? `<div class="heatTag">🔥${heat}</div>` : ''}
@@ -1265,7 +1292,7 @@ function renderSide() {
 function renderTable() {
   const run = view.run, today = run.today;
   const tiles = today.trades.map((trade, index) => tradeTileHtml(run, trade, index)).join('');
-  element('openTrades').innerHTML = tiles || `<span class="tableNote">${marketOpen(run) ? 'click a trade card to start a trade' : ''}</span>`;
+  element('openTrades').innerHTML = tiles || `<span class="tableNote">${marketOpen(run) ? 'drag a card up to play it' : ''}</span>`;
   const bench = element('bench');
   bench.classList.toggle('show', benchBusy(today));
   bench.innerHTML = benchBusy(today) ? benchHtml(run) : '';
@@ -1275,14 +1302,15 @@ function tradeTileHtml(run, trade, index) {
   const levelLine = trade.kind === 'stock'
     ? (leverage > 1.0001 ? `<span>liq</span><span class="heat">${formatPlain(liquidationPrice(trade))}</span>` : '<span>no liq</span>')
     : `<span>K ${formatPlain(trade.strikePrice)}</span><span>${trade.kind}</span>`;
-  const targetable = view.targeting !== null;
-  return `<div class="tradeTile ${card.family} ${targetable ? 'target' : ''}" ${targetable ? `data-action="targetTrade" data-argument="${index}"` : ''}
+  const dragged = view.drag && PLAYER_CARDS[view.run.hand[view.drag.handIndex]];
+  const dropTarget = dragged && dragged.target === 'trade';
+  return `<div class="tradeTile ${card.family} ${dropTarget ? 'dropTarget' : ''}" data-trade-index="${index}"
       data-tip="#${trade.number} ${tradeName(trade.cardId)}: money in ${formatMoney(trade.cashIn)}, now ${formatMoney(tradeValue(run, trade))}">
     <div class="tileTop"><span>${tradeName(trade.cardId)}</span><span>×${formatLeverage(leverage)}</span></div>
     <div class="tileValue">${formatMoney(tradeValue(run, trade))}</div>
     <div class="tileLine ${colourClass(profit)}"><span>${formatSignedMoney(profit)}</span></div>
     <div class="tileLine dim">${levelLine}</div>
-    ${targetable ? '' : `<button class="tileClose" data-action="closeTrade" data-argument="${index}">CLOSE</button>`}
+    <button class="tileClose" data-action="closeTrade" data-argument="${index}">CLOSE</button>
   </div>`;
 }
 function leverageChainText(chain) {
@@ -1323,38 +1351,43 @@ function refreshBenchReadout() {
   if (openButton) openButton.classList.toggle('locked', !!preview.reason);
 }
 
-// ── 10.4 The hand, and what is left of the day (trades, redraws)
+// ── 10.4 The hand, and what is left of the day (trades, redraws). Cards are dragged up to play them (§ 12.2).
 function renderHand() {
   const run = view.run, today = run.today;
   element('handInfo').innerHTML = `
     <div data-tip="Trade cards you can still play today">trades<b>${today.tradesLeft}</b></div>
-    <div data-tip="Pick cards, discard them, draw as many">redraws<b>${today.redrawsLeft}</b></div>
+    <div data-tip="Spins of the hand left today">redraws<b>${today.redrawsLeft}</b></div>
     <div data-tip="Cards in your draw pile / discard pile">piles<b style="font-size:13px">${run.drawPile.length} / ${run.discardPile.length}</b></div>`;
+  if (view.handSpin) return;                                   // the reels are spinning (spinHand)
   const firstFresh = run.hand.length - view.freshHand;
   element('hand').innerHTML = run.hand.map((cardId, index) => {
-    const picked = (view.redrawing && view.redrawing.has(index)) || view.targeting === index;
-    const blocked = view.redrawing ? null : cardBlockedReason(run, cardId);
-    const classes = [blocked ? 'locked' : '', picked ? 'picked' : '', index >= firstFresh ? 'fresh' : ''].join(' ');
-    return playerCardHtml(cardId, { classes, action: 'handCard', argument: index, tip: blocked ? `${PLAYER_CARDS[cardId].sentence} (${blocked})` : undefined });
+    const blocked = cardBlockedReason(run, cardId);
+    const classes = [blocked ? 'locked' : '', view.drag && view.drag.handIndex === index ? 'dragging' : '', index >= firstFresh ? 'fresh' : ''].join(' ');
+    return playerCardHtml(cardId, { classes, handIndex: index, tip: blocked ? `${PLAYER_CARDS[cardId].sentence} (${blocked})` : undefined });
   }).join('') || '<span class="emptyHand">no cards in hand</span>';
   view.freshHand = 0;
+}
+// A redraw: every card of the hand becomes a reel that runs past cards of your deck and stops on the new card.
+function spinHand(previousHand) {
+  const run = view.run;
+  view.handSpin = { previousHand };
+  element('hand').innerHTML = run.hand.map(() => '<div class="reelWindow handReel"><div class="reelStrip"></div></div>').join('');
+  const strips = element('hand').querySelectorAll('.reelStrip');
+  let longest = 0;
+  run.hand.forEach((cardId, index) => {
+    const seconds = REEL_SPIN_SECONDS + index * HAND_SPIN_STAGGER;
+    longest = Math.max(longest, seconds);
+    spinStrip(strips[index], previousHand[index] || cardId, run.deck, cardId, seconds);
+  });
+  playReelTicks();
+  setTimeout(() => { view.handSpin = null; renderAll(); }, longest * 1000 + 120);
 }
 
 // ── 10.5 The buttons. Before the open: REDRAW, OPEN. During the day: REDRAW, CLOSE ALL, speed, skip to the close, pause.
 function renderActions() {
-  const run = view.run, today = run.today;
-  if (view.redrawing) {
-    element('actions').innerHTML = `
-      <button class="button primary ${view.redrawing.size ? 'suggest' : 'locked'}" data-action="confirmRedraw">REDRAW ${view.redrawing.size}</button>
-      <button class="button" data-action="cancelRedraw">CANCEL</button>`;
-    return;
-  }
-  if (view.targeting !== null) {
-    element('actions').innerHTML = `<span class="tableNote">click an open trade</span><button class="button" data-action="cancelTargeting">CANCEL</button>`;
-    return;
-  }
-  const redraw = `<button class="button ${today.redrawsLeft > 0 && !benchBusy(today) && marketOpen(run) ? '' : 'locked'}" data-action="startRedraw"
-    data-tip="Pick cards, discard them, draw as many (${today.redrawsLeft} left today)">REDRAW</button>`;
+  const run = view.run, today = run.today, redrawBlocked = redrawBlockedReason(run);
+  const redraw = `<button class="button ${redrawBlocked || view.handSpin ? 'locked' : ''}" data-action="redraw"
+    data-tip="${redrawBlocked || `Spin the hand: discard it, draw as many (${today.redrawsLeft} left today)`}">🎰 REDRAW</button>`;
   if (run.phase === 'preopen') {
     element('actions').innerHTML = `${redraw}<span class="gap"></span><button class="button primary ${benchBusy(today) ? 'locked' : 'suggest'}" data-action="openMarket">OPEN ▶</button>`;
     return;
@@ -1574,19 +1607,25 @@ function showShop(spinFrom = null) {
 function animateReels(previousReels) {
   const run = view.run;
   SHOP_REELS.forEach((reel, reelIndex) => {
-    const strip = document.querySelector(`#reel${reelIndex} .reelStrip`), pool = reelPool(reelIndex);
-    const passing = Array.from({ length: REEL_SPIN_CARDS }, () => pool[Math.floor(Math.random() * pool.length)]);
-    strip.innerHTML = [previousReels[reelIndex], ...passing, run.shop.reels[reelIndex]]
-      .map((cardId, position) => playerCardHtml(cardId, position === REEL_SPIN_CARDS + 1 ? { action: 'buyReel', argument: reelIndex, tip: '' } : { tip: '' })).join('');
-    strip.style.transform = 'translateY(0)';
-    void strip.offsetHeight;                                   // start from the top before animating
-    const seconds = REEL_SPIN_SECONDS + reelIndex * REEL_STOP_STAGGER;
-    strip.style.transition = `transform ${seconds}s cubic-bezier(.15,.7,.25,1.06)`;
-    strip.style.transform = `translateY(${-(REEL_SPIN_CARDS + 1) * REEL_CARD_STEP}px)`;
-    setTimeout(() => { if (strip.isConnected) sounds.reelStop(); }, seconds * 1000);
+    const strip = document.querySelector(`#reel${reelIndex} .reelStrip`);
+    spinStrip(strip, previousReels[reelIndex], reelPool(reelIndex), run.shop.reels[reelIndex],
+      REEL_SPIN_SECONDS + reelIndex * REEL_STOP_STAGGER, { action: 'buyReel', argument: reelIndex, tip: '' });
   });
-  for (let click = 0; click < 10; click++) setTimeout(sounds.reelTick, click * 80);
+  playReelTicks();
 }
+// One reel: from the card shown, past REEL_SPIN_CARDS random cards of the pool, to the landing card (with landingExtra
+// on its element), in this many seconds, with a clunk when it stops.
+function spinStrip(strip, fromCardId, pool, landingCardId, seconds, landingExtra = { tip: '' }) {
+  const passing = Array.from({ length: REEL_SPIN_CARDS }, () => pool[Math.floor(Math.random() * pool.length)]);
+  strip.innerHTML = [fromCardId, ...passing].map(cardId => playerCardHtml(cardId, { tip: '' })).join('') + playerCardHtml(landingCardId, landingExtra);
+  strip.style.transition = 'none';
+  strip.style.transform = 'translateY(0)';
+  void strip.offsetHeight;                                     // start from the top before animating
+  strip.style.transition = `transform ${seconds}s cubic-bezier(.15,.7,.25,1.06)`;
+  strip.style.transform = `translateY(${-(REEL_SPIN_CARDS + 1) * REEL_CARD_STEP}px)`;
+  setTimeout(() => { if (strip.isConnected) sounds.reelStop(); }, seconds * 1000);
+}
+function playReelTicks() { for (let click = 0; click < 10; click++) setTimeout(sounds.reelTick, click * 80); }
 
 // ═══════════════════════════════════════ § 12 INPUT ═══════════════════════════════════════
 // The game is played with the mouse only: every clickable element names its action in data-action.
@@ -1604,13 +1643,12 @@ function showPlayResult(line, playedSound = sounds.card) {
 function defaultStakePercent(run) {
   return clamp(Math.floor(100 / Math.max(1, run.today.tradesLeft) / SLIDER_STEP_PERCENT) * SLIDER_STEP_PERCENT, SLIDER_STEP_PERCENT, 100);
 }
-// A click on a card in the hand: pick it for a redraw, put it on the bench, aim it at a trade, or play it.
-function clickHandCard(handIndex) {
-  const run = view.run, cardId = run.hand[handIndex];
-  if (!cardId) return;
-  if (view.redrawing) { view.redrawing.has(handIndex) ? view.redrawing.delete(handIndex) : view.redrawing.add(handIndex); return; }
-  if (view.targeting === handIndex) { view.targeting = null; return; }
-  const blocked = cardBlockedReason(run, cardId), card = PLAYER_CARDS[cardId];
+// ── 12.1 Playing a card from the hand where it was dropped: a trade card opens the bench, a leverage card joins it,
+// Double and Top-up need an open trade (the one dropped on, or the only one), every other card plays at once.
+// target = { inPlayZone, tradeIndex } (dropTargetAt).
+function playHandCard(handIndex, target) {
+  const run = view.run, cardId = run.hand[handIndex], card = PLAYER_CARDS[cardId];
+  const blocked = cardBlockedReason(run, cardId) || (card.target === 'trade' && tradeIndexFor(run, target) === null ? 'Drop it on an open trade' : null);
   if (blocked) { sounds.denied(); addPopup(blocked, CHART_COLOURS.label, 14); return; }
   if (isTradeCard(cardId)) {
     run.hand.splice(handIndex, 1);
@@ -1622,12 +1660,80 @@ function clickHandCard(handIndex) {
     run.today.bench.leverageCards.push(cardId);
     sounds.card();
   } else if (card.target === 'trade') {
-    view.targeting = handIndex;
+    showPlayResult(playTradeCard(run, handIndex, tradeIndexFor(run, target)), sounds.trade);
   } else {
     showPlayResult(playMarketCard(run, handIndex), HEAT_EFFECTS.includes(card.effect) ? sounds.manipulation : sounds.card);
     if (card.family === 'manip') shakeChart(card.tier >= 3 ? 2 : 1);
   }
   saveRun();
+}
+function tradeIndexFor(run, target) {
+  if (target.tradeIndex !== null) return target.tradeIndex;
+  return run.today.trades.length === 1 ? 0 : null;
+}
+// What letting go of this card here would do (the play zone's label).
+function dropLabel(run, cardId, target) {
+  const card = PLAYER_CARDS[cardId], blocked = cardBlockedReason(run, cardId);
+  if (blocked) return blocked;
+  if (isTradeCard(cardId)) return 'BUILD A TRADE';
+  if (card.family === 'leverage') return 'ADD TO THE TRADE';
+  if (card.target === 'trade') {
+    const tradeIndex = tradeIndexFor(run, target);
+    return tradeIndex === null ? 'DROP IT ON A TRADE' : `${card.name} TRADE #${run.today.trades[tradeIndex].number}`;
+  }
+  return `PLAY ${card.name}`;
+}
+
+// ── 12.2 Dragging. Press a card in the hand and drag it up: above the hand it plays where you let go. A click without
+// dragging picks the card up: it follows the mouse until the next click plays it there (right click puts it back).
+// view.drag = { handIndex, offsetX, offsetY, startX, startY, moved, carrying }.
+function dropTargetAt(screenX, screenY) {
+  const handTop = element('handRow').getBoundingClientRect().top;
+  const under = document.elementFromPoint(screenX, screenY), tile = under && under.closest('[data-trade-index]');
+  return { inPlayZone: screenY < handTop - 4, tradeIndex: tile ? Number(tile.dataset.tradeIndex) : null };
+}
+function startDrag(event, handIndex) {
+  const bounds = event.target.closest('[data-hand-index]').getBoundingClientRect();
+  view.drag = { handIndex, offsetX: event.clientX - bounds.left, offsetY: event.clientY - bounds.top,
+    startX: event.clientX, startY: event.clientY, moved: false, carrying: false };
+  element('dragGhost').innerHTML = playerCardHtml(view.run.hand[handIndex], { tip: '' });
+  element('dragGhost').style.display = 'block';
+  element('tooltip').style.display = 'none';
+  const playZone = element('playZone');
+  playZone.style.height = (element('handRow').offsetTop - 6) + 'px';
+  playZone.classList.add('show');
+  moveDrag(event.clientX, event.clientY);
+  renderAll();
+}
+function moveDrag(screenX, screenY) {
+  const drag = view.drag;
+  if (Math.hypot(screenX - drag.startX, screenY - drag.startY) > DRAG_THRESHOLD) drag.moved = true;
+  const ghost = element('dragGhost'), target = dropTargetAt(screenX, screenY), run = view.run;
+  ghost.style.transform = `translate(${screenX - drag.offsetX}px, ${screenY - drag.offsetY}px)`;
+  const ready = target.inPlayZone || target.tradeIndex !== null;
+  ghost.classList.toggle('ready', ready);
+  element('playZone').classList.toggle('ready', ready);
+  element('playZoneLabel').textContent = ready ? dropLabel(run, run.hand[drag.handIndex], target) : 'DRAG UP TO PLAY';
+  document.querySelectorAll('[data-trade-index]').forEach(tile => tile.classList.toggle('dropHere', Number(tile.dataset.tradeIndex) === target.tradeIndex));
+}
+function endDrag(screenX, screenY) {
+  const handIndex = view.drag.handIndex, target = dropTargetAt(screenX, screenY);
+  clearDrag();
+  if (target.inPlayZone || target.tradeIndex !== null) playHandCard(handIndex, target);
+  renderAll();
+}
+function clearDrag() {
+  view.drag = null;
+  element('dragGhost').style.display = 'none';
+  element('dragGhost').classList.remove('ready');
+  element('playZone').classList.remove('show', 'ready');
+}
+function handlePointerMove(event) { if (view.drag) moveDrag(event.clientX, event.clientY); }
+function handlePointerUp(event) {
+  const drag = view.drag;
+  if (!drag || drag.carrying) return;
+  if (drag.moved) endDrag(event.clientX, event.clientY);
+  else drag.carrying = true;                                   // a click: the card is picked up and follows the mouse
 }
 
 const ACTIONS = {
@@ -1649,7 +1755,6 @@ const ACTIONS = {
   sound() { sound.muted = !sound.muted; savePreferences(); if (view.overlay === 'menu') showMenu(); },
   pause() { if (view.run.phase === 'trading') view.paused = !view.paused; },
   openDeck() { if (!view.overlay) { view.deckSelling = false; showDeck(); } },
-  handCard(handIndex) { clickHandCard(handIndex); },
   returnBenchCard(position) { returnBenchCard(view.run, position); sounds.card(); saveRun(); },
   clearBench() { clearBench(view.run); saveRun(); },
   openBenchTrade() {
@@ -1667,18 +1772,11 @@ const ACTIONS = {
     saveRun();
   },
   closeAll() { if (marketOpen(view.run)) { closeAllTrades(view.run); sounds.trade(); saveRun(); } },
-  targetTrade(tradeIndex) {
-    const handIndex = view.targeting;
-    view.targeting = null;
-    showPlayResult(playTradeCard(view.run, handIndex, tradeIndex), sounds.trade);
-  },
-  cancelTargeting() { view.targeting = null; },
-  startRedraw() { const today = view.run.today; if (today.redrawsLeft > 0 && !benchBusy(today) && marketOpen(view.run)) { view.targeting = null; view.redrawing = new Set(); } },
-  cancelRedraw() { view.redrawing = null; },
-  confirmRedraw() {
-    const picked = [...view.redrawing];
-    view.redrawing = null;
-    if (redrawCards(view.run, picked)) { view.freshHand = picked.length; sounds.card(); saveRun(); }
+  redraw() {
+    const run = view.run, previousHand = run.hand.slice();
+    if (view.handSpin || !redrawHand(run)) { sounds.denied(); return; }
+    saveRun();
+    spinHand(previousHand);
   },
   openMarket() {
     if (view.run.phase !== 'preopen' || benchBusy(view.run.today)) return;
@@ -1686,7 +1784,7 @@ const ACTIONS = {
     view.paused = false;
     saveRun();
   },
-  skipToClose() { if (!benchBusy(view.run.today)) { view.targeting = null; view.redrawing = null; while (view.run.phase === 'trading') runOneTick(true); } },
+  skipToClose() { if (!benchBusy(view.run.today)) while (view.run.phase === 'trading') runOneTick(true); },
   afterResult() {
     if (view.run.gameOverReason) { showGameOver(); return; }
     openShop(view.run);
@@ -1710,16 +1808,22 @@ const ACTIONS = {
   },
   backToShop() { view.deckSelling = false; showShop(); },
 };
-const NUMBER_ARGUMENT_ACTIONS = ['handCard', 'returnBenchCard', 'closeTrade', 'targetTrade', 'buyReel'];
-function resetViewForDay() { view.lastEquity = null; view.targeting = null; view.redrawing = null; view.freshHand = view.run.hand.length; }
+const NUMBER_ARGUMENT_ACTIONS = ['returnBenchCard', 'closeTrade', 'buyReel'];
+function resetViewForDay() { view.lastEquity = null; view.freshHand = view.run.hand.length; if (view.drag) clearDrag(); }
 
 // Actions fire on the press, not the release: the table and the hand are redrawn every tick, and a redraw between
 // press and release would swallow a click.
 function handlePress(event) {
+  if (view.drag && view.drag.carrying) {                       // a carried card: this click plays it here (right click: back)
+    if (event.button === 0) endDrag(event.clientX, event.clientY); else { clearDrag(); renderAll(); }
+    return;
+  }
   if (event.button !== 0) return;
+  const handCard = event.target.closest('#hand [data-hand-index]');
+  if (handCard && !view.overlay && !view.handSpin) { startDrag(event, Number(handCard.dataset.handIndex)); return; }
   const target = event.target.closest('[data-action]');
   if (!target) return;
-  if (target.classList.contains('locked') && target.dataset.action !== 'handCard') { sounds.denied(); return; }
+  if (target.classList.contains('locked')) { sounds.denied(); return; }
   const action = ACTIONS[target.dataset.action];
   if (!action) return;
   const argument = target.dataset.argument;
@@ -1728,6 +1832,7 @@ function handlePress(event) {
 }
 // Instant tooltips for anything with data-tip; in the shop the line under the reels explains the card under the mouse.
 function handleMouseMove(event) {
+  if (view.drag) return;                                       // no tooltips while a card is held
   const sentenceHolder = event.target.closest('[data-sentence]');
   if (sentenceHolder && element('selectedSentence')) element('selectedSentence').textContent = sentenceHolder.dataset.sentence;
   const tooltip = element('tooltip'), target = event.target.closest('[data-tip]');
@@ -1762,9 +1867,9 @@ function runOneTick(quiet) {
     showResult();
   }
 }
-// The clock stops while a window is open, the game is paused, or you are building a trade, aiming or redrawing.
+// The clock stops while a window is open, the game is paused, or you are building a trade, holding a card or spinning the hand.
 function clockRuns(run) {
-  return run && run.phase === 'trading' && !view.paused && !view.overlay && !benchBusy(run.today) && view.targeting === null && !view.redrawing;
+  return run && run.phase === 'trading' && !view.paused && !view.overlay && !benchBusy(run.today) && !view.drag && !view.handSpin;
 }
 let lastFrameTime = null;
 function frame(time) {
@@ -1799,6 +1904,9 @@ function start() {
   showTitle();
   renderAll();
   document.addEventListener('pointerdown', handlePress);
+  document.addEventListener('pointermove', handlePointerMove);
+  document.addEventListener('pointerup', handlePointerUp);
+  document.addEventListener('contextmenu', event => event.preventDefault());
   document.addEventListener('mousemove', handleMouseMove);
   window.addEventListener('resize', renderAll);
   requestAnimationFrame(frame);
