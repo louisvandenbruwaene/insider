@@ -1,100 +1,122 @@
-// Headless checks for Insider: loads the game script (§1-§7 run without a browser) and
-//   node tools/sim.cjs fairness   — are the market maker's 7-day option prices fair? (fair value vs the real average payoff)
-//   node tools/sim.cjs bots [runs] — full runs by simple players: cash holder, coin flipper, rumour trader (each closes everything before the open)
+// Headless checks for Insider (loads the game script; § 13 START does not run without a browser).
+//   node tools/sim.cjs fairness      are the market maker's same-day option prices fair? (price at the open vs real payoff)
+//   node tools/sim.cjs bots [runs]   full runs by simple players:
+//     cash      never trades
+//     coin      one long or short stock trade a day at the open, all its leverage cards, half the cash, held to the close
+//     hype      the edge play: a long under Hype (a short under Bash) with every leverage card, closed at the top;
+//               buys leverage and manipulation cards in the shop
 const fs = require('fs'), path = require('path');
 
-// The script is run as a plain function (node's vm sandbox makes the simulation many times slower).
-// Outside a browser there is no document, so § 13 START does not run.
 function loadGame() {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const code = html.split('<script id="game">')[1].split('</script>')[0];
-  return new Function(code + `
-    ;return { newRun, prepareDay, advanceTick, closeDay, startNextDay, tradeStock, closeStock, buyOption, writeOption, playCard,
-      averagePayoff, simulateForecast, nextOpenPrice, tickMarket, closeEverything, makeRandom, deckToCardList, shopCatalogue, buyShopItem, applyDeckEdit,
-      totalEquity, currentPrice, meetingTarget,
-      TICKS_PER_DAY, OPTION_EXPIRY_DAYS, MEETING_EVERY_DAYS, MEETING_MULTIPLES };`)();
+  return new Function(code + `;return { newRun, advanceTick, closeDay, startNextDay, openTheMarket, openShop, buyReelCard, spinReels,
+    cardBlockedReason, playMarketCard, redrawCards, openBenchTrade, closeTrade, closeAllTrades, totalEquity, currentPrice, averagePayoff, cardPrice,
+    PLAYER_CARDS, TICKS_PER_DAY, HYPE_TICKS };`)();
 }
 const game = loadGame();
 
-// Weekly at-the-money calls: fair value at the open vs what they really paid 7 days later.
-function fairness(days = 300) {
+function fairness(days = 400) {
   const run = game.newRun(12345);
-  let premiums = 0, payoffs = 0, count = 0;
-  const opens = [];
-  for (let day = 0; day < days + game.OPTION_EXPIRY_DAYS; day++) {
+  let priced = 0, paid = 0;
+  for (let day = 0; day < days; day++) {
     const openPrice = game.currentPrice(run.today);
-    if (day < days) opens.push({ openPrice, fair: game.averagePayoff(run.today.forecast[game.OPTION_EXPIRY_DAYS], 'call', openPrice) });
-    run.phase = 'trading';
-    while (run.phase === 'trading') { const outcome = game.advanceTick(run); if (outcome.closed) game.closeDay(run); }
-    const settled = day - game.OPTION_EXPIRY_DAYS;
-    if (settled >= 0) {
-      const { openPrice: strikePrice, fair } = opens[settled];
-      premiums += fair / strikePrice; payoffs += Math.max(0, game.currentPrice(run.today) - strikePrice) / strikePrice; count++;
-    }
-    run.gameOverReason = null; game.startNextDay(run);
+    priced += game.averagePayoff(run.today.closeForecast, 'call', openPrice) / openPrice;
+    game.openTheMarket(run);
+    while (run.phase === 'trading') if (game.advanceTick(run).closed) game.closeDay(run);
+    paid += Math.max(0, run.lastResult.closePrice - openPrice) / openPrice;
+    run.gameOverReason = null;
+    game.startNextDay(run);
   }
-  console.log(`7-day ATM call: fair ${(premiums / count * 100).toFixed(2)}% of the strikePrice, real average payoff ${(payoffs / count * 100).toFixed(2)}% (${count} weeks)`);
+  console.log(`same-day at-the-money call over ${days} days: priced ${(100 * priced / days).toFixed(2)}% of S, paid ${(100 * paid / days).toFixed(2)}% of S`);
 }
 
-// A day for a bot: decide before the openPrice, then play every tick.
-function playDay(run, strategy) {
-  game.closeEverything(run);              // these bots only trade one day at a time
-  strategy.beforeOpen(run);
-  run.phase = 'trading';
+// Take cards out of the hand and onto the bench: the trade card, then add, multiply, power (the best order).
+const LEVERAGE_ORDER = { add: 0, times: 1, power: 2 };
+function buildTrade(run, tradeCardId) {
+  const today = run.today;
+  run.hand.splice(run.hand.indexOf(tradeCardId), 1);
+  today.bench.tradeCard = tradeCardId;
+  if (today.investigation) return;
+  const leverageCards = run.hand.filter(cardId => game.PLAYER_CARDS[cardId].family === 'leverage')
+    .sort((first, second) => LEVERAGE_ORDER[game.PLAYER_CARDS[first].operation] - LEVERAGE_ORDER[game.PLAYER_CARDS[second].operation]);
+  for (const cardId of leverageCards) { run.hand.splice(run.hand.indexOf(cardId), 1); today.bench.leverageCards.push(cardId); }
+}
+function playableCard(run, test) { return run.hand.find(cardId => test(game.PLAYER_CARDS[cardId]) && !game.cardBlockedReason(run, cardId)); }
+function playDay(run, morning, everyTick) {
+  morning(run);
+  game.openTheMarket(run);
   while (run.phase === 'trading') {
-    const outcome = game.advanceTick(run);
-    if (outcome.closed) game.closeDay(run);
+    if (everyTick) everyTick(run);
+    if (game.advanceTick(run).closed) game.closeDay(run);
   }
-  if (run.gameOverReason) return false;
-  strategy.shop(run);
-  game.startNextDay(run);
-  return true;
 }
 
-function buyFirstAffordable(run, ids) {
-  for (const id of ids) {
-    const shopItem = game.shopCatalogue(run).find(entry => entry.id === id);
-    if (shopItem && !shopItem.owned && run.cash > shopItem.price * 3 && game.buyShopItem(run, shopItem)) return true;
-  }
-  return false;
-}
-function rigDeck(run) {
-  const shopItem = game.shopCatalogue(run).find(entry => entry.id === 'remove');
-  if (run.cash > shopItem.price * 5 && run.heat < 60) game.applyDeckEdit(run, shopItem, run.ticker, run.decks[run.ticker].BEAR > 0 ? 'BEAR' : run.decks[run.ticker].DOWN > 0 ? 'DOWN' : 'bear');
-}
-
-const STRATEGIES = {
-  cash: { beforeOpen() {}, shop() {} },
+const BOTS = {
+  cash: { morning() {} },
   coin: {
-    beforeOpen(run) { game.tradeStock(run, Math.random() < 0.5 ? 1 : -1, 1); },
-    shop() {},
-  },
-  rumour: {
-    beforeOpen(run) {
-      const rumourInHand = run.today.hand.indexOf('rumour');
-      if (rumourInHand >= 0 && run.heat < 85) game.playCard(run, rumourInHand);
-      const rumour = run.today.insights.rumour;
-      if (rumour) game.tradeStock(run, rumour.direction === 'up' ? 1 : -1, 1);
+    morning(run) {
+      const side = Math.random() < 0.5 ? 'long' : 'short';
+      const tradeCard = playableCard(run, card => card.kind === 'stock' && card.family === side);
+      if (!tradeCard) return;
+      buildTrade(run, tradeCard);
+      game.openBenchTrade(run, 0.5);
     },
-    shop(run) { buyFirstAffordable(run, ['leverage']) || rigDeck(run); },
+  },
+  hype: {
+    morning(run) {
+      run.today.closeAtTick = null;
+      // redraw what this bot never plays
+      for (let redraw = 0; redraw < 2; redraw++) {
+        const useless = run.hand.map((cardId, index) => [game.PLAYER_CARDS[cardId], index])
+          .filter(([card]) => !(card.kind === 'stock' || card.family === 'leverage' || card.name === 'HYPE' || card.name === 'BASH')).map(([, index]) => index);
+        if (useless.length) game.redrawCards(run, useless);
+      }
+      for (const [manipulation, side] of [['HYPE', 'long'], ['BASH', 'short']]) {
+        const manipulationCard = playableCard(run, card => card.name === manipulation);
+        const tradeCard = playableCard(run, card => card.kind === 'stock' && card.family === side);
+        if (!manipulationCard || !tradeCard) continue;
+        buildTrade(run, tradeCard);
+        if (typeof game.openBenchTrade(run, 0.9) === 'string') continue;
+        game.playMarketCard(run, run.hand.indexOf(manipulationCard));
+        run.today.closeAtTick = game.HYPE_TICKS;
+        return;
+      }
+    },
+    everyTick(run) { if (run.today.tick === run.today.closeAtTick) game.closeAllTrades(run); },
+    shop(run) {
+      game.openShop(run);
+      for (let spin = 0; spin < 3; spin++) {
+        run.shop.reels.forEach((cardId, reelIndex) => {
+          const card = game.PLAYER_CARDS[cardId];
+          const wanted = card.family === 'leverage' || card.name === 'HYPE' || card.name === 'BASH' || card.effect === 'floor';
+          if (wanted && run.cash > 4 * game.cardPrice(run, cardId)) game.buyReelCard(run, reelIndex);
+        });
+        if (run.cash < 200 || !game.spinReels(run)) break;
+      }
+    },
   },
 };
 
-function bots(runs = 40) {
-  for (const [name, strategy] of Object.entries(STRATEGIES)) {
-    const daysSurvived = [], peaks = [];
-    for (let index = 0; index < runs; index++) {
-      const run = game.newRun(1000 + index);
-      while (run.day < (Number(process.argv[4]) || 400) && playDay(run, strategy)) { /* keep playing */ }
-      if (!Number.isFinite(run.cash)) throw new Error(name + ': cash became ' + run.cash);
-      daysSurvived.push(run.day); peaks.push(run.peakEquity);
+function bots(runs = 30, maximumDays = 60) {
+  for (const [botName, bot] of Object.entries(BOTS)) {
+    const days = [], peaks = [], meetings = [];
+    for (let runNumber = 0; runNumber < runs; runNumber++) {
+      const run = game.newRun(7000 + runNumber);
+      while (!run.gameOverReason && run.day < maximumDays) {
+        playDay(run, bot.morning, bot.everyTick);
+        if (run.gameOverReason) break;
+        if (bot.shop) bot.shop(run);
+        game.startNextDay(run);
+      }
+      days.push(run.day); peaks.push(run.peakEquity); meetings.push(run.meetingsPassed);
     }
-    daysSurvived.sort((first, second) => first - second); peaks.sort((first, second) => first - second);
-    const median = list => list[Math.floor(list.length / 2)];
-    console.log(`${name.padEnd(8)} days: median ${median(daysSurvived)}, best ${daysSurvived.at(-1)} · peak equity: median ${median(peaks).toExponential(2)}, best ${peaks.at(-1).toExponential(2)}`);
+    const median = list => list.slice().sort((first, second) => first - second)[Math.floor(list.length / 2)];
+    console.log(`${botName.padEnd(5)} days median ${median(days)}, best ${Math.max(...days)} · meetings median ${median(meetings)}, best ${Math.max(...meetings)} · peak median $${Math.round(median(peaks))}, best $${Math.max(...peaks).toExponential(2)}`);
   }
 }
 
-const [command = 'bots', argument] = process.argv.slice(2);
-if (command === 'fairness') fairness(Number(argument) || 400);
-else bots(Number(argument) || 40);
+const [command, argument] = process.argv.slice(2);
+if (command === 'fairness') fairness();
+else if (command === 'bots') bots(Number(argument) || 30);
+else console.log('usage: node tools/sim.cjs fairness | bots [runs]');

@@ -1,47 +1,60 @@
-// Usage: node tools/fingerprint.cjs index.html
-// Plays a fixed script of trades over fixed seeds and prints a hash of every number that matters (cash, equity,
-// heat, shares, open options). Run it before and after a cleanup: the same hash means the same game.
-const fs = require('fs');
-const crypto = require('crypto');
+// Usage: node tools/fingerprint.cjs
+// Plays a fixed script over fixed seeds (trade cards with every leverage card in the hand, manipulation, specials on
+// the first open trade, closes at fixed ticks, the shop's first affordable reel) and prints a hash of every number that
+// matters (cash, equity, heat, trades, piles, the shop). Run it before and after a cleanup: the same hash means the same game.
+const fs = require('fs'), path = require('path'), crypto = require('crypto');
 
-function loadGame(htmlFile) {
-  const html = fs.readFileSync(htmlFile, 'utf8');
+function loadGame() {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const code = html.split('<script id="game">')[1].split('</script>')[0];
-  return new Function(code + `;return { newRun, advanceTick, closeDay, startNextDay, tradeStock, buyOption, writeOption,
-    closeOption, closeStockPart, playCard, totalEquity, currentPrice, shopCatalogue, buyShopItem, pickOfferedCard, strikeOffsets };`)();
+  return new Function(code + `;return { newRun, advanceTick, closeDay, startNextDay, openTheMarket, openShop, buyReelCard, spinReels, sellCard,
+    cardBlockedReason, isTradeCard, playMarketCard, playTradeCard, openBenchTrade, closeTrade, redrawCards, totalEquity, PLAYER_CARDS };`)();
 }
-const game = loadGame(process.argv[2]);
+const game = loadGame();
+const hash = crypto.createHash('sha256');
+const record = (...values) => hash.update(JSON.stringify(values));
 
-// The same trades every day, at fixed ticks.
-function tradeOnTick(run, tick, dayNumber) {
-  const price = game.currentPrice(run.today);
-  if (tick === 5) game.tradeStock(run, dayNumber % 2 ? 1 : -1, 0.3);
-  if (tick === 20) game.buyOption(run, 'put', price * (1 + game.strikeOffsets('put')[dayNumber % 8]), 0.2);
-  if (tick === 40) game.writeOption(run, 'call', price * 1.2, 0.1);
-  if (tick === 60 && run.today.options.length) game.closeOption(run, 0, 0.5);
-  if (tick === 75) game.closeStockPart(run, 0.5);
+// Play every card the hand allows, in hand order: trade cards get every leverage card after them.
+function playHand(run) {
+  for (let index = 0; index < run.hand.length; index++) {
+    const cardId = run.hand[index], card = game.PLAYER_CARDS[cardId];
+    if (game.cardBlockedReason(run, cardId)) continue;
+    if (game.isTradeCard(cardId)) {
+      run.hand.splice(index, 1);
+      run.today.bench.tradeCard = cardId;
+      for (const leverageCard of run.hand.filter(other => game.PLAYER_CARDS[other].family === 'leverage' && !game.cardBlockedReason(run, other))) {
+        run.hand.splice(run.hand.indexOf(leverageCard), 1);
+        run.today.bench.leverageCards.push(leverageCard);
+      }
+      record(game.openBenchTrade(run, 0.4).number);
+    } else if (card.target === 'trade') record(game.playTradeCard(run, index, 0));
+    else if (card.family !== 'leverage') record(game.playMarketCard(run, index));
+    else continue;
+    index = -1;                                   // the hand changed: start again from the left
+  }
 }
 
-const lines = [];
-for (let seed = 1; seed <= 6; seed++) {
+for (const seed of [11, 22, 33]) {
   const run = game.newRun(seed);
-  run.cash = 50000;
-  for (const positionId in run.unlocked) run.unlocked[positionId] = true;
-  run.leverageTier = 2;
-  for (let dayNumber = 0; dayNumber < 12 && !run.gameOverReason; dayNumber++) {
-    game.playCard(run, 0, 0);                                           // the first play of the hand
-    run.phase = 'trading';
-    let tick = 0;
+  for (let day = 0; day < 25 && !run.gameOverReason; day++) {
+    if (day % 3 === 1) game.redrawCards(run, [0, 2]);
+    playHand(run);
+    game.openTheMarket(run);
     while (run.phase === 'trading') {
-      tradeOnTick(run, tick, dayNumber);
       const outcome = game.advanceTick(run);
-      tick++;
+      if (run.today.tick === 30 && run.today.trades.length) record(game.closeTrade(run, 0));
+      if (run.today.tick === 50) playHand(run);
+      record(run.today.tick, run.cash, game.totalEquity(run), run.heat, run.today.trades.length, outcome.liquidated);
       if (outcome.closed) game.closeDay(run);
     }
-    lines.push([seed, run.day, run.cash.toFixed(6), game.totalEquity(run).toFixed(6), run.heat.toFixed(3),
-      run.today.shares.toFixed(6), run.today.options.length].join(' '));
+    record(run.lastResult.endEquity, run.hand, run.drawPile.length, run.discardPile.length);
     if (run.gameOverReason) break;
+    game.openShop(run);
+    game.spinReels(run);
+    const reelIndex = run.shop.reels.findIndex((cardId, index) => game.buyReelCard(run, index));
+    if (day % 5 === 4) game.sellCard(run, run.deck[0]);
+    record(run.shop, reelIndex, run.deck);
     game.startNextDay(run);
   }
 }
-console.log(crypto.createHash('sha1').update(lines.join('\n')).digest('hex'), lines.length, 'days');
+console.log(hash.digest('hex').slice(0, 16));
