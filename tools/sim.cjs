@@ -4,7 +4,7 @@
 //     cash      never trades
 //     coin      plays a random BUY or SELL STOCK card at the open, with every leverage card first, held to the close
 //     hype      the edge play: every leverage card, a BUY STOCK, then Hype (or a SELL STOCK, then Bash); at the top of the
-//               push it plays a card the other way to close, if it holds one; buys leverage and manipulation in the shop
+//               push it plays the trade's closing card; buys leverage and manipulation in the shop
 //               once its cash is above the next meeting's target
 const fs = require('fs'), path = require('path');
 
@@ -12,7 +12,7 @@ function loadGame() {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const code = html.split('<script id="game">')[1].split('</script>')[0];
   return new Function(code + `;return { newRun, advanceTick, closeDay, startNextDay, openTheMarket, openShop, buyReelCard, spinReels,
-    cardBlockedReason, playCard, redrawHand, totalEquity, currentPrice, averagePayoff, cardPrice, leverageOf, nextMeeting, PLAYER_CARDS, HYPE_TICKS };`)();
+    cardBlockedReason, playCard, redrawHand, totalEquity, currentPrice, averagePayoff, cardPrice, leverageOf, nextMeeting, cardInfo, PLAYER_CARDS, HYPE_TICKS };`)();
 }
 const game = loadGame();
 
@@ -32,11 +32,13 @@ function fairness(days = 400) {
 }
 
 // Play the first card in the hand that passes the test (and can be played). Returns whether one was played.
+// Tests get the card (closing cards included, as game.cardInfo describes them).
 function playFirst(run, test) {
-  const index = run.hand.findIndex(cardId => test(game.PLAYER_CARDS[cardId]) && !game.cardBlockedReason(run, cardId));
+  const index = run.hand.findIndex(cardId => test(game.cardInfo(run, cardId)) && !game.cardBlockedReason(run, cardId));
   if (index < 0) return false;
   return !game.playCard(run, index).error;
 }
+const opens = name => card => card.name === name && !card.closesTrade;     // a deck card that opens a trade
 const LEVERAGE_ORDER = { add: 0, times: 1, power: 2 };
 // Leverage cards in the best order (add, multiply, power), but only while the next trade stays at most BOT_LEVERAGE×:
 // far above that a stock trade is liquidated by ordinary noise within a few ticks.
@@ -46,7 +48,7 @@ function playAllLeverage(run) {
     while (playFirst(run, card => card.operation === operation && game.leverageOf(run, run.today.pendingLeverage.concat(cardIdOf(card))) <= BOT_LEVERAGE));
 }
 function cardIdOf(card) { return Object.keys(game.PLAYER_CARDS).find(cardId => game.PLAYER_CARDS[cardId] === card); }
-function holds(run, test) { return run.hand.some(cardId => test(game.PLAYER_CARDS[cardId])); }
+function holds(run, test) { return run.hand.some(cardId => test(game.cardInfo(run, cardId))); }
 function playDay(run, morning, everyTick) {
   morning(run);
   game.openTheMarket(run);
@@ -61,26 +63,26 @@ const BOTS = {
   coin: {
     morning(run) {
       const side = Math.random() < 0.5 ? 'BUY STOCK' : 'SELL STOCK';
-      if (!holds(run, card => card.name === side)) return;
+      if (!holds(run, opens(side))) return;
       playAllLeverage(run);
-      playFirst(run, card => card.name === side);
+      playFirst(run, opens(side));
     },
   },
   hype: {
     morning(run) {
       run.today.closeAtTick = null;
       for (let redraw = 0; redraw < 2 && !holds(run, card => card.name === 'HYPE' || card.name === 'BASH'); redraw++) game.redrawHand(run);
-      for (const [manipulation, opening, closing] of [['HYPE', 'BUY STOCK', 'SELL STOCK'], ['BASH', 'SELL STOCK', 'BUY STOCK']]) {
-        if (!holds(run, card => card.name === manipulation) || !holds(run, card => card.name === opening)) continue;
+      for (const [manipulation, opening] of [['HYPE', 'BUY STOCK'], ['BASH', 'SELL STOCK']]) {
+        if (!holds(run, card => card.name === manipulation) || !holds(run, opens(opening))) continue;
         playAllLeverage(run);
-        if (!playFirst(run, card => card.name === opening)) continue;
+        if (!playFirst(run, opens(opening))) continue;
         playFirst(run, card => card.name === manipulation);
         run.today.closeAtTick = game.HYPE_TICKS;
-        run.today.closingCard = closing;
         return;
       }
     },
-    everyTick(run) { if (run.today.tick === run.today.closeAtTick) playFirst(run, card => card.name === run.today.closingCard); },
+    // at the top of the push: play the trade's closing card (it came into the hand when the trade opened)
+    everyTick(run) { if (run.today.tick === run.today.closeAtTick) playFirst(run, card => !!card.closesTrade); },
     shop(run) {
       game.openShop(run);
       if (run.cash < game.nextMeeting(run, run.day + 1).target) return;      // only shops with money to spare

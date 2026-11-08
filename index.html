@@ -148,8 +148,8 @@ button{font:inherit;color:inherit}
 "use strict";
 /* INSIDER — a trading roguelike deckbuilder. The stock's price is a deck of cards: every quarter second one card is
    drawn and moves it. You hold a second deck: your own cards, and playing them is the only thing you do. A trade card
-   buys or sells a fixed amount at its price now (BUY STOCK: 1 stock, about $100), and a trade card the other way closes
-   your oldest open trade. Leverage cards multiply the risk and reward of the next trade. Special cards double or top up
+   buys or sells a fixed amount at its price now (BUY STOCK: 1 stock, about $100) and puts the card that closes that
+   trade in your hand, with RETAIN. Leverage cards multiply the risk and reward of the next trade. Special cards double or top up
    your newest trade, pay dividends or pin the price under a ceiling or above a floor; manipulation cards hype, bash,
    shake or calm the market. The market maker prices options fairly from the market deck, but only learns of a
    manipulation once it is played: the order you play your cards in is the edge. Every trade still open is closed at the
@@ -228,9 +228,8 @@ const FORECAST_PATHS = 800;                     // the market maker plays out th
 
 // 1.5 Your cards. family: long (green) / short (red) say which way a card bets, leverage (gold), special (blue),
 // manip(ulation, orange). tier 1-3 = rarity and price.
-//   Trades:    BUY / SELL STOCK (quantity stock at the price now; a card the other way closes your oldest trade),
-//              BUY CALL / PUT (OPTION_QUANTITY options, K = strikeShare × S, they expire at the close),
-//              SELL CALL / PUT (close your oldest call or put)
+//   Trades:    BUY / SELL STOCK (long or short quantity stock at the price now), BUY CALL / PUT (OPTION_QUANTITY options,
+//              K = strikeShare × S, they expire at the close). Opening a trade puts its closing card in the hand (§ 4.2).
 //   Leverage:  the next trade's leverage L (starting at 1), in the order played: + n, × n, (L + 1)^n
 //   Special:   double / topUp act on your newest open trade; dividends pay at the close; ceiling / floor pin the price
 //   Manip:     hype / bash push the price, then back; turmoil / calm multiply σ until the close
@@ -241,9 +240,9 @@ const STRIKES = [[1, 'S', 1], [0.75, '3S/4', 1], [0.5, 'S/2', 2], [0.25, 'S/4', 
 const OPTION_QUANTITY = 5;                      // options per BUY CALL / BUY PUT card
 for (const [quantity, tier] of STOCK_QUANTITIES) {
   defineCard('buyStock' + quantity, { family: 'long', kind: 'stock', side: +1, quantity, tier, name: 'BUY STOCK', detail: `${quantity} stock`,
-    sentence: `Buy ${quantity} stock at the price now. Holding a short: closes your oldest short instead.` });
+    sentence: `Buy ${quantity} stock at the price now. The SELL card that closes it comes into your hand.` });
   defineCard('sellStock' + quantity, { family: 'short', kind: 'stock', side: -1, quantity, tier, name: 'SELL STOCK', detail: `${quantity} stock`,
-    sentence: `Holding stock: sells your oldest stock trade. Holding none: shorts ${quantity} stock at the price now.` });
+    sentence: `Short ${quantity} stock at the price now. The BUY card that closes it comes into your hand.` });
 }
 for (const [share, label, tier] of STRIKES)
   defineCard('buyCall' + share * 100, { family: 'long', kind: 'call', side: +1, quantity: OPTION_QUANTITY, strikeShare: share, strikeLabel: label, tier,
@@ -251,8 +250,6 @@ for (const [share, label, tier] of STRIKES)
 for (const [share, label, tier] of STRIKES)
   defineCard('buyPut' + share * 100, { family: 'short', kind: 'put', side: +1, quantity: OPTION_QUANTITY, strikeShare: share, strikeLabel: label, tier,
     name: 'BUY PUT', detail: 'K = ' + label, sentence: `Buy ${OPTION_QUANTITY} puts, K = ${label} (S = the price now): P&L = max(K − S, 0) × ${OPTION_QUANTITY} − the price. They expire at the close.` });
-defineCard('sellCall', { family: 'short', closes: 'call', tier: 1, name: 'SELL CALL', detail: 'closes a call', sentence: 'Sells your oldest call trade at its value now.' });
-defineCard('sellPut',  { family: 'long',  closes: 'put',  tier: 1, name: 'SELL PUT',  detail: 'closes a put',  sentence: 'Sells your oldest put trade at its value now.' });
 for (const [amount, tier] of [[1, 1], [4, 2], [9, 3]])
   defineCard('add' + amount, { family: 'leverage', operation: 'add', amount, tier, face: '+' + amount, sentence: `Next trade: leverage + ${amount}.` });
 for (const [amount, tier] of [[2, 1], [5, 2], [10, 3]])
@@ -291,7 +288,7 @@ const HEAT_BY_TIER = [0, 10, 20, 35];           // heat from a manipulation, cei
 const HEAT_EFFECTS = ['hype', 'volatility', 'ceiling', 'floor'];
 
 const STARTING_DECK = ['buyStock1', 'buyStock1', 'buyStock1', 'sellStock1', 'sellStock1', 'sellStock1', 'buyCall100', 'buyPut100',
-  'sellCall', 'sellPut', 'times2', 'hype1', 'bash1'];
+  'add1', 'times2', 'hype1', 'bash1'];
 const HAND_SIZE = 6;                            // every morning you draw this many (the rest of the hand is discarded at the close)
 // REDRAW spins the hand (retained cards stay). It costs money, more each time in one day: $10, $50, $100, $500, $1,000,
 // $5,000 … (the 1-5-10 steps of REDRAW_PRICE_STEPS, ×10 every two redraws). The price starts again every morning.
@@ -530,7 +527,25 @@ function averagePayoff(closes, type, strikePrice) {
 // run.deck lists every card you own. Each is in exactly one place: run.drawPile, run.hand or run.discardPile. Played
 // cards go to the discard pile, and so does the rest of the hand at the close; the discard pile is shuffled into a new
 // draw pile when the draw pile is empty.
-function cardHeat(cardId) { const card = PLAYER_CARDS[cardId]; return HEAT_EFFECTS.includes(card.effect) ? HEAT_BY_TIER[card.tier] : 0; }
+function cardHeat(cardId) { const card = PLAYER_CARDS[cardId]; return card && HEAT_EFFECTS.includes(card.effect) ? HEAT_BY_TIER[card.tier] : 0; }
+
+// ── 4.2 Closing cards. Opening a trade puts its closing card in the hand: "close:<trade number>". It is not part of
+// your deck: it leaves the game when it is played or when its trade closes another way (liquidated, the close), and a
+// redraw never takes it (RETAIN). Its face: SELL STOCK / BUY STOCK / SELL CALL / SELL PUT, green when closing is a buy
+// (or selling a put), red when it is a sale.
+function closingCardId(trade) { return 'close:' + trade.number; }
+function isClosingCard(cardId) { return cardId.startsWith('close:'); }
+function closingTradeIndex(run, cardId) { const number = Number(cardId.slice(6)); return run.today.trades.findIndex(trade => trade.number === number); }
+// What any card in the hand is: a card of PLAYER_CARDS, or a closing card made from its trade.
+function cardInfo(run, cardId) {
+  if (!isClosingCard(cardId)) return PLAYER_CARDS[cardId];
+  const trade = run.today.trades[closingTradeIndex(run, cardId)];
+  if (!trade) return { family: 'short', kind: 'stock', tier: 0, name: 'CLOSE', detail: 'closed', sentence: 'This trade is closed.' };
+  const buysBack = trade.kind === 'stock' && trade.side < 0;
+  const name = trade.kind === 'stock' ? (buysBack ? 'BUY STOCK' : 'SELL STOCK') : 'SELL ' + trade.kind.toUpperCase();
+  return { family: buysBack || trade.kind === 'put' ? 'long' : 'short', kind: trade.kind, tier: 0, name, closesTrade: trade.number,
+    detail: '#' + trade.number, sentence: `Closes trade #${trade.number} at its value now.` };
+}
 
 function drawPlayerCards(run, count) {
   for (let drawn = 0; drawn < count; drawn++) {
@@ -544,16 +559,12 @@ function drawPlayerCards(run, count) {
   }
 }
 // Redraw (a spin of the hand, like the shop's reels): every card goes to the discard pile and a new one is drawn in
-// its place, except the cards with RETAIN: a trade card that would close one of your open trades stays where it is.
-function isRetained(run, cardId) {
-  if (!isTradeCard(cardId)) return false;
-  const outcome = tradeCardOutcome(run, cardId);
-  return outcome.closes !== undefined && outcome.closes !== null;
-}
+// its place, except the cards with RETAIN: the closing cards of your open trades stay where they are.
+function isRetained(run, cardId) { return isClosingCard(cardId); }
 function redrawBlockedReason(run) {
   if (!marketOpen(run)) return 'The market is closed';
   if (run.cash < redrawPrice(run)) return `A redraw costs ${formatMoney(redrawPrice(run))}`;
-  return run.hand.some(cardId => !isRetained(run, cardId)) ? null : 'Nothing to redraw (closing cards are retained)';
+  return run.hand.some(cardId => !isRetained(run, cardId)) ? null : 'Nothing to redraw (closing cards are kept)';
 }
 // Returns the hand positions that were kept, or false.
 function redrawHand(run) {
@@ -615,19 +626,9 @@ function optionUnitValue(today, type, strikePrice) {
 }
 function optionBuyPrice(today, type, strikePrice) { return Math.max(optionUnitValue(today, type, strikePrice), currentPrice(today) * MINIMUM_OPTION_PRICE); }
 
-// ── 5.2 What a trade card does now: { closes: trade index } when it closes your oldest trade the other way, or the
-// trade it would open: { unitPrice, strikePrice, cost, leverage, quantity, liquidationPrice }.
-function oldestTradeIndex(run, test) { return run.today.trades.findIndex(test); }
+// ── 5.2 The trade a trade card would open now: { unitPrice, strikePrice, cost, leverage, quantity, liquidationPrice }.
 function tradeCardOutcome(run, cardId) {
   const today = run.today, card = PLAYER_CARDS[cardId];
-  if (card.closes) {
-    const index = oldestTradeIndex(run, trade => trade.kind === card.closes);
-    return index >= 0 ? { closes: index } : { closes: null };
-  }
-  if (card.kind === 'stock') {
-    const index = oldestTradeIndex(run, trade => trade.kind === 'stock' && trade.side === -card.side);
-    if (index >= 0) return { closes: index };
-  }
   const leverage = pendingLeverage(run);
   const strikePrice = card.kind === 'stock' ? null : card.strikeShare * currentPrice(today);
   const unitPrice = card.kind === 'stock' ? currentPrice(today) : optionBuyPrice(today, card.kind, strikePrice);
@@ -635,7 +636,7 @@ function tradeCardOutcome(run, cardId) {
   return { unitPrice, strikePrice, cost, leverage, quantity: card.quantity * leverage,
     liquidationPrice: card.kind === 'stock' && leverage > 1 ? unitPrice * (1 - card.side / leverage) : null };
 }
-// A trade card that opens: pay its cost, use the leverage waiting.
+// Opening: pay the cost, use the leverage waiting, and the trade's closing card comes into the hand.
 function openTrade(run, cardId) {
   const today = run.today, card = PLAYER_CARDS[cardId], outcome = tradeCardOutcome(run, cardId);
   run.cash -= outcome.cost;
@@ -645,6 +646,7 @@ function openTrade(run, cardId) {
   };
   today.trades.push(trade);
   today.pendingLeverage = [];
+  run.hand.push(closingCardId(trade));
   return trade;
 }
 
@@ -666,13 +668,15 @@ function totalEquity(run) {
 }
 function newestTrade(run) { return run.today.trades[run.today.trades.length - 1] || null; }
 
-// ── 5.4 Closing. reason: 'sold' (by a card), 'liquidated', 'the close'.
+// ── 5.4 Closing. reason: 'sold' (its closing card), 'liquidated', 'the close'.
 function closeTrade(run, tradeIndex, reason) {
   const today = run.today, trade = today.trades[tradeIndex];
   if (!trade) return null;
   const value = tradeValue(run, trade);
   run.cash += value;
   today.trades.splice(tradeIndex, 1);
+  const closingCardIndex = run.hand.indexOf(closingCardId(trade));
+  if (closingCardIndex >= 0) run.hand.splice(closingCardIndex, 1);   // its closing card leaves with it
   const closed = { number: trade.number, cardId: trade.cardId, leverage: trade.leverageAtOpen, profit: value - trade.cashIn, reason };
   today.closedTrades.push(closed);
   return closed;
@@ -715,13 +719,13 @@ function payDividends(run) {
 // ═══════════════════════════════════════ § 6 PLAYING CARDS ═══════════════════════════════════════
 // ── 6.1 Why a card in the hand cannot be played now, or null.
 function marketOpen(run) { return (run.phase === 'preopen' || run.phase === 'trading') && run.today.tick < TICKS_PER_DAY; }
-function isTradeCard(cardId) { const card = PLAYER_CARDS[cardId]; return !!(card.kind || card.closes); }
+function isTradeCard(cardId) { return !isClosingCard(cardId) && !!PLAYER_CARDS[cardId].kind; }
 function cardBlockedReason(run, cardId) {
-  const today = run.today, card = PLAYER_CARDS[cardId];
+  const today = run.today, card = cardInfo(run, cardId);
   if (!marketOpen(run)) return 'The market is closed';
+  if (isClosingCard(cardId)) return closingTradeIndex(run, cardId) >= 0 ? null : 'That trade is closed';
   if (isTradeCard(cardId)) {
     const outcome = tradeCardOutcome(run, cardId);
-    if (outcome.closes !== undefined) return outcome.closes === null ? `No ${card.closes} to sell` : null;
     if (today.bossRule === 'noOptions' && card.kind !== 'stock') return 'No options today';
     if (today.bossRule === 'noLongs' && card.family === 'long') return 'No new longs today';
     if (today.bossRule === 'noShorts' && card.family === 'short') return 'No new shorts today';
@@ -736,18 +740,18 @@ function cardBlockedReason(run, cardId) {
 
 // ── 6.2 Playing a card from the hand. Returns { line, kind: 'trade' | 'sold' | 'leverage' | 'market' } or { error }.
 function playCard(run, handIndex) {
-  const cardId = run.hand[handIndex], card = PLAYER_CARDS[cardId];
+  const cardId = run.hand[handIndex];
   const blocked = cardId ? cardBlockedReason(run, cardId) : 'No such card';
   if (blocked) return { error: blocked };
+  if (isClosingCard(cardId)) {                                 // closeTrade takes the closing card out of the hand
+    const closed = closeTrade(run, closingTradeIndex(run, cardId), 'sold');
+    return { kind: 'sold', line: `#${closed.number} closed ${formatSignedMoney(closed.profit)}`, profit: closed.profit };
+  }
+  const card = PLAYER_CARDS[cardId];
   run.hand.splice(handIndex, 1);
   run.discardPile.push(cardId);
   run.heat += cardHeat(cardId);
   if (isTradeCard(cardId)) {
-    const outcome = tradeCardOutcome(run, cardId);
-    if (outcome.closes !== undefined) {
-      const closed = closeTrade(run, outcome.closes, 'sold');
-      return { kind: 'sold', line: `#${closed.number} closed ${formatSignedMoney(closed.profit)}`, profit: closed.profit };
-    }
     const trade = openTrade(run, cardId);
     return { kind: 'trade', line: `#${trade.number} ${card.name}${trade.leverageAtOpen > 1 ? ' ×' + formatLeverage(trade.leverageAtOpen) : ''}` };
   }
@@ -898,7 +902,7 @@ function holdMeeting(run, equity) {
 // and the end of the run if there is no money left or the meeting failed.
 function closeDay(run) {
   const today = run.today;
-  run.discardPile.push(...run.hand);
+  run.discardPile.push(...run.hand.filter(cardId => !isClosingCard(cardId)));   // closing cards leave with their trades
   run.hand = [];
   const dividends = payDividends(run);
   closeAllTrades(run, 'the close');
@@ -1232,13 +1236,14 @@ const GLYPHS = {
   topUp:    '<rect x="14" y="56" width="72" height="32" rx="6" fill="none" stroke="currentColor" stroke-width="7"/><path d="M50 8 V44 M32 26 H68" stroke="currentColor" stroke-width="9" stroke-linecap="round"/>',
 };
 function cardArt(card) {
-  if (card.kind || card.closes) return `<svg viewBox="0 0 100 100">${GLYPHS[card.family === 'long' ? 'trendUp' : 'trendDown']}</svg>`;
+  if (card.kind) return `<svg viewBox="0 0 100 100">${GLYPHS[card.family === 'long' ? 'trendUp' : 'trendDown']}</svg>`;
   if (card.glyph) return `<svg viewBox="0 0 100 100">${GLYPHS[card.glyph]}</svg>`;
   return `<div class="big">${card.smallFace ? `<small>${card.smallFace}</small>` : ''}${card.face}</div>`;
 }
-// extra: { classes, action, argument, handIndex, detail, tip, retained } for the card's element. Leverage cards show only their face.
+// extra: { card (for a closing card: cardInfo), classes, action, argument, handIndex, detail, tip, retained } for the
+// card's element. Leverage cards show only their face.
 function playerCardHtml(cardId, extra = {}) {
-  const card = PLAYER_CARDS[cardId], heat = cardHeat(cardId);
+  const card = extra.card || PLAYER_CARDS[cardId], heat = cardHeat(cardId);
   const tip = extra.tip === undefined ? card.sentence : extra.tip;
   const action = extra.action ? `data-action="${extra.action}" data-argument="${extra.argument}"`
     : extra.handIndex !== undefined ? `data-hand-index="${extra.handIndex}"` : '';
@@ -1256,15 +1261,23 @@ function tradeName(cardId) {
 // ── 10.2 What a card in the hand does right now: the line under its name and its hover text (with today's prices and
 // the leverage waiting).
 function liveDetail(run, cardId) {
-  const card = PLAYER_CARDS[cardId];
+  const card = cardInfo(run, cardId);
+  if (isClosingCard(cardId)) {
+    const trade = run.today.trades[closingTradeIndex(run, cardId)];
+    return trade ? `#${trade.number} · ${formatSignedMoney(tradeProfit(run, trade))}` : card.detail;
+  }
   if (!isTradeCard(cardId)) return card.detail;
   const outcome = tradeCardOutcome(run, cardId);
-  if (outcome.closes !== undefined) return outcome.closes === null ? card.detail : `closes #${run.today.trades[outcome.closes].number}`;
   const amount = card.kind === 'stock' ? `${formatCount(outcome.quantity)} stock` : `K ${formatPlain(outcome.strikePrice)}`;
   return `${formatMoney(outcome.cost)} · ${amount}`;
 }
 function liveTip(run, cardId) {
-  const card = PLAYER_CARDS[cardId], today = run.today;
+  const card = cardInfo(run, cardId), today = run.today;
+  if (isClosingCard(cardId)) {
+    const trade = today.trades[closingTradeIndex(run, cardId)];
+    if (!trade) return card.sentence;
+    return `Closes trade #${trade.number} (${tradeName(trade.cardId)}${trade.leverageAtOpen > 1 ? ' ×' + formatLeverage(trade.leverageAtOpen) : ''}): now ${formatMoney(tradeValue(run, trade))}, P&L ${formatSignedMoney(tradeProfit(run, trade))}. Retain: a redraw keeps it.`;
+  }
   if (card.family === 'leverage') {
     const before = pendingLeverage(run), after = leverageOf(run, today.pendingLeverage.concat(cardId));
     if (before === 1 && card.operation === 'times') return `Next trade: ${after === 2 ? 'double' : after + '×'} risk & reward.`;
@@ -1278,21 +1291,16 @@ function liveTip(run, cardId) {
   }
   if (!isTradeCard(cardId)) return card.sentence;
   const outcome = tradeCardOutcome(run, cardId);
-  if (outcome.closes !== undefined) {
-    if (outcome.closes === null) return card.sentence;
-    const trade = today.trades[outcome.closes];
-    return `Closes trade #${trade.number} (${tradeName(trade.cardId)}): now ${formatMoney(tradeValue(run, trade))}, P&L ${formatSignedMoney(tradeProfit(run, trade))}.`;
-  }
   const quantity = formatCount(outcome.quantity), cost = formatMoney(outcome.cost), leverage = outcome.leverage;
   const borrowed = leverage > 1 ? ` (${formatLeverage(leverage)}× leverage)` : '';
   if (card.kind === 'stock') {
     const formula = card.side > 0 ? `${quantity} × (S − ${formatPlain(outcome.unitPrice)})` : `${quantity} × (${formatPlain(outcome.unitPrice)} − S)`;
     const liquidation = outcome.liquidationPrice ? ` Liquidated at S = ${formatPlain(outcome.liquidationPrice)}.` : '';
-    return `${card.side > 0 ? 'Buy' : 'Short'} ${quantity} stock for ${cost}${borrowed}. P&L = ${formula}.${liquidation}`;
+    return `${card.side > 0 ? 'Buy' : 'Short'} ${quantity} stock for ${cost}${borrowed}. P&L = ${formula}.${liquidation} Its ${card.side > 0 ? 'SELL' : 'BUY'} card comes into your hand.`;
   }
   const K = formatPlain(outcome.strikePrice), payoffText = card.kind === 'call' ? `max(S − ${K}, 0)` : `max(${K} − S, 0)`;
   const liquidation = leverage > 1 ? ` Liquidated if they lose ${Math.round(100 / leverage * 10) / 10}% of their value.` : '';
-  return `Buy ${quantity} ${card.kind}s, K = ${K}, for ${cost}${borrowed}. P&L = ${payoffText} × ${quantity} − ${cost}. They expire at the close.${liquidation}`;
+  return `Buy ${quantity} ${card.kind}s, K = ${K}, for ${cost}${borrowed}. P&L = ${payoffText} × ${quantity} − ${cost}. They expire at the close.${liquidation} Their SELL card comes into your hand.`;
 }
 
 // ── 10.3 The chart's top right: cash, today's P&L, heat, the deck, the menu.
@@ -1322,8 +1330,8 @@ function renderHand() {
 function handCardHtml(run, cardId, index, fresh = false) {
   const blocked = cardBlockedReason(run, cardId), retained = isRetained(run, cardId);
   const classes = [blocked ? 'locked' : '', view.drag && view.drag.handIndex === index ? 'dragging' : '', fresh ? 'fresh' : ''].join(' ');
-  const tip = liveTip(run, cardId) + (retained ? ' Retain: a redraw keeps it.' : '') + (blocked ? ` (${blocked})` : '');
-  return playerCardHtml(cardId, { classes, handIndex: index, detail: liveDetail(run, cardId), tip, retained });
+  const tip = liveTip(run, cardId) + (blocked ? ` (${blocked})` : '');
+  return playerCardHtml(cardId, { card: cardInfo(run, cardId), classes, handIndex: index, detail: liveDetail(run, cardId), tip, retained });
 }
 // A redraw: every card of the hand becomes a reel that runs past cards of your deck and stops on the new card.
 // Retained cards (keptPositions) stand still.
@@ -1610,7 +1618,8 @@ function startDrag(event, handIndex) {
   const bounds = event.target.closest('[data-hand-index]').getBoundingClientRect();
   view.drag = { handIndex, offsetX: event.clientX - bounds.left, offsetY: event.clientY - bounds.top,
     startX: event.clientX, startY: event.clientY, moved: false, carrying: false };
-  element('dragGhost').innerHTML = playerCardHtml(view.run.hand[handIndex], { tip: '', detail: liveDetail(view.run, view.run.hand[handIndex]) });
+  const cardId = view.run.hand[handIndex];
+  element('dragGhost').innerHTML = playerCardHtml(cardId, { card: cardInfo(view.run, cardId), tip: '', detail: liveDetail(view.run, cardId), retained: isRetained(view.run, cardId) });
   element('dragGhost').style.display = 'block';
   element('tooltip').style.display = 'none';
   const playZone = element('playZone');
@@ -1649,7 +1658,7 @@ function handlePointerUp(event) {
 }
 // Playing a dropped card, with its sound, shake and popup.
 function playHandCard(handIndex) {
-  const run = view.run, card = PLAYER_CARDS[run.hand[handIndex]], result = playCard(run, handIndex);
+  const run = view.run, card = cardInfo(run, run.hand[handIndex]), result = playCard(run, handIndex);
   if (result.error) { sounds.denied(); addPopup(result.error, CHART_COLOURS.label, 14); return; }
   if (result.kind === 'sold') {
     sounds.cash(result.profit >= 0);

@@ -9,7 +9,7 @@ function loadGame() {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const code = html.split('<script id="game">')[1].split('</script>')[0];
   return new Function(code + `;return { newRun, advanceTick, closeDay, startNextDay, openTheMarket, openShop, spinReels, buyReelCard, sellCard,
-    playCard, redrawHand, totalEquity, currentPrice, tradeValue, serialiseRun, loadRun };`)();
+    playCard, redrawHand, totalEquity, currentPrice, tradeValue, serialiseRun, loadRun, isClosingCard, closingCardId };`)();
 }
 const game = loadGame();
 const RUNS = Number(process.argv[2]) || 40;
@@ -33,7 +33,10 @@ function checkInvariants(run, where) {
     if (!(game.tradeValue(run, trade) >= 0)) report(run, where, 'trade value ' + game.tradeValue(run, trade));
   }
   // every owned card is in exactly one place
-  const placed = [...run.drawPile, ...run.hand, ...run.discardPile];
+  const placed = [...run.drawPile, ...run.hand.filter(cardId => !game.isClosingCard(cardId)), ...run.discardPile];
+  // every open trade has its closing card in the hand, and every closing card in the hand has its open trade
+  const closingCards = run.hand.filter(game.isClosingCard).sort().join(), openTradeCards = today.trades.map(game.closingCardId).sort().join();
+  if (closingCards !== openTradeCards) report(run, where, `closing cards ${closingCards} vs trades ${openTradeCards}`);
   if (placed.slice().sort().join() !== run.deck.slice().sort().join()) report(run, where, `cards: deck ${run.deck.length}, placed ${placed.length}`);
   if (run.heat < 0) report(run, where, 'heat below 0');
 }
