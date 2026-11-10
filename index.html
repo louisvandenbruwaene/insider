@@ -203,8 +203,8 @@ const MARKET_CARDS = {
   DOWN:    { category: 'move', move: -0.05 },
   bull:    { category: 'move', move: +0.10 },
   bear:    { category: 'move', move: -0.10 },
-  BULL:    { category: 'move', move: +0.50 },
-  BEAR:    { category: 'move', move: -0.50 },
+  BULL:    { category: 'move', move: +0.25 },
+  BEAR:    { category: 'move', move: -0.25 },
   volup:   { category: 'vol', factor: 1.01 },
   voldown: { category: 'vol', factor: 0.99 },
   volUP:   { category: 'vol', factor: 1.05 },
@@ -218,8 +218,15 @@ const MARKET_CARD_ORDER = Object.keys(MARKET_CARDS);
 const MARKET_DECK = { up: 100, down: 100, UP: 100, DOWN: 100, bull: 10, bear: 10, BULL: 1, BEAR: 1,
   volup: 100, voldown: 100, volUP: 100, volDOWN: 100, volbull: 10, volbear: 10, volBULL: 1, volBEAR: 1 };
 const PRICE_MOVE_FLOOR = -0.9;                  // no single move takes more than 90% off the price
-const VOLATILITY_MINIMUM = 0.1, VOLATILITY_MAXIMUM = 8;
-const BIG_CARD_MOVE = 0.10;                     // moves this big (and vol factors this far from 1) shake the chart
+// Realistic prices: σ wanders with the vol cards but is pulled back to BASE_VOLATILITY, and the price is pulled toward its
+// moving average (the past week and today), so tops and bottoms come back instead of running away.
+const BASE_VOLATILITY = 1.3;                    // σ at every open, and where σ settles
+const VOLATILITY_MINIMUM = 0.5, VOLATILITY_MAXIMUM = 2;
+const VOLATILITY_PULL = 0.03;                   // each tick σ moves this share of the way back to BASE_VOLATILITY
+const AVERAGE_TICKS = 7 * 90;                   // the moving average weighs about the last week (an exponential average)
+const AVERAGE_PULL = 0.05;                     // each tick the price moves this share of the way to the average
+const BIG_CARD_MOVE = 0.10;                     // moves this big (and vol factors this far from 1) shake the chart …
+const HUGE_CARD_MOVE = 0.25;                    // … and these shake it hard
 
 // 1.4 Trading
 const MINIMUM_OPTION_PRICE = 0.0005;            // the market maker sells no option for less than this share of S
@@ -240,48 +247,48 @@ const STRIKES = [[1, 'S', 1], [0.75, '3S/4', 1], [0.5, 'S/2', 2], [0.25, 'S/4', 
 const OPTION_QUANTITY = 5;                      // options per BUY CALL / BUY PUT card
 for (const [quantity, tier] of STOCK_QUANTITIES) {
   defineCard('buyStock' + quantity, { family: 'long', kind: 'stock', side: +1, quantity, tier, name: 'BUY STOCK', detail: `${quantity} stock`,
-    sentence: `Buy ${quantity} stock at the price now. The SELL card that closes it comes into your hand.` });
+    sentence: `Buy ${quantity} stock.` });
   defineCard('sellStock' + quantity, { family: 'short', kind: 'stock', side: -1, quantity, tier, name: 'SELL STOCK', detail: `${quantity} stock`,
-    sentence: `Short ${quantity} stock at the price now. The BUY card that closes it comes into your hand.` });
+    sentence: `Short ${quantity} stock.` });
 }
 for (const [share, label, tier] of STRIKES)
   defineCard('buyCall' + share * 100, { family: 'long', kind: 'call', side: +1, quantity: OPTION_QUANTITY, strikeShare: share, strikeLabel: label, tier,
-    name: 'BUY CALL', detail: 'K = ' + label, sentence: `Buy ${OPTION_QUANTITY} calls, K = ${label} (S = the price now): P&L = max(S − K, 0) × ${OPTION_QUANTITY} − the price. They expire at the close.` });
+    name: 'BUY CALL', detail: 'K = ' + label, sentence: `${OPTION_QUANTITY} calls, K = ${label}: each pays max(S − K, 0).` });
 for (const [share, label, tier] of STRIKES)
   defineCard('buyPut' + share * 100, { family: 'short', kind: 'put', side: +1, quantity: OPTION_QUANTITY, strikeShare: share, strikeLabel: label, tier,
-    name: 'BUY PUT', detail: 'K = ' + label, sentence: `Buy ${OPTION_QUANTITY} puts, K = ${label} (S = the price now): P&L = max(K − S, 0) × ${OPTION_QUANTITY} − the price. They expire at the close.` });
+    name: 'BUY PUT', detail: 'K = ' + label, sentence: `${OPTION_QUANTITY} puts, K = ${label}: each pays max(K − S, 0).` });
 for (const [amount, tier] of [[1, 1], [4, 2], [9, 3]])
   defineCard('add' + amount, { family: 'leverage', operation: 'add', amount, tier, face: '+' + amount, sentence: `Next trade: leverage + ${amount}.` });
 for (const [amount, tier] of [[2, 1], [5, 2], [10, 3]])
-  defineCard('times' + amount, { family: 'leverage', operation: 'times', amount, tier, face: '×' + amount, sentence: `Next trade: ${amount}× the risk and reward.` });
+  defineCard('times' + amount, { family: 'leverage', operation: 'times', amount, tier, face: '×' + amount, sentence: `Next trade ×${amount}.` });
 for (const [amount, tier] of [[2, 2], [5, 3], [10, 3]])
-  defineCard('power' + amount, { family: 'leverage', operation: 'power', amount, tier, face: '^' + amount, smallFace: '+1 &', sentence: `Next trade: leverage L becomes (L + 1)^${amount}.` });
+  defineCard('power' + amount, { family: 'leverage', operation: 'power', amount, tier, face: '^' + amount, smallFace: '+1 &', sentence: `Next trade: (L + 1)^${amount}.` });
 defineCard('double', { family: 'special', effect: 'double', target: 'trade', tier: 2, name: 'DOUBLE', face: '2×', detail: 'newest trade',
-  sentence: 'Your newest trade: double risk and reward, with the same money in it.' });
+  sentence: 'Newest trade ×2.' });
 for (const [share, tier] of [[0.5, 1], [1, 2], [2, 3]])
   defineCard('topUp' + tier, { family: 'special', effect: 'topUp', target: 'trade', share, tier, name: 'TOP-UP', glyph: 'topUp', detail: `+${share * 100}% margin`,
-    sentence: `Your newest trade: put ${share * 100}% of its money in again, so it is liquidated later.` });
+    sentence: `Newest trade: +${share * 100}% margin.` });
 for (const [share, tier] of [[0.01, 1], [0.03, 2], [0.08, 3]])
   defineCard('dividends' + tier, { family: 'special', effect: 'dividends', share, tier, name: 'DIVIDENDS', glyph: 'dividend', detail: `${Math.round(share * 100)}% at the close`,
-    sentence: `At today's close your long stock and calls are paid ${Math.round(share * 100)}% of their value. A short pays it.` });
+    sentence: `At the close: longs +${Math.round(share * 100)}%, shorts −${Math.round(share * 100)}%.` });
 for (const [ticks, tier] of [[15, 1], [30, 2], [60, 3]])
   defineCard('ceiling' + tier, { family: 'special', effect: 'ceiling', ticks, tier, name: 'CEILING', glyph: 'ceiling', detail: `${ticks} ticks`,
-    sentence: `For ${ticks} ticks the price cannot rise above the price now.` });
+    sentence: `No higher than now for ${ticks} ticks.` });
 for (const [ticks, tier] of [[15, 1], [30, 2], [60, 3]])
   defineCard('floor' + tier, { family: 'special', effect: 'floor', ticks, tier, name: 'FLOOR', glyph: 'floor', detail: `${ticks} ticks`,
-    sentence: `For ${ticks} ticks the price cannot fall below the price now.` });
-for (const [move, tier] of [[0.10, 1], [0.25, 2], [0.50, 3]])
-  defineCard('hype' + tier, { family: 'manip', effect: 'hype', move, tier, name: 'HYPE', glyph: 'hype', detail: `+${Math.round(move * 100)}%, then back`,
-    sentence: `The price climbs ${Math.round(move * 100)}% over the next 10 ticks, then falls back over the 10 after.` });
-for (const [move, tier] of [[-0.10, 1], [-0.20, 2], [-0.35, 3]])
-  defineCard('bash' + tier, { family: 'manip', effect: 'hype', move, tier, name: 'BASH', glyph: 'bash', detail: `−${Math.round(-move * 100)}%, then back`,
-    sentence: `The price falls ${Math.round(-move * 100)}% over the next 10 ticks, then climbs back over the 10 after.` });
-for (const [factor, tier] of [[1.5, 1], [2, 2], [3, 3]])
-  defineCard('turmoil' + tier, { family: 'manip', effect: 'volatility', factor, tier, name: 'TURMOIL', glyph: 'turmoil', detail: `σ ×${factor}`,
-    sentence: `Until the close every market card moves the price ${factor}× as much.` });
-for (const [factor, tier] of [[0.7, 1], [0.5, 2], [0.25, 3]])
-  defineCard('calm' + tier, { family: 'manip', effect: 'volatility', factor, tier, name: 'CALM', glyph: 'calm', detail: `σ ×${factor}`,
-    sentence: `Until the close every market card moves the price ${factor}× as much.` });
+    sentence: `No lower than now for ${ticks} ticks.` });
+for (const [move, tier] of [[0.25, 1], [0.50, 2], [1.00, 3]])
+  defineCard('hype' + tier, { family: 'manip', effect: 'hype', move, tier, name: 'HYPE', glyph: 'hype', detail: `+${Math.round(move * 100)}% in 10 ticks`,
+    sentence: `+${Math.round(move * 100)}% in 10 ticks, then back to the average.` });
+for (const [move, tier] of [[-0.20, 1], [-0.35, 2], [-0.50, 3]])
+  defineCard('bash' + tier, { family: 'manip', effect: 'hype', move, tier, name: 'BASH', glyph: 'bash', detail: `−${Math.round(-move * 100)}% in 10 ticks`,
+    sentence: `−${Math.round(-move * 100)}% in 10 ticks, then back to the average.` });
+for (const [factor, tier] of [[2, 1], [3, 2], [4, 3]])
+  defineCard('turmoil' + tier, { family: 'manip', effect: 'volatility', factor, tier, name: 'TURMOIL', glyph: 'turmoil', detail: `moves ×${factor}`,
+    sentence: `Every move ×${factor} until the close.` });
+for (const [factor, tier] of [[0.5, 1], [0.3, 2], [0.15, 3]])
+  defineCard('calm' + tier, { family: 'manip', effect: 'volatility', factor, tier, name: 'CALM', glyph: 'calm', detail: `moves ×${factor}`,
+    sentence: `Every move ×${factor} until the close.` });
 const PLAYER_CARD_ORDER = Object.keys(PLAYER_CARDS);
 const HYPE_TICKS = 10;                          // a hype climbs over this many ticks, then falls back over as many
 const HEAT_BY_TIER = [0, 10, 20, 35];           // heat from a manipulation, ceiling or floor card, by tier
@@ -418,7 +425,7 @@ function marketCardSentence(cardId) {
 function marketCardImpact(cardId) {
   const card = MARKET_CARDS[cardId];
   const size = card.category === 'move' ? Math.abs(card.move) : Math.abs(card.factor - 1);
-  return size >= 0.5 ? 2 : size >= BIG_CARD_MOVE ? 1 : 0;
+  return size >= HUGE_CARD_MOVE ? 2 : size >= BIG_CARD_MOVE ? 1 : 0;
 }
 function deckToCardList(deck) {
   const cardList = [];
@@ -436,8 +443,8 @@ function countCards(cardList) {
 // waiting from hype and bash (pendingPushes[0] is next tick's, as a log move), and a ceiling or floor with the ticks
 // it still holds. The same rules run the real day and the market maker's simulations, so its prices are exactly as
 // fair as the game. Arrays in the state are never changed in place (states are copied shallowly).
-function freshMarketState(openPrice, bossRule = null) {
-  return { price: openPrice, dayOpenPrice: openPrice, volatility: 1,
+function freshMarketState(openPrice, averagePrice, bossRule = null) {
+  return { price: openPrice, dayOpenPrice: openPrice, averagePrice, volatility: BASE_VOLATILITY,
     allDayBonus: bossRule === 'bearMarket' ? -BEAR_MARKET_DRIFT : 0, allDayMultiplier: bossRule === 'doubleAllDay' ? 2 : 1,
     moveCap: bossRule === 'circuitBreaker' ? CIRCUIT_BREAKER_CAP : null,      // null = no cap (JSON keeps null, not Infinity)
     pendingPushes: [], ceilingPrice: 0, ceilingTicksLeft: 0, floorPrice: 0, floorTicksLeft: 0 };
@@ -449,16 +456,20 @@ function applyMarketCard(market, cardId) {
   const cap = market.moveCap === null ? Infinity : market.moveCap;
   market.price *= 1 + clamp(move, Math.max(PRICE_MOVE_FLOOR, -cap), cap);
 }
-// One tick: one market card, then a waiting push, then the ceiling and the floor. Returns the cards drawn.
+// One tick: one market card, the pull toward the moving average, a waiting push, then the ceiling and the floor; the
+// average and σ follow. Returns the cards drawn.
 function tickMarket(market, drawCard) {
   const cardId = drawCard();
   applyMarketCard(market, cardId);
+  market.price += AVERAGE_PULL * (market.averagePrice - market.price);
   if (market.pendingPushes.length > 0) {
     market.price *= Math.exp(market.pendingPushes[0]);
     market.pendingPushes = market.pendingPushes.slice(1);
   }
   if (market.ceilingTicksLeft > 0) { market.price = Math.min(market.price, market.ceilingPrice); market.ceilingTicksLeft--; }
   if (market.floorTicksLeft > 0) { market.price = Math.max(market.price, market.floorPrice); market.floorTicksLeft--; }
+  market.averagePrice += (market.price - market.averagePrice) / AVERAGE_TICKS;
+  market.volatility += (BASE_VOLATILITY - market.volatility) * VOLATILITY_PULL;
   return [cardId];
 }
 
@@ -767,14 +778,17 @@ function playCard(run, handIndex) {
 }
 const MARKET_CARD_EFFECTS = {
   hype(market, card) { market.pendingPushes = addPushes(market.pendingPushes, card.move); },
-  volatility(market, card) { market.volatility = clamp(market.volatility * card.factor, VOLATILITY_MINIMUM, VOLATILITY_MAXIMUM); },
+  volatility(market, card) { market.allDayMultiplier *= card.factor; },
   ceiling(market, card) { market.ceilingPrice = market.price; market.ceilingTicksLeft = Math.max(market.ceilingTicksLeft, card.ticks); },
   floor(market, card) { market.floorPrice = market.price; market.floorTicksLeft = Math.max(market.floorTicksLeft, card.ticks); },
 };
-// A hype of +move: HYPE_TICKS pushes up that add up to ×(1 + move), then as many back down. Adds to pushes waiting.
+// A hype of +move: HYPE_TICKS equal pushes, sized so that against the pull toward the average the price really ends
+// them ×(1 + move) from where it would have been. Then the pull alone brings it back. Adds to pushes waiting.
 function addPushes(pendingPushes, move) {
-  const step = Math.log(1 + move) / HYPE_TICKS, pushes = pendingPushes.slice();
-  for (let tick = 0; tick < 2 * HYPE_TICKS; tick++) pushes[tick] = (pushes[tick] || 0) + (tick < HYPE_TICKS ? step : -step);
+  const decay = 1 - AVERAGE_PULL;                              // what is left of a push after each later tick of pull
+  const keptShare = (1 - Math.pow(decay, HYPE_TICKS)) / (1 - decay) / HYPE_TICKS;
+  const step = Math.log(1 + move) / HYPE_TICKS / keptShare, pushes = pendingPushes.slice();
+  for (let tick = 0; tick < HYPE_TICKS; tick++) pushes[tick] = (pushes[tick] || 0) + step;
   return pushes;
 }
 // Changing the market mid-day: change a copy of the state now, then deal the rest of the day again (the reshuffles
@@ -831,22 +845,32 @@ function bossRuleOn(run, day) {
 // The stock starts with a week of history already played, scaled so that day 1 opens at BASE_OPEN_PRICE.
 function createMarket(run) {
   const deck = { ...MARKET_DECK }, random = makeRandom(mixSeed(run.seed, 99));
-  let drawPile = shuffleInPlace(deckToCardList(deck), random), price = 1;
+  let drawPile = shuffleInPlace(deckToCardList(deck), random), price = 1, averagePrice = 1;
   const history = [];
   for (let back = HISTORY_DAYS; back >= 1; back--) {
-    const schedule = scheduleDay(drawPile, deck, freshMarketState(price), random);
-    history.push({ day: 1 - back, prices: schedule.states.map(state => state.price) });
+    const schedule = scheduleDay(drawPile, deck, freshMarketState(price, averagePrice), random);
+    history.push(historyDay(1 - back, schedule));
     drawPile = drawPileAfter(schedule, TICKS_PER_DAY);
     price = nextOpenPrice(schedule.states[TICKS_PER_DAY].price);
+    averagePrice = nextOpenPrice(schedule.states[TICKS_PER_DAY].averagePrice);
   }
-  const scale = BASE_OPEN_PRICE / price;
-  for (const day of history) day.prices = day.prices.map(value => value * scale);
-  run.market = { deck, drawPile, history, lastClose: history[history.length - 1].prices[TICKS_PER_DAY] };
+  run.market = { deck, drawPile, history, lastClose: price / (1 + INFLATION_PER_DAY), lastAverage: averagePrice / (1 + INFLATION_PER_DAY) };
+  scaleMarket(run.market, BASE_OPEN_PRICE / price);
+}
+// A day of history: its prices and moving average, tick by tick.
+function historyDay(day, schedule) {
+  return { day, prices: schedule.states.map(state => state.price), averages: schedule.states.map(state => state.averagePrice) };
+}
+// Every price the market remembers × factor (the start of a run, a split).
+function scaleMarket(market, factor) {
+  market.lastClose *= factor;
+  market.lastAverage *= factor;
+  for (const day of market.history) { day.prices = day.prices.map(price => price * factor); day.averages = day.averages.map(price => price * factor); }
 }
 // Fix today's schedule, draw a hand.
 function prepareDay(run) {
   const bossRule = bossRuleOn(run, run.day);
-  const open = freshMarketState(nextOpenPrice(run.market.lastClose), bossRule);
+  const open = freshMarketState(nextOpenPrice(run.market.lastClose), nextOpenPrice(run.market.lastAverage), bossRule);
   run.today = {
     tick: 0, schedule: scheduleDay(run.market.drawPile, run.market.deck, open, makeRandom(mixSeed(run.seed, run.day, 0))),
     trades: [], closedTrades: [], nextTradeNumber: 1, pendingLeverage: [], redrawsDone: 0, dividendShare: 0,
@@ -908,9 +932,10 @@ function closeDay(run) {
   closeAllTrades(run, 'the close');
   const market = run.market;
   market.drawPile = drawPileAfter(today.schedule, TICKS_PER_DAY);
-  market.history.push({ day: run.day, prices: today.schedule.states.map(state => state.price) });
+  market.history.push(historyDay(run.day, today.schedule));
   market.history = market.history.slice(-HISTORY_DAYS);
   market.lastClose = currentPrice(today);
+  market.lastAverage = marketNow(today).averagePrice;
   const split = splitStock(run);
 
   const endEquity = run.cash, dayReturn = (endEquity - today.startEquity) / Math.max(1e-9, today.startEquity);
@@ -934,9 +959,7 @@ function splitStock(run) {
   let factor = 1;
   while (market.lastClose * factor > SPLIT_ABOVE * normalPrice) factor /= 2;
   while (market.lastClose * factor < normalPrice / SPLIT_ABOVE) factor *= 2;
-  if (factor === 1) return 1;
-  market.lastClose *= factor;
-  for (const day of market.history) day.prices = day.prices.map(price => price * factor);
+  if (factor !== 1) scaleMarket(market, factor);
   return factor;
 }
 function startNextDay(run) {
@@ -1078,6 +1101,7 @@ function drawChart() {
   if (!run || !run.today) return;
   const chart = chartLayout(run, context, width, height);
   drawGrid(chart);
+  drawAverage(chart);
   drawHistory(chart);
   drawTradeLevels(chart);
   drawPins(chart);
@@ -1157,6 +1181,18 @@ function drawHistory({ context, history, xOfPastTick, xOfTodayTick, yOfPrice, op
   });
   points.push([xOfTodayTick(0), yOfPrice(openPrice)]);
   drawPath(context, points, CHART_COLOURS.history, 1.5);
+}
+// The moving average the price is pulled toward: a soft gold line through the past week and today.
+function drawAverage({ context, history, today, xOfPastTick, xOfTodayTick, yOfPrice }) {
+  const points = [];
+  history.forEach((day, dayIndex) => {
+    for (let tick = 0; tick <= TICKS_PER_DAY; tick += CHART_HISTORY_STEP) points.push([xOfPastTick(dayIndex, tick), yOfPrice(day.averages[tick])]);
+  });
+  today.schedule.states.slice(0, today.tick + 1).forEach((state, tick) => points.push([xOfTodayTick(tick), yOfPrice(state.averagePrice)]));
+  context.globalAlpha = 0.45;
+  drawPath(context, points, CHART_COLOURS.accent, 2);
+  context.globalAlpha = 1;
+  if (points.length) drawText(context, 'avg', points[points.length - 1][0] + 8, points[points.length - 1][1] + 12, CHART_COLOURS.accent, { size: 10, alpha: 0.6 });
 }
 // Liquidation prices and strikes, labelled at the right edge (labels never overlap).
 function drawTradeLevels({ run, context, historyEnd, right, top, bottom, yOfPrice }) {
@@ -1275,32 +1311,28 @@ function liveTip(run, cardId) {
   const card = cardInfo(run, cardId), today = run.today;
   if (isClosingCard(cardId)) {
     const trade = today.trades[closingTradeIndex(run, cardId)];
-    if (!trade) return card.sentence;
-    return `Closes trade #${trade.number} (${tradeName(trade.cardId)}${trade.leverageAtOpen > 1 ? ' ×' + formatLeverage(trade.leverageAtOpen) : ''}): now ${formatMoney(tradeValue(run, trade))}, P&L ${formatSignedMoney(tradeProfit(run, trade))}. Retain: a redraw keeps it.`;
+    return trade ? `Close #${trade.number}: ${formatMoney(tradeValue(run, trade))} (${formatSignedMoney(tradeProfit(run, trade))})` : card.sentence;
   }
   if (card.family === 'leverage') {
     const before = pendingLeverage(run), after = leverageOf(run, today.pendingLeverage.concat(cardId));
-    if (before === 1 && card.operation === 'times') return `Next trade: ${after === 2 ? 'double' : after + '×'} risk & reward.`;
-    return `Next trade: ${formatLeverage(after)}× risk & reward${before > 1 ? ` (now ${formatLeverage(before)}×)` : ''}.`;
+    if (before === 1 && after === 2) return 'Next trade: double risk & reward';
+    return `Next trade ×${formatLeverage(after)}`;
   }
   if (card.target === 'trade') {
     const trade = newestTrade(run);
     if (!trade) return card.sentence;
-    if (card.effect === 'double') return `Trade #${trade.number}: double risk & reward, with the same money in it.`;
-    return `Trade #${trade.number}: put ${formatMoney(topUpCost(run, trade, card.share))} more in, so it is liquidated later.`;
+    return card.effect === 'double' ? `#${trade.number}: double risk & reward` : `#${trade.number}: +${formatMoney(topUpCost(run, trade, card.share))} margin`;
   }
   if (!isTradeCard(cardId)) return card.sentence;
   const outcome = tradeCardOutcome(run, cardId);
-  const quantity = formatCount(outcome.quantity), cost = formatMoney(outcome.cost), leverage = outcome.leverage;
-  const borrowed = leverage > 1 ? ` (${formatLeverage(leverage)}× leverage)` : '';
+  const quantity = formatCount(outcome.quantity), cost = formatMoney(outcome.cost);
+  const leverage = outcome.leverage > 1 ? ` · ×${formatLeverage(outcome.leverage)}` : '';
   if (card.kind === 'stock') {
-    const formula = card.side > 0 ? `${quantity} × (S − ${formatPlain(outcome.unitPrice)})` : `${quantity} × (${formatPlain(outcome.unitPrice)} − S)`;
-    const liquidation = outcome.liquidationPrice ? ` Liquidated at S = ${formatPlain(outcome.liquidationPrice)}.` : '';
-    return `${card.side > 0 ? 'Buy' : 'Short'} ${quantity} stock for ${cost}${borrowed}. P&L = ${formula}.${liquidation} Its ${card.side > 0 ? 'SELL' : 'BUY'} card comes into your hand.`;
+    const liquidation = outcome.liquidationPrice ? ` · liquidated at ${formatPlain(outcome.liquidationPrice)}` : '';
+    return `${card.side > 0 ? 'Buy' : 'Short'} ${quantity} stock · ${cost}${leverage}${liquidation}`;
   }
   const K = formatPlain(outcome.strikePrice), payoffText = card.kind === 'call' ? `max(S − ${K}, 0)` : `max(${K} − S, 0)`;
-  const liquidation = leverage > 1 ? ` Liquidated if they lose ${Math.round(100 / leverage * 10) / 10}% of their value.` : '';
-  return `Buy ${quantity} ${card.kind}s, K = ${K}, for ${cost}${borrowed}. P&L = ${payoffText} × ${quantity} − ${cost}. They expire at the close.${liquidation} Their SELL card comes into your hand.`;
+  return `${quantity} ${card.kind}s · ${cost}${leverage} · each pays ${payoffText}`;
 }
 
 // ── 10.3 The chart's top right: cash, today's P&L, heat, the deck, the menu.
@@ -1308,9 +1340,9 @@ function renderHud() {
   const run = view.run, today = run.today, equity = totalEquity(run), profit = equity - today.startEquity;
   const heat = Math.round(100 * run.heat / HEAT_LIMIT);
   element('hud').innerHTML = `
-    <div class="hudBox" data-tip="Cash you can trade with"><small>cash</small><b>${formatMoney(run.cash)}</b></div>
-    <div class="hudBox" data-tip="Today's profit or loss, open trades at their value now"><small>p&l</small><b class="${colourClass(profit)}" id="profitValue">${formatSignedMoney(profit)}</b></div>
-    <div class="hudBox" data-tip="SEC heat: ending a day at 100% starts an investigation (no heat cards, no leverage)${run.investigationDaysLeft ? ` · investigation: ${run.investigationDaysLeft} days left` : ''}"><small>heat</small><b class="heat">${heat}%</b></div>
+    <div class="hudBox" data-tip="Cash"><small>cash</small><b>${formatMoney(run.cash)}</b></div>
+    <div class="hudBox" data-tip="Today, open trades at their value now"><small>p&l</small><b class="${colourClass(profit)}" id="profitValue">${formatSignedMoney(profit)}</b></div>
+    <div class="hudBox" data-tip="100% at the close: SEC investigation${run.investigationDaysLeft ? ` (${run.investigationDaysLeft} days left)` : ''}"><small>heat</small><b class="heat">${heat}%</b></div>
     <button class="button" data-action="openDeck" data-tip="Your cards and the market deck">🂠</button>
     <button class="button" data-action="menu" data-tip="Menu">☰</button>`;
   if (view.lastEquity !== null && Math.abs(equity - view.lastEquity) > Math.abs(view.lastEquity) * EQUITY_FLASH_CHANGE)
@@ -1355,7 +1387,7 @@ function spinHand(previousHand, keptPositions) {
 function renderActions() {
   const run = view.run, redrawBlocked = redrawBlockedReason(run);
   const redraw = `<button class="button ${redrawBlocked || view.handSpin ? 'locked' : ''}" data-action="redraw"
-    data-tip="${redrawBlocked || 'Spin the hand: every card except RETAIN is replaced. The next one costs more; the price starts again tomorrow.'}">🎰 REDRAW · $${redrawPrice(run).toLocaleString('en-US')}</button>`;
+    data-tip="${redrawBlocked || 'New hand (RETAIN stays). Costs more each time today.'}">🎰 REDRAW · $${redrawPrice(run).toLocaleString('en-US')}</button>`;
   if (run.phase === 'preopen') {
     element('actions').innerHTML = `${redraw}<span class="gap"></span><button class="button primary suggest" data-action="openMarket">OPEN ▶</button>`;
     return;
@@ -1367,7 +1399,7 @@ function renderActions() {
 }
 
 // ── 10.6 The chart's corner: the last market card, then what is in force (the leverage waiting, the close coming,
-// σ, pushes still to come, ceiling, floor, dividends, the boss rule, an investigation).
+// a Turmoil or Calm, pushes still to come, dividends, the boss rule, an investigation). Ceilings and floors are on the chart.
 function renderCorner() {
   const run = view.run, today = run.today, market = marketNow(today);
   const last = today.tick > 0 ? today.schedule.cards[today.tick] : [];
@@ -1376,20 +1408,18 @@ function renderCorner() {
     return `<span class="chip ${card.category} ${sign} ${marketCardImpact(cardId) === 2 ? 'extreme' : ''} ${view.freshTick === today.tick ? 'fresh' : ''}" data-tip="${marketCardSentence(cardId)}">${marketCardText(cardId)}</span>`;
   });
   const badge = (text, tip, colour = '') => `<span class="chip badge ${colour}" data-tip="${tip}">${text}</span>`;
-  if (today.pendingLeverage.length) chips.push(badge(`next trade ×${formatLeverage(pendingLeverage(run))}`, 'The leverage waiting for your next trade card'));
+  if (today.pendingLeverage.length) chips.push(badge(`next trade ×${formatLeverage(pendingLeverage(run))}`, 'Leverage for your next trade'));
   if (run.phase === 'trading' && ticksLeft(run) <= CLOSE_WARNING_TICKS && today.trades.length)
-    chips.push(badge(`closing in ${Math.ceil(ticksLeft(run) * SECONDS_PER_TICK)}s: all trades close`, 'Every trade still open is closed at the close', 'alarm'));
-  if (market.volatility !== 1) chips.push(badge('σ ' + market.volatility.toFixed(2), 'Every market card move is × σ', 'blue'));
+    chips.push(badge(`all trades close in ${Math.ceil(ticksLeft(run) * SECONDS_PER_TICK)}s`, 'Open trades close at the close', 'alarm'));
+  if (market.allDayMultiplier !== 1) chips.push(badge(`moves ×${Math.round(market.allDayMultiplier * 100) / 100}`, 'Every move until the close', 'orange'));
   const pushesLeft = market.pendingPushes.length;
   if (pushesLeft) {
     const total = Math.exp(market.pendingPushes.reduce((sum, push) => sum + push, 0)) - 1;
-    chips.push(badge(`${market.pendingPushes[0] >= 0 ? 'pushing ▲' : 'pushing ▼'} ${pushesLeft}`, `Hype and bash still to come: ${formatPercent(total)} in all over ${pushesLeft} ticks`, 'orange'));
+    chips.push(badge(`${total >= 0 ? '▲' : '▼'} ${formatPercent(total, 0)}`, `Still to come over ${pushesLeft} ticks`, 'orange'));
   }
-  if (market.ceilingTicksLeft > 0) chips.push(badge(`ceiling ${market.ceilingTicksLeft}`, `The price cannot rise above ${formatPlain(market.ceilingPrice)}`, 'blue'));
-  if (market.floorTicksLeft > 0) chips.push(badge(`floor ${market.floorTicksLeft}`, `The price cannot fall below ${formatPlain(market.floorPrice)}`, 'blue'));
-  if (today.dividendShare) chips.push(badge(`dividends ${Math.round(today.dividendShare * 100)}%`, 'Paid at the close on long stock and calls (a short pays)'));
+  if (today.dividendShare) chips.push(badge(`dividends ${Math.round(today.dividendShare * 100)}%`, 'At the close'));
   if (today.bossRule) chips.push(badge('meeting: ' + BOSS_RULES[today.bossRule].face, BOSS_RULES[today.bossRule].sentence, 'orange'));
-  if (today.investigation) chips.push(badge('SEC investigation', 'No heat cards, no leverage', 'orange'));
+  if (today.investigation) chips.push(badge('SEC', 'Investigation: no heat cards, no leverage', 'orange'));
   element('corner').innerHTML = chips.join('');
 }
 

@@ -6,7 +6,9 @@ Every number named here lives in `index.html` § 1 SETTINGS.
 Which cards to play, when (before the open or during the day), and when to spin the hand. No amounts, no menus, no close buttons. Every trade card has a fixed size and its cost is shown on the card. **Opening a trade puts its closing card in your hand**, with RETAIN: play it to close that trade at its value now.
 
 ## Two decks
-**The market deck** (Nova, 844 cards) moves the price: one card per tick, `TICKS_PER_DAY` (90) ticks a day. Moves are ±1/5/10/50% × σ, vol cards multiply σ. It is dealt from a draw pile that lasts several days (🂠 shows what is left).
+**The market deck** (Nova, 844 cards) moves the price: one card per tick, `TICKS_PER_DAY` (90) ticks a day. Moves are ±1/5/10/25% × σ, vol cards multiply σ. It is dealt from a draw pile that lasts several days (🂠 shows what is left).
+
+**Realistic prices, easier to read.** Every tick the price moves `AVERAGE_PULL` (5%, in log terms) of the way back to its moving average (an exponential average over about the last week, `AVERAGE_TICKS`), drawn on the chart as a soft gold line. σ starts each day at `BASE_VOLATILITY` (1.3), stays in [0.5, 2] and settles back 3% a tick. So far above the average the price tends to fall, far below it tends to rise. Measured over 300 days (split-adjusted): a day's high/low range median 48%, a week's max/min median 2.0× (90th percentile 2.4×), the price is within 8% of its average half the time.
 
 **Your deck:** every morning you draw `HAND_SIZE` (6). At the close the rest of the hand is discarded. The discard pile is shuffled into a new draw pile when the draw pile is empty.
 
@@ -29,9 +31,9 @@ Which cards to play, when (before the open or during the day), and when to spin 
 | TOP-UP I/II/III | your newest trade: +50/100/200% of its money in again, liquidated later |
 | DIVIDENDS I/II/III | at the close long stock and calls get 1/3/8% of their value, a short pays it |
 | CEILING / FLOOR I/II/III | for 15/30/60 ticks the price cannot rise above / fall below the price now |
-| HYPE I/II/III | +10/25/50% over `HYPE_TICKS` (10) ticks, then back over 10 |
-| BASH I/II/III | −10/20/35%, then back |
-| TURMOIL / CALM I/II/III | σ ×1.5/2/3, σ ×0.7/0.5/0.25 until the close |
+| HYPE I/II/III | +25/50/100% in `HYPE_TICKS` (10) ticks (the pushes are sized against the pull, so the peak is real), then the pull brings it back |
+| BASH I/II/III | −20/35/50% in 10 ticks, then back |
+| TURMOIL / CALM I/II/III | every move ×2/3/4, ×0.5/0.3/0.15 until the close |
 
 Hovering a card in the hand says exactly what it does now, with today's prices and the leverage waiting: "Buy 2 stock for $100 (2× leverage). P&L = 2 × (S − 100.0). Liquidated at S = 50.0.", "Buy 5 puts, K = 75.0, for $1.87. P&L = max(75.0 − S, 0) × 5 − $1.87.", "Next trade: double risk & reward.", "Closes trade #1 (LONG STOCK ×2): now $112, P&L +$12. Retain: a redraw keeps it."
 
@@ -55,8 +57,10 @@ Heat comes from cards and from days above `ABNORMAL_RETURN` (+25%) and decays `H
 After every close: LONG (green cards, Dividends, Floor), SHORT (red cards, Ceiling), MANIP, LEVERAGE (leverage, Double, Top-up). Each reel shows one card. BUY shuffles it into your draw pile. 🎰 SPIN rerolls all four, `SPIN_PRICE` (5) and 5 more per spin in one visit. Tiers I/II/III land 70/25/5% and cost 40/100/250. SELL A CARD sells for half (never below 8 cards). The shop never spends the cash for `SHOP_RESERVE_STOCKS` (2) stock at the next open. All prices × inflation.
 
 ## Screen
-The chart fills the screen: the past week (thin) and today (live), liquidation lines, strikes, ceiling and floor bars. Top left: the last market card and what is in force (next trade ×L, the close warning, σ, pushes still to come, ceiling, floor, dividends, the meeting rule). Top right: cash, today's P&L, heat %, 🂠 deck, ☰ menu. Below: the hand, then 🎰 REDRAW, OPEN / speed, skip to the close, pause. Mouse only, buttons fire on the press.
+The chart fills the screen: the past week (thin) and today (live), liquidation lines, strikes, ceiling and floor bars. Top left: the last market card and what is in force (next trade ×L, the close warning, moves ×N, ▲/▼ push still to come, dividends, the meeting rule). Hover text is one short line of numbers. Top right: cash, today's P&L, heat %, 🂠 deck, ☰ menu. Below: the hand, then 🎰 REDRAW, OPEN / speed, skip to the close, pause. Mouse only, buttons fire on the press.
 
 ## Balance notes (`node tools/sim.cjs bots`, 30 runs, first meeting $601)
-- Holding cash: fails the first meeting. Coin-flipping a stock card a day: median peak $622, fails the first meeting (best run 30 days).
-- Hype bot (leverage up to 4×, BUY STOCK, Hype, sells at the top if it holds a SELL card, one combo a day, shops only when ahead): median peak $600, best 20 days. A player plays more than one combo a day, uses calls before Hype and Floor under leverage.
+- Holding cash and coin-flipping a stock card a day: fail the first meeting.
+- Average bot (buys 12% below the moving average, shorts 12% above it, closes when the price is back, leverage up to 4×, never shops): median 40 days and 3 meetings, peak median $2,896. The pull toward the average is the readable edge, and it stops at the 10× meeting without leverage cards or manipulation.
+- Hype bot (BUY STOCK + Hype, closing card at the top, one combo a day): median peak $655, best 30 days.
+- `node tools/sim.cjs fairness`: a same-day at-the-money call priced at 8.4% of S, paid 8.1%.

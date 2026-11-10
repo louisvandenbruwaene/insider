@@ -3,6 +3,7 @@
 //   node tools/sim.cjs bots [runs]   full runs by simple players:
 //     cash      never trades
 //     coin      plays a random BUY or SELL STOCK card at the open, with every leverage card first, held to the close
+//     average   buys 12% below the moving average, shorts 12% above it, closes when the price is back
 //     hype      the edge play: every leverage card, a BUY STOCK, then Hype (or a SELL STOCK, then Bash); at the top of the
 //               push it plays the trade's closing card; buys leverage and manipulation in the shop
 //               once its cash is above the next meeting's target
@@ -12,7 +13,7 @@ function loadGame() {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const code = html.split('<script id="game">')[1].split('</script>')[0];
   return new Function(code + `;return { newRun, advanceTick, closeDay, startNextDay, openTheMarket, openShop, buyReelCard, spinReels,
-    cardBlockedReason, playCard, redrawHand, totalEquity, currentPrice, averagePayoff, cardPrice, leverageOf, nextMeeting, cardInfo, PLAYER_CARDS, HYPE_TICKS };`)();
+    cardBlockedReason, playCard, redrawHand, totalEquity, currentPrice, averagePayoff, cardPrice, leverageOf, nextMeeting, cardInfo, marketNow, ticksLeft, PLAYER_CARDS, HYPE_TICKS };`)();
 }
 const game = loadGame();
 
@@ -43,6 +44,7 @@ const LEVERAGE_ORDER = { add: 0, times: 1, power: 2 };
 // Leverage cards in the best order (add, multiply, power), but only while the next trade stays at most BOT_LEVERAGE×:
 // far above that a stock trade is liquidated by ordinary noise within a few ticks.
 const BOT_LEVERAGE = 4;
+const AVERAGE_BOT_GAP = 0.12;                   // the average bot trades when the price is this far (log) from its average
 function playAllLeverage(run) {
   for (const operation of Object.keys(LEVERAGE_ORDER))
     while (playFirst(run, card => card.operation === operation && game.leverageOf(run, run.today.pendingLeverage.concat(cardIdOf(card))) <= BOT_LEVERAGE));
@@ -66,6 +68,21 @@ const BOTS = {
       if (!holds(run, opens(side))) return;
       playAllLeverage(run);
       playFirst(run, opens(side));
+    },
+  },
+  // the pull toward the moving average: buy well below it, short well above it, close when the price is back
+  average: {
+    morning() {},
+    everyTick(run) {
+      const market = game.marketNow(run.today), gap = Math.log(market.price / market.averagePrice);
+      if (run.today.trades.length) {
+        const trade = run.today.trades[0];
+        if (trade.side * gap >= 0) playFirst(run, card => !!card.closesTrade);
+        return;
+      }
+      if (Math.abs(gap) < AVERAGE_BOT_GAP || game.ticksLeft(run) < 15) return;
+      playAllLeverage(run);
+      playFirst(run, opens(gap < 0 ? 'BUY STOCK' : 'SELL STOCK'));
     },
   },
   hype: {
